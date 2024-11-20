@@ -2,13 +2,17 @@ package main
 
 import (
 	"bufio"
+	"crypto/tls"
 	"flag"
 	"log"
 	"net"
 	"os"
+	"strings"
 
 	"github.com/Macmod/ldapx/ldaplib"
-	"github.com/Macmod/ldapx/middlewares"
+	attrlistmid "github.com/Macmod/ldapx/middlewares/attrlist"
+	basednmid "github.com/Macmod/ldapx/middlewares/basedn"
+	filtermid "github.com/Macmod/ldapx/middlewares/filter"
 	"github.com/Macmod/ldapx/parser"
 	"github.com/fatih/color"
 	ber "github.com/go-asn1-ber/asn1-ber"
@@ -21,9 +25,18 @@ var red = color.New(color.FgRed)
 var yellow = color.New(color.FgYellow)
 var blue = color.New(color.FgBlue)
 
+var insecureTlsConfig = &tls.Config{
+	InsecureSkipVerify: true,
+}
+
 var (
-	debug          bool
-	fc             *middlewares.FilterMiddlewareChain
+	debug bool
+	ldaps bool
+
+	fc *filtermid.FilterMiddlewareChain
+	ac *attrlistmid.AttrListMiddlewareChain
+	bc *basednmid.BaseDNMiddlewareChain
+
 	proxyLDAPAddr  string
 	targetLDAPAddr string
 	filterChain    string
@@ -35,9 +48,10 @@ func init() {
 	flag.StringVar(&proxyLDAPAddr, "port", ":389", "Address & port to listen on for incoming LDAP connections")
 	flag.StringVar(&targetLDAPAddr, "target", "", "Target LDAP server address")
 	flag.BoolVar(&debug, "debug", false, "Enable debug output")
-	flag.StringVar(&filterChain, "fc", "", "Chain of search filter middlewares")
-	flag.StringVar(&attrChain, "ac", "", "Chain of attribute list middlewares")
-	flag.StringVar(&baseChain, "bc", "", "Chain of baseDN middlewares")
+	flag.BoolVar(&ldaps, "ldaps", false, "Connect to target over LDAPS (ignoring cert. validation)")
+	flag.StringVar(&filterChain, "f", "", "Chain of search filter middlewares")
+	flag.StringVar(&attrChain, "a", "", "Chain of attribute list middlewares")
+	flag.StringVar(&baseChain, "b", "", "Chain of baseDN middlewares")
 }
 
 func copyBerPacket(packet *ber.Packet) *ber.Packet {
@@ -63,11 +77,37 @@ func extractAttributeSelection(subpacket *ber.Packet) []string {
 	return attrs
 }
 
+func encodeAttributeList(attrs []string) *ber.Packet {
+	seq := ber.NewSequence("Attribute List")
+	for _, attr := range attrs {
+		seq.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, attr, "Attribute"))
+	}
+	return seq
+}
+
+func encodeBaseDN(baseDN string) *ber.Packet {
+	return ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, baseDN, "Base DN")
+}
+
+func connectToTarget(addr string) (net.Conn, error) {
+	var targetConn net.Conn
+	var err error
+	var dialer net.Dialer
+
+	if ldaps {
+		targetConn, err = tls.DialWithDialer(&dialer, "tcp", addr, insecureTlsConfig)
+	} else {
+		targetConn, err = net.Dial("tcp", addr)
+	}
+
+	return targetConn, err
+}
+
 func handleLDAPConnection(conn net.Conn) {
 	defer conn.Close()
 
 	// Connect to target conn
-	targetConn, err := net.Dial("tcp", targetLDAPAddr)
+	targetConn, err := connectToTarget(targetLDAPAddr)
 	if err != nil {
 		log.Printf("Failed to connect to target LDAP server: %v\n", err)
 		return
@@ -93,7 +133,7 @@ func handleLDAPConnection(conn net.Conn) {
 			reqMessageType := packet.Children[1].Description
 
 			if reqMessageType == "Search Request" {
-				base := packet.Children[1].Children[0].Value
+				baseDN := packet.Children[1].Children[0].Value.(string)
 				/*
 					scope := packet.Children[1].Children[1]
 					derefAliases := packet.Children[1].Children[2]
@@ -115,7 +155,7 @@ func handleLDAPConnection(conn net.Conn) {
 					red.Printf("[ERROR] %s\n", err)
 				}
 
-				blue.Printf("[MessageID=%d] Search Request Intercepted:\n Base='%s'\n Attrs=%v\n Filter=%s\n", reqMessageID, base, attrs, oldFilterStr)
+				blue.Printf("[MessageID=%d] Search Request Intercepted:\n Base='%s'\n Attrs=%v\n Filter=%s\n", reqMessageID, baseDN, attrs, oldFilterStr)
 
 				newFilter := fc.Execute(filter, true)
 				newFilterPacket := parser.FilterToPacket(newFilter)
@@ -125,10 +165,20 @@ func handleLDAPConnection(conn net.Conn) {
 					red.Printf("[ERROR] %s\n", err)
 				}
 
-				green.Printf("[MessageID=%d] Search Request Changed:\n Base='%s'\n Attrs=%v\n Filter=%s\n", reqMessageID, base, attrs, newFilterStr)
+				newAttrs := ac.Execute(attrs, true)
+
+				newBaseDN := bc.Execute(baseDN, true)
+
+				green.Printf("[MessageID=%d] Search Request Changed:\n Base='%s'\n Attrs=%v\n Filter=%s\n", reqMessageID, newBaseDN, newAttrs, newFilterStr)
 
 				// Update the filter in the packet
 				packet.Children[1].Children[6] = newFilterPacket
+
+				// Update the attributes list in the packet
+				packet.Children[1].Children[7] = encodeAttributeList(newAttrs)
+
+				// Update the BaseDN in the packet
+				packet.Children[1].Children[0] = encodeBaseDN(newBaseDN)
 			}
 
 			newPacket := copyBerPacket(packet)
@@ -182,51 +232,55 @@ func handleLDAPConnection(conn net.Conn) {
 func main() {
 	flag.Parse()
 
-	fc = &middlewares.FilterMiddlewareChain{}
-	// TODO: attrChain
-	// TODO: baseChain
+	SetupFilterMidMap("")
 
-	/*
-		filterMidFlags := mao[rune][string]{
-			'S': "Spacing",
-			'T': "Timestamp",
-			'B': "AddBool",
-			'D': "DblNegBool",
-			'M': "DeMorganBool",
-			//'N': "NamesToANR",
-			//'A': "EqApproxMatch",
-			//'W': "Wildcard",
-			//'G': "Garbage",
-			'O': "OIDAttribute",
-			'C': "Case",
-			'X': "HexValue",
-			'R': "ReorderBool",
-			'b': "ExactBitwiseBreakout",
-			'I': "EqInclusion",
-			'E': "EqExclusion",
-			'd': "BitwiseDecomposition",
-		}*/
+	// Registering middlewares
+	fc = &filtermid.FilterMiddlewareChain{}
+	ac = &attrlistmid.AttrListMiddlewareChain{} // TODO
+	bc = &basednmid.BaseDNMiddlewareChain{}     // TODO
 
-	appliedMiddlewares := []string{
-		//"Spacing",
-		//"Timestamp",
-		//"ExactBitwiseBreakout",
-		//"BitwiseDecomposition",
-		//"Case",
-		//"AddBool",
-		//"DblNegBool",
-		//"DeMorganBool",
-		//"ReorderBool",
-		//"HexValue",
-		//"OIDAttribute",
-		//"EqInclusion",
-		"Garbage",
+	// Filter middlewares
+	appliedFilterMiddlewares := []string{}
+	for _, c := range filterChain {
+		if middlewareName, exists := filterMidFlags[rune(c)]; exists {
+			appliedFilterMiddlewares = append(appliedFilterMiddlewares, middlewareName)
+		}
 	}
 
-	for _, val := range appliedMiddlewares {
-		fc.Add(middlewares.FilterMiddlewareDefinition{
+	for _, val := range appliedFilterMiddlewares {
+		fc.Add(filtermid.FilterMiddlewareDefinition{
 			Name: val,
 			Func: filterMidMap[val],
+		})
+	}
+
+	// AttrList middlewares
+	appliedAttrListMiddlewares := []string{}
+	for _, c := range attrChain {
+		if middlewareName, exists := attrListMidFlags[rune(c)]; exists {
+			appliedAttrListMiddlewares = append(appliedAttrListMiddlewares, middlewareName)
+		}
+	}
+
+	for _, val := range appliedAttrListMiddlewares {
+		ac.Add(attrlistmid.AttrListMiddlewareDefinition{
+			Name: val,
+			Func: attrListMidMap[val],
+		})
+	}
+
+	// BaseDN middlewares
+	appliedBaseDNMiddlewares := []string{}
+	for _, c := range baseChain {
+		if middlewareName, exists := baseDNMidFlags[rune(c)]; exists {
+			appliedBaseDNMiddlewares = append(appliedBaseDNMiddlewares, middlewareName)
+		}
+	}
+
+	for _, val := range appliedBaseDNMiddlewares {
+		bc.Add(basednmid.BaseDNMiddlewareDefinition{
+			Name: val,
+			Func: baseDNMidMap[val],
 		})
 	}
 
@@ -237,6 +291,10 @@ func main() {
 	defer listener.Close()
 
 	logger.Printf("[+] LDAP Proxy listening on '%s', forwarding to '%s' (T)\n", proxyLDAPAddr, targetLDAPAddr)
+
+	logger.Printf("[+] FilterMiddlewares: [%s]", strings.Join(appliedFilterMiddlewares, ","))
+	logger.Printf("[+] AttrListMiddlewares: [%s]", strings.Join(appliedAttrListMiddlewares, ","))
+	logger.Printf("[+] BaseDNMiddlewares: [%s]", strings.Join(appliedBaseDNMiddlewares, ","))
 
 	for {
 		conn, err := listener.Accept()

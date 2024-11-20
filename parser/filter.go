@@ -7,6 +7,14 @@ import (
 	ber "github.com/go-asn1-ber/asn1-ber"
 )
 
+/*
+   Parser for raw (packet-level) LDAP search filters
+   References:
+	- RFC4510 - LDAP: Technical Specification
+	- RFC4515 - LDAP: String Representation of Search Filters
+	- DEFCON32 - MaLDAPtive
+*/
+
 // FilterType represents the various LDAP filter types.
 type FilterType int
 
