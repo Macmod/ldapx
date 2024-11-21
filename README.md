@@ -35,7 +35,7 @@ If `-ldaps` is specified, then the connection to the target will use LDAPS.
 ### Applying multiple middlewares in filters, attributes list and baseDN
 
 ```bash
-$ ./ldapx -target 192.168.117.2:389 -f OGRD -a OW -b OZ
+$ ldapx -target 192.168.117.2:389 -f OGRD -a OW -b OZ
 ```
 
 ![Demo1](https://github.com/Macmod/ldapx/blob/main/images/demo1.png)
@@ -44,6 +44,7 @@ $ ./ldapx -target 192.168.117.2:389 -f OGRD -a OW -b OZ
 (TODO)
 
 ## Middlewares
+
 The library provides several middlewares for LDAP filter transformation:
 
 | Type | Key | Name | Purpose | Description | Input | Output | Details |
@@ -85,6 +86,12 @@ The library provides several middlewares for LDAP filter transformation:
 * Filter - `Spacing`, `HexValue` not working properly, `Garbage`, `ExactBitwiseBreakout`, `EqInclusion`, `EqExclusion` need improvements
 * AttrList - `Case` and `Spacing` not working properly
 * BaseDN - Six methods working (spaces only work in beginning and end / hex only works in the values)
+
+## Acknowledgements
+
+* Almost all obfuscation middlewares are basically implementations of the ideas presented in the [MaLDAPtive](https://www.youtube.com/watch?v=mKRS5Iyy7Qo&t=1584s) research by Daniel Bohannon & Sabajete Elezaj, which inspired the development of this tool.
+
+* Some code was copied from https://github.com/go-ldap/ldap](go-ldap/ldap) to convert LDAP filters to human-readable queries.
 
 ## Contributing
 
