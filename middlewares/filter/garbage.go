@@ -15,8 +15,7 @@ import (
 	  https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/d2435927-0999-4c62-8c6d-13ba31a52e1a)
 */
 
-func generateGarbageString(n int) string {
-	chars := "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+func generateGarbageString(n int, chars string) string {
 	result := make([]byte, n)
 	for i := range result {
 		result[i] = chars[rand.Intn(len(chars))]
@@ -24,19 +23,20 @@ func generateGarbageString(n int) string {
 	return string(result)
 }
 
-func generateGarbageFilter(attr string) parser.Filter {
+// TODO: Improve with other tricks
+func generateGarbageFilter(attr string, chars string) parser.Filter {
 	garbageTypes := []func() parser.Filter{
 		func() parser.Filter {
 			var attrName string
 			if attr != "" {
 				attrName = attr
 			} else {
-				attrName = generateGarbageString(10)
+				attrName = generateGarbageString(10, chars)
 			}
 
 			return &parser.FilterEqualityMatch{
 				AttributeDesc:  attrName,
-				AssertionValue: generateGarbageString(10),
+				AssertionValue: generateGarbageString(10, chars),
 			}
 		},
 		func() parser.Filter {
@@ -44,13 +44,13 @@ func generateGarbageFilter(attr string) parser.Filter {
 			if attr != "" {
 				attrName = attr
 			} else {
-				attrName = generateGarbageString(10)
+				attrName = generateGarbageString(10, chars)
 			}
 
 			return &parser.FilterSubstring{
 				AttributeDesc: attrName,
 				Substrings: []parser.SubstringFilter{
-					{Initial: generateGarbageString(10), Any: []string{generateGarbageString(4)}, Final: generateGarbageString(3)},
+					{Initial: generateGarbageString(10, chars), Any: []string{generateGarbageString(4, chars)}, Final: generateGarbageString(3, chars)},
 				},
 			}
 		},
@@ -59,13 +59,13 @@ func generateGarbageFilter(attr string) parser.Filter {
 			if attr != "" {
 				attrName = attr
 			} else {
-				attrName = generateGarbageString(10)
+				attrName = generateGarbageString(10, chars)
 			}
 
 			return &parser.FilterExtensibleMatch{
-				MatchingRule:  generateGarbageString(10),
+				MatchingRule:  generateGarbageString(10, chars),
 				AttributeDesc: attrName,
-				MatchValue:    generateGarbageString(10),
+				MatchValue:    generateGarbageString(10, chars),
 			}
 		},
 	}
@@ -73,12 +73,12 @@ func generateGarbageFilter(attr string) parser.Filter {
 	return garbageTypes[rand.Intn(len(garbageTypes))]()
 }
 
-func RandGarbageFilterObf(numGarbage int) func(parser.Filter) parser.Filter {
+func RandGarbageFilterObf(numGarbage int, charset string) func(parser.Filter) parser.Filter {
 	return LeafApplierFilterMiddleware(func(filter parser.Filter) parser.Filter {
 		garbageFilters := make([]parser.Filter, numGarbage+1)
 		garbageFilters[0] = filter
 		for i := 1; i <= numGarbage; i++ {
-			garbageFilters[i] = generateGarbageFilter("")
+			garbageFilters[i] = generateGarbageFilter("", charset)
 		}
 		return &parser.FilterOr{Filters: garbageFilters}
 	})

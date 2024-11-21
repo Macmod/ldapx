@@ -89,14 +89,7 @@ func ReplaceTimestamp(value string, prepend bool, append bool, maxChars int) str
 	})
 }
 
-func PrependZeros(attrName string, input string, maxZeros int) string {
-	tokenFormat := parser.GetAttributeTokenFormat(attrName)
-	if tokenFormat != parser.TokenIntEnumeration &&
-		tokenFormat != parser.TokenIntTimeInterval &&
-		tokenFormat != parser.TokenBitwise {
-		return input
-	}
-
+func PrependZeros(input string, maxZeros int) string {
 	numZeros := rand.Intn(maxZeros)
 	zerosStr := strings.Repeat("0", numZeros)
 	if len(input) > 0 && input[0] == '-' {

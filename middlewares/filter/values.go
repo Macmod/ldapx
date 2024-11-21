@@ -170,7 +170,14 @@ func RandTimestampSuffixFilterObf(prepend bool, append bool, maxChars int) func(
 // Prepended 0's FilterObf
 func RandPrependZerosFilterObf(maxZeros int) func(parser.Filter) parser.Filter {
 	prependZerosFixed := func(attrName string, value string) string {
-		return PrependZeros(attrName, value, maxZeros)
+		tokenFormat, err := parser.GetAttributeTokenFormat(attrName)
+		if err != nil || tokenFormat != parser.TokenIntEnumeration &&
+			tokenFormat != parser.TokenIntTimeInterval &&
+			tokenFormat != parser.TokenBitwise {
+			return value
+		}
+
+		return PrependZeros(value, maxZeros)
 	}
 
 	return LeafApplierFilterMiddleware(func(filter parser.Filter) parser.Filter {

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -133,6 +134,7 @@ func handleLDAPConnection(conn net.Conn) {
 			reqMessageType := packet.Children[1].Description
 
 			if reqMessageType == "Search Request" {
+				fmt.Println("----------------------------------------------")
 				baseDN := packet.Children[1].Children[0].Value.(string)
 				/*
 					scope := packet.Children[1].Children[1]

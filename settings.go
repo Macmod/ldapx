@@ -7,6 +7,7 @@ import (
 )
 
 const GarbageCharset = "abcdefghijklmnopqrsutwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+const CharOrdering = "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
 
 var (
 	filterMidMap   map[string]filtermid.FilterMiddleware
@@ -67,8 +68,8 @@ func SetupFilterMidMap(configFile string) {
 		//"NamesToANR":   filtermid.ConvertNamesToANRFilterObf(),
 		"EqApproxMatch":        filtermid.ApproxMatchFilterObf(),
 		"AddWildcard":          filtermid.RandAddWildcardFilterObf(1),
-		"PrependZeros":         filtermid.RandPrependZerosFilterObf(1, 2),
-		"Garbage":              filtermid.RandGarbageFilterObf(2),
+		"PrependZeros":         filtermid.RandPrependZerosFilterObf(2),
+		"Garbage":              filtermid.RandGarbageFilterObf(2, GarbageCharset),
 		"OIDAttribute":         filtermid.OIDAttributeFilterObf(3, true),
 		"Case":                 filtermid.RandCaseFilterObf(0.6),
 		"HexValue":             filtermid.RandHexValueFilterObf(0.2),          // Unstable / trivial-prone
