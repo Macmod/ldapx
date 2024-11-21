@@ -66,8 +66,8 @@ The library provides several middlewares for LDAP filter transformation:
 | BaseDN | <kbd>X</kbd> | HexValue | Obfuscation | Hex encodes characters in the values | `cn=john` | `cn=\6a\6fmin` | Probability based | 
 
 ### Implementation status
-* Filter - In progress
-* AttrList - `Case` and `Space` not working properly
+* Filter - `Spacing` and `HexValue` not working properly
+* AttrList - `Case` and `Spacing` not working properly
 * BaseDN - Six methods working (spaces only work in beginning and end / hex only works in the values)
 
 ## Contributing
