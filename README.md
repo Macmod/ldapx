@@ -89,7 +89,7 @@ The library provides several middlewares for LDAP filter transformation:
 
 ## Acknowledgements
 
-* Almost all obfuscation middlewares are basically implementations of the ideas presented in the [MaLDAPtive](https://www.youtube.com/watch?v=mKRS5Iyy7Qo&t=1584s) research by Daniel Bohannon & Sabajete Elezaj, which inspired the development of this tool.
+* Almost all obfuscation middlewares are basically implementations of the ideas presented in the [MaLDAPtive](https://www.youtube.com/watch?v=mKRS5Iyy7Qo) research by Daniel Bohannon & Sabajete Elezaj, which inspired the development of this tool.
 
 * Some code was copied from [go-ldap/ldap](https://github.com/go-ldap/ldap) to convert LDAP filters to human-readable queries.
 
