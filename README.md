@@ -54,6 +54,8 @@ The library provides several middlewares for LDAP filter transformation:
 | AttrList | g | GarbageExisting | Obfuscation | Adds real attributes | `cn` | `cn,sn,mail` | Adds from standard attrs |
 | BaseDN | C | Case | Obfuscation | Randomizes DN case | `CN=lol,DC=draco,DC=local` | `cN=lOl,dC=dRaCo,Dc=loCaL` | Probability based |
 | BaseDN | O | OIDAttribute | Obfuscation | Converts DN attrs to OIDs | `cn=Admin` | `2.5.4.3=Admin` | Uses standard LDAP OIDs |
+| BaseDN | Z | OIDPrependZeros | Obfuscation | Prepends zeros to OID components | `2.5.4.3=admin` | `002.0005.04.03=admin` | Only applies if there are OID components (for instance, by applying O before) |
+| BaseDN | S | Spacing | Obfuscation | Adds random spaces in the BaseDN | `DC=draco` | `DC=draco     ` | Min/max spaces/probEnd configurable |
 | BaseDN | Q | DoubleQuotes | Obfuscation | Adds quotes to values | `cn=Admin` | `cn="Admin"` | Quotes DN values |
 
 ## Contributing

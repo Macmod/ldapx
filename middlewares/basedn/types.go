@@ -22,7 +22,7 @@ func (c *BaseDNMiddlewareChain) Execute(baseDN string, verbose bool) string {
 	current := baseDN
 	for _, middleware := range c.Middlewares {
 		if verbose {
-			log.Printf("[+] Applying middleware: %s\n", middleware.Name)
+			log.Printf("[+] Applying middleware on BaseDN: %s\n", middleware.Name)
 		}
 		current = middleware.Func(current)
 	}
