@@ -9,13 +9,13 @@ Flexible LDAP proxy that can be used to inspect, transform or encrypt to LDAPS a
 ## Installation
 
 ```bash
-go get github.com/Macmod/ldapx
+$ go get github.com/Macmod/ldapx
 ```
 
 ## Usage
 
 ```bash
-ldapx -target LDAPSERVER:389 [-f MIDDLEWARECHAIN] [-a MIDDLEWARECHAIN] [-b MIDDLEWARECHAIN] [-listen LOCALADDR:PORT]
+$ ldapx -target LDAPSERVER:389 [-f MIDDLEWARECHAIN] [-a MIDDLEWARECHAIN] [-b MIDDLEWARECHAIN] [-listen LOCALADDR:PORT]
 ```
 
 Where:

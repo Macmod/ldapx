@@ -46,7 +46,7 @@ var (
 )
 
 func init() {
-	flag.StringVar(&proxyLDAPAddr, "port", ":389", "Address & port to listen on for incoming LDAP connections")
+	flag.StringVar(&proxyLDAPAddr, "listen", ":389", "Address & port to listen on for incoming LDAP connections")
 	flag.StringVar(&targetLDAPAddr, "target", "", "Target LDAP server address")
 	flag.BoolVar(&debug, "debug", false, "Enable debug output")
 	flag.BoolVar(&ldaps, "ldaps", false, "Connect to target over LDAPS (ignoring cert. validation)")
