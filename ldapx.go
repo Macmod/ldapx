@@ -236,8 +236,8 @@ func main() {
 
 	// Registering middlewares
 	fc = &filtermid.FilterMiddlewareChain{}
-	ac = &attrlistmid.AttrListMiddlewareChain{} // TODO
-	bc = &basednmid.BaseDNMiddlewareChain{}     // TODO
+	ac = &attrlistmid.AttrListMiddlewareChain{}
+	bc = &basednmid.BaseDNMiddlewareChain{}
 
 	// Filter middlewares
 	appliedFilterMiddlewares := []string{}

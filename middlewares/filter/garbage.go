@@ -74,34 +74,12 @@ func generateGarbageFilter(attr string) parser.Filter {
 }
 
 func RandGarbageFilterObf(numGarbage int) func(parser.Filter) parser.Filter {
-	// TODO: This should recurse on existing ANDs/ORs, and then incorporate garbage to them on the way back
-	return func(filter parser.Filter) parser.Filter {
-		switch f := filter.(type) {
-		case *parser.FilterAnd:
-			newFilters := make([]parser.Filter, len(f.Filters))
-			for i, subFilter := range f.Filters {
-				newFilters[i] = RandGarbageFilterObf(numGarbage)(subFilter)
-			}
-			return &parser.FilterAnd{Filters: newFilters}
-
-		case *parser.FilterOr:
-			newFilters := make([]parser.Filter, len(f.Filters))
-			for i, subFilter := range f.Filters {
-				newFilters[i] = RandGarbageFilterObf(numGarbage)(subFilter)
-			}
-			return &parser.FilterOr{Filters: newFilters}
-
-		case *parser.FilterNot:
-			return &parser.FilterNot{Filter: RandGarbageFilterObf(numGarbage)(f.Filter)}
-
-		default:
-			// TODO: This should generate AND garbages too
-			garbageFilters := make([]parser.Filter, numGarbage+1)
-			garbageFilters[0] = filter
-			for i := 1; i <= numGarbage; i++ {
-				garbageFilters[i] = generateGarbageFilter("")
-			}
-			return &parser.FilterOr{Filters: garbageFilters}
+	return LeafApplierFilterMiddleware(func(filter parser.Filter) parser.Filter {
+		garbageFilters := make([]parser.Filter, numGarbage+1)
+		garbageFilters[0] = filter
+		for i := 1; i <= numGarbage; i++ {
+			garbageFilters[i] = generateGarbageFilter("")
 		}
-	}
+		return &parser.FilterOr{Filters: garbageFilters}
+	})
 }

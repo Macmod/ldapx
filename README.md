@@ -28,6 +28,8 @@ Where:
 Each middleware is specified by a single-letter key (detailed below), and can be specified multiple times.
 For each type of middleware, the middlewares in the chain will be applied *in the order that they are specified* in the command.
 
+If `-ldaps` is specified, then the connection to the target will use LDAPS.
+
 ## Examples
 (TODO)
 
@@ -54,7 +56,7 @@ The library provides several middlewares for LDAP filter transformation:
 | Filter | `d` | BitwiseDecomposition | Obfuscation | Decomposes bitwise operations into multiple components | `(attr:1.2.840.113556.1.4.803:=7)` | `(&(attr:1.2.840.113556.1.4.803:=1)(attr:1.2.840.113556.1.4.803:=2)(attr:1.2.840.113556.1.4.803:=4))` | For numeric attributes || AttrList | `C` | Case | Obfuscation | Randomizes attribute case | `cn,sn` | `cN,Sn` | Probability based |
 | Filter | `G` | Garbage | Obfuscation | Adds random garbage conditions | `(cn=john)` | `(\|(cn=john)(eqwoi31=21oi32j))` | Configurable count |
 | Filter | `A` | EqApproxMatch | Obfuscation | Converts equality to approximate match | `(cn=john)` | `(cn~=john)` | Uses LDAP's `~=` operator, which in AD is equivalent to `=` |
-| AttrList | `O`` | OIDAttribute | Obfuscation | Converts to OID form | `cn,sn` | `2.5.4.3,2.5.4.4` | Uses standard LDAP OIDs |
+| AttrList | `O` | OIDAttribute | Obfuscation | Converts to OID form | `cn,sn` | `2.5.4.3,2.5.4.4` | Uses standard LDAP OIDs |
 | AttrList | `G` | GarbageNonExisting | Obfuscation | Adds fake attributes | `cn,sn` | `cn,sn,x-123` | Garbage is chosen randomly from an alphabet |
 | AttrList | `g` | GarbageExisting | Obfuscation | Adds real attributes | `cn` | `cn,sn,mail` | Garbage is chosen from real attributes |
 | AttrList | `S` | Spacing | Obfuscation | Adds random spaces in the attributes | `cn,name` | `c n,n  Am e` | Max spaces configurable |

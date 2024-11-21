@@ -41,7 +41,7 @@ func RandAddBoolFilterObf(maxDepth int, prob float32) func(f parser.Filter) pars
 }
 
 func RandDblNegBoolFilterObf(maxDepth int, prob float32) func(f parser.Filter) parser.Filter {
-	return func(f parser.Filter) parser.Filter {
+	return LeafApplierFilterMiddleware(func(f parser.Filter) parser.Filter {
 		depth := rand.Intn(maxDepth) + 1
 		result := f
 
@@ -57,7 +57,7 @@ func RandDblNegBoolFilterObf(maxDepth int, prob float32) func(f parser.Filter) p
 		}
 
 		return result
-	}
+	})
 }
 
 func RandDeMorganBoolFilterObf(prob float32) func(f parser.Filter) parser.Filter {
@@ -154,7 +154,3 @@ func RandBoolReorderFilterObf() func(f parser.Filter) parser.Filter {
 		}
 	}
 }
-
-// TODO: RandBoolGarbageFilterObf
-// -- Either add impossible OR,
-// --     or redundant AND

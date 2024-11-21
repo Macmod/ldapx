@@ -22,7 +22,7 @@ var filterMidFlags map[rune]string = map[rune]string{
 	'M': "DeMorganBool",
 	//'N': "NamesToANR",
 	'A': "EqApproxMatch",
-	//'W': "Wildcard",
+	'W': "AddWildcard",
 	'G': "Garbage",
 	'O': "OIDAttribute",
 	'C': "Case",
@@ -64,9 +64,9 @@ func SetupFilterMidMap(configFile string) {
 		"DblNegBool":   filtermid.RandDblNegBoolFilterObf(2, 0.5),
 		"DeMorganBool": filtermid.RandDeMorganBoolFilterObf(0.5),
 		//"NamesToANR":   filtermid.ConvertNamesToANRFilterObf(),
-		"EqApproxMatch": filtermid.ApproxMatchFilterObf(),
-		//"Wildcard": ,
-		"Garbage":              filtermid.RandGarbageFilterObf(10),
+		"EqApproxMatch":        filtermid.ApproxMatchFilterObf(),
+		"AddWildcard":          filtermid.RandAddWildcardFilterObf(1),
+		"Garbage":              filtermid.RandGarbageFilterObf(2),
 		"OIDAttribute":         filtermid.OIDAttributeFilterObf(3, true),
 		"Case":                 filtermid.RandCaseFilterObf(0.6),
 		"HexValue":             filtermid.RandHexValueFilterObf(0.2),          // Unstable / trivial-prone
@@ -80,7 +80,7 @@ func SetupFilterMidMap(configFile string) {
 	attrListMidMap = map[string]attrlistmid.AttrListMiddleware{
 		"Case":                attrlistmid.RandCaseAttrListObf(0.6),
 		"OIDAttribute":        attrlistmid.OIDAttributeAttrListObf(),
-		"Spacing":             attrlistmid.RandSpacingAttrListObf(2), // Does not work
+		"Spacing":             attrlistmid.RandSpacingAttrListObf(2),
 		"Duplicate":           attrlistmid.DuplicateAttrListObf(1, 3),
 		"GarbageExisting":     attrlistmid.GarbageExistingAttrListObf(5),
 		"GarbageNonExisting":  attrlistmid.GarbageNonExistingAttrListObf(4, 8, GarbageCharset),

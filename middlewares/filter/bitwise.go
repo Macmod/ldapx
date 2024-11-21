@@ -20,26 +20,8 @@ func hasSingleOneBit(n int64) bool {
 }
 
 func ExactBitwiseBreakoutFilterObf() func(parser.Filter) parser.Filter {
-	return func(filter parser.Filter) parser.Filter {
-		switch f := filter.(type) {
-		case *parser.FilterAnd:
-			newFilters := make([]parser.Filter, len(f.Filters))
-			for i, subFilter := range f.Filters {
-				newFilters[i] = ExactBitwiseBreakoutFilterObf()(subFilter)
-			}
-			return &parser.FilterAnd{Filters: newFilters}
-
-		case *parser.FilterOr:
-			newFilters := make([]parser.Filter, len(f.Filters))
-			for i, subFilter := range f.Filters {
-				newFilters[i] = ExactBitwiseBreakoutFilterObf()(subFilter)
-			}
-			return &parser.FilterOr{Filters: newFilters}
-
-		case *parser.FilterNot:
-			return &parser.FilterNot{Filter: ExactBitwiseBreakoutFilterObf()(f.Filter)}
-
-		case *parser.FilterEqualityMatch:
+	return LeafApplierFilterMiddleware(func(filter parser.Filter) parser.Filter {
+		if f, ok := filter.(*parser.FilterEqualityMatch); ok {
 			if val, err := strconv.ParseInt(f.AssertionValue, 10, 64); err == nil {
 				return &parser.FilterAnd{
 					Filters: []parser.Filter{
@@ -58,54 +40,18 @@ func ExactBitwiseBreakoutFilterObf() func(parser.Filter) parser.Filter {
 					},
 				}
 			}
-			return f
-
-		default:
-			return filter
 		}
-	}
+		return filter
+	})
 }
 
 func BitwiseDecomposeFilterObf(maxBits int, invert bool) func(parser.Filter) parser.Filter {
-	return func(filter parser.Filter) parser.Filter {
-		switch f := filter.(type) {
-		case *parser.FilterAnd:
-			newFilters := make([]parser.Filter, len(f.Filters))
-			for i, subFilter := range f.Filters {
-				newFilters[i] = BitwiseDecomposeFilterObf(maxBits, invert)(subFilter)
-			}
-			return &parser.FilterAnd{Filters: newFilters}
-
-		case *parser.FilterOr:
-			newFilters := make([]parser.Filter, len(f.Filters))
-			for i, subFilter := range f.Filters {
-				newFilters[i] = BitwiseDecomposeFilterObf(maxBits, invert)(subFilter)
-			}
-			return &parser.FilterOr{Filters: newFilters}
-
-		case *parser.FilterNot:
-			return &parser.FilterNot{Filter: BitwiseDecomposeFilterObf(maxBits, invert)(f.Filter)}
-
-		case *parser.FilterExtensibleMatch:
+	return LeafApplierFilterMiddleware(func(filter parser.Filter) parser.Filter {
+		if f, ok := filter.(*parser.FilterExtensibleMatch); ok {
 			if val, err := strconv.ParseInt(f.MatchValue, 10, 32); err == nil {
 				var filters []parser.Filter
 				bitsFound := 0
 				remainingBits := val
-
-				/*
-					    TODO: Check is there's anything to be done here
-						if invert && hasSingleOneBit(val) {
-							invertedVal := ^val
-							wrappedFilter := &parser.FilterNot{
-								Filter: &parser.FilterExtensibleMatch{
-									MatchingRule:  f.MatchingRule,
-									AttributeDesc: f.AttributeDesc,
-									MatchValue:    strconv.FormatInt(invertedVal, 10),
-								},
-							}
-
-							return BitwiseDecomposeFilterObf(maxBits, false)(wrappedFilter)
-						}*/
 
 				for i := 0; i < 31 && bitsFound < maxBits-1; i++ {
 					if val&(1<<i) != 0 {
@@ -121,7 +67,6 @@ func BitwiseDecomposeFilterObf(maxBits int, invert bool) func(parser.Filter) par
 					}
 				}
 
-				// Add remaining bits as a single component if any
 				if remainingBits != 0 {
 					filters = append(filters, &parser.FilterExtensibleMatch{
 						MatchingRule:  f.MatchingRule,
@@ -136,14 +81,11 @@ func BitwiseDecomposeFilterObf(maxBits int, invert bool) func(parser.Filter) par
 					} else if f.MatchingRule == "1.2.840.113556.1.4.804" {
 						return &parser.FilterOr{Filters: filters}
 					}
-				} else {
+				} else if len(filters) == 1 {
 					return filters[0]
 				}
 			}
-			return f
-
-		default:
-			return filter
 		}
-	}
+		return filter
+	})
 }
