@@ -43,19 +43,17 @@ func getNextString(s string) string {
 }
 
 func getPreviousString(s string) string {
-	ordering := "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
-
 	chars := []rune(s)
 
 	for i := len(chars) - 1; i >= 0; i-- {
-		pos := strings.IndexRune(ordering, chars[i])
+		pos := strings.IndexRune(alphabet, chars[i])
 
 		if pos > 0 {
-			chars[i] = rune(ordering[pos-1])
+			chars[i] = rune(alphabet[pos-1])
 			return string(chars)
 		}
 
-		chars[i] = rune(ordering[len(ordering)-1])
+		chars[i] = rune(alphabet[len(alphabet)-1])
 	}
 
 	// If string is all first chars, remove first char

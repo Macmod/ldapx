@@ -2,6 +2,7 @@ package filtermid
 
 import (
 	"fmt"
+	"math/rand"
 	"slices"
 	"strings"
 
@@ -76,6 +77,31 @@ func ANRAttributeFilterObf(anrSet []string) func(f parser.Filter) parser.Filter 
 				if slices.Contains(anrSet, strings.ToLower(v.AttributeDesc)) {
 					v.AttributeDesc = "aNR"
 					v.AssertionValue = "=" + v.AssertionValue
+				}
+			}
+			return f
+		},
+	)
+}
+
+func ANRSubstringGarbageFilterObf(minGarbage int, maxGarbage int, garbageCharset string) func(f parser.Filter) parser.Filter {
+	return LeafApplierFilterMiddleware(
+		func(f parser.Filter) parser.Filter {
+			if em, ok := f.(*parser.FilterEqualityMatch); ok {
+				if em.AttributeDesc == "aNR" {
+					numGarbage := minGarbage + rand.Intn(maxGarbage-minGarbage+1)
+					garbage := make([]byte, numGarbage)
+					for i := range garbage {
+						garbage[i] = garbageCharset[rand.Intn(len(garbageCharset))]
+					}
+
+					return &parser.FilterSubstring{
+						AttributeDesc: "aNR",
+						Substrings: []parser.SubstringFilter{
+							{Initial: em.AssertionValue},
+							{Final: string(garbage)},
+						},
+					}
 				}
 			}
 			return f
