@@ -36,10 +36,11 @@ var filterMidFlags map[rune]string = map[rune]string{
 
 var baseDNMidFlags map[rune]string = map[rune]string{
 	'C': "Case",
-	'X': "HexValue",
 	'O': "OIDAttribute",
+	'Z': "OIDPrependZeros",
 	'S': "Spacing",
 	'Q': "DoubleQuotes",
+	'X': "HexValue",
 }
 
 var attrListMidFlags map[rune]string = map[rune]string{
@@ -90,10 +91,11 @@ func SetupFilterMidMap(configFile string) {
 	}
 
 	baseDNMidMap = map[string]basednmid.BaseDNMiddleware{
-		"Case":         basednmid.RandCaseBaseDNObf(0.6),
-		"HexValue":     basednmid.RandHexValueBaseDNObf(0.2),
-		"OIDAttribute": basednmid.OIDAttributeBaseDNObf(),
-		"Spacing":      basednmid.RandSpacingBaseDNObf(2),
-		"DoubleQuotes": basednmid.DoubleQuotesBaseDNObf(),
+		"Case":            basednmid.RandCaseBaseDNObf(0.6),
+		"HexValue":        basednmid.RandHexValueBaseDNObf(0.2),
+		"OIDAttribute":    basednmid.OIDAttributeBaseDNObf(),
+		"Spacing":         basednmid.RandSpacingBaseDNObf(1, 4, 0.5),
+		"DoubleQuotes":    basednmid.DoubleQuotesBaseDNObf(),
+		"OIDPrependZeros": basednmid.OIDPrependZerosBaseDNObf(1, 4),
 	}
 }
