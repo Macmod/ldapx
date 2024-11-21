@@ -2,6 +2,8 @@ package filtermid
 
 import (
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/Macmod/ldapx/parser"
 )
@@ -45,6 +47,36 @@ func OIDAttributeFilterObf(maxZeros int, includePrefix bool) func(f parser.Filte
 				v.AttributeDesc = obfuscate(v.AttributeDesc)
 			case *parser.FilterExtensibleMatch:
 				v.AttributeDesc = obfuscate(v.AttributeDesc)
+			}
+			return f
+		},
+	)
+}
+
+func ANRAttributeFilterObf(anrSet []string) func(f parser.Filter) parser.Filter {
+	return LeafApplierFilterMiddleware(
+		func(f parser.Filter) parser.Filter {
+			switch v := f.(type) {
+			case *parser.FilterEqualityMatch:
+				if slices.Contains(anrSet, strings.ToLower(v.AttributeDesc)) {
+					v.AttributeDesc = "aNR"
+					v.AssertionValue = "=" + v.AssertionValue
+				}
+			case *parser.FilterApproxMatch:
+				if slices.Contains(anrSet, strings.ToLower(v.AttributeDesc)) {
+					v.AttributeDesc = "aNR"
+					v.AssertionValue = "=" + v.AssertionValue
+				}
+			case *parser.FilterGreaterOrEqual:
+				if slices.Contains(anrSet, strings.ToLower(v.AttributeDesc)) {
+					v.AttributeDesc = "aNR"
+					v.AssertionValue = "=" + v.AssertionValue
+				}
+			case *parser.FilterLessOrEqual:
+				if slices.Contains(anrSet, strings.ToLower(v.AttributeDesc)) {
+					v.AttributeDesc = "aNR"
+					v.AssertionValue = "=" + v.AssertionValue
+				}
 			}
 			return f
 		},

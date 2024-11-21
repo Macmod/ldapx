@@ -9,7 +9,9 @@ Flexible LDAP proxy that can be used to inspect, transform or encrypt to LDAPS a
 ## Installation
 
 ```bash
-$ go get github.com/Macmod/ldapx
+$ git clone github.com/Macmod/ldapx
+$ cd ldapx
+$ go install .
 ```
 
 ## Usage
@@ -66,6 +68,7 @@ The library provides several middlewares for LDAP filter transformation:
 | Filter | `A` | EqApproxMatch | Obfuscation | Converts equality to approximate match | `(cn=john)` | `(cn~=john)` | Uses LDAP's `~=` operator, which in AD is equivalent to `=` |
 | Filter | `Z` | PrependZeros | Obfuscation | Prepends random zeros to numeric values | `(flags=123)` | `(flags=00123)` | Only for numeric attributes |
 | Filter | `W` | AddWildcard | Obfuscation | Adds wildcards by splitting values | `(cn=john)` | `(cn=jo*hn)` | Only for string attributes |
+| Filter | `N` | NamesToANR | Obfuscation | Changes attributes in the aNR set to `aNR` | `(name=john)` | `(aNR==john)` | |
 | AttrList | `O` | OIDAttribute | Obfuscation | Converts to OID form | `cn,sn` | `2.5.4.3,2.5.4.4` | Uses standard LDAP OIDs |
 | AttrList | `G` | GarbageNonExisting | Obfuscation | Adds fake attributes | `cn,sn` | `cn,sn,x-123` | Garbage is chosen randomly from an alphabet |
 | AttrList | `g` | GarbageExisting | Obfuscation | Adds real attributes | `cn` | `cn,sn,mail` | Garbage is chosen from real attributes |

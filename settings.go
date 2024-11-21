@@ -9,6 +9,18 @@ import (
 const GarbageCharset = "abcdefghijklmnopqrsutwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 const CharOrdering = "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
 
+// Taken from:
+// https://learn.microsoft.com/en-us/windows/win32/adschema/attributes-anr
+// (Windows Server 2012)
+var ANRSet = []string{
+	"name", "displayname", "samaccountname",
+	"givenname", "legacyexchangedn", "sn", "proxyaddresses",
+	"physicaldeliveryofficename", "msds-additionalsamaccountName",
+	"msds-phoneticcompanyname", "msds-phoneticdepartment",
+	"msds-phoneticdisplayname", "msds-phoneticfirstname",
+	"msds-phoneticlastname",
+}
+
 var (
 	filterMidMap   map[string]filtermid.FilterMiddleware
 	attrListMidMap map[string]attrlistmid.AttrListMiddleware
@@ -21,7 +33,7 @@ var filterMidFlags map[rune]string = map[rune]string{
 	'B': "AddBool",
 	'D': "DblNegBool",
 	'M': "DeMorganBool",
-	//'N': "NamesToANR",
+	'N': "NamesToANR",
 	'A': "EqApproxMatch",
 	'W': "AddWildcard",
 	'Z': "PrependZeros",
@@ -60,24 +72,24 @@ var attrListMidFlags map[rune]string = map[rune]string{
 
 func SetupFilterMidMap(configFile string) {
 	filterMidMap = map[string]filtermid.FilterMiddleware{
-		"Timestamp":    filtermid.RandTimestampSuffixFilterObf(true, true, 10), // Trivial-prone
-		"Spacing":      filtermid.RandSpacingFilterObf(2),                      // Unstable / Trivial-prone
-		"AddBool":      filtermid.RandAddBoolFilterObf(4, 0.5),
-		"DblNegBool":   filtermid.RandDblNegBoolFilterObf(2, 0.5),
-		"DeMorganBool": filtermid.RandDeMorganBoolFilterObf(0.5),
-		//"NamesToANR":   filtermid.ConvertNamesToANRFilterObf(),
+		"Timestamp":            filtermid.RandTimestampSuffixFilterObf(true, true, 10),
+		"Spacing":              filtermid.RandSpacingFilterObf(2),
+		"AddBool":              filtermid.RandAddBoolFilterObf(4, 0.5),
+		"DblNegBool":           filtermid.RandDblNegBoolFilterObf(2, 0.5),
+		"DeMorganBool":         filtermid.RandDeMorganBoolFilterObf(0.5),
+		"NamesToANR":           filtermid.ANRAttributeFilterObf(ANRSet),
 		"EqApproxMatch":        filtermid.ApproxMatchFilterObf(),
 		"AddWildcard":          filtermid.RandAddWildcardFilterObf(1),
 		"PrependZeros":         filtermid.RandPrependZerosFilterObf(2),
 		"Garbage":              filtermid.RandGarbageFilterObf(2, GarbageCharset),
 		"OIDAttribute":         filtermid.OIDAttributeFilterObf(3, true),
 		"Case":                 filtermid.RandCaseFilterObf(0.6),
-		"HexValue":             filtermid.RandHexValueFilterObf(0.2),          // Unstable / trivial-prone
-		"ReorderBool":          filtermid.RandBoolReorderFilterObf(),          // Trivial-prone
-		"ExactBitwiseBreakout": filtermid.ExactBitwiseBreakoutFilterObf(),     // Trivial-prone
-		"EqInclusion":          filtermid.EqualityByInclusionFilterObf(),      // Unstable
-		"EqExclusion":          filtermid.EqualityByExclusionFilterObf(),      // Unstable
-		"BitwiseDecomposition": filtermid.BitwiseDecomposeFilterObf(3, false), // Trivial-prone
+		"HexValue":             filtermid.RandHexValueFilterObf(0.2),
+		"ReorderBool":          filtermid.RandBoolReorderFilterObf(),
+		"ExactBitwiseBreakout": filtermid.ExactBitwiseBreakoutFilterObf(),
+		"EqInclusion":          filtermid.EqualityByInclusionFilterObf(),
+		"EqExclusion":          filtermid.EqualityByExclusionFilterObf(),
+		"BitwiseDecomposition": filtermid.BitwiseDecomposeFilterObf(3, false),
 	}
 
 	attrListMidMap = map[string]attrlistmid.AttrListMiddleware{
