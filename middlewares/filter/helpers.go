@@ -89,14 +89,20 @@ func ReplaceTimestamp(value string, prepend bool, append bool, maxChars int) str
 	})
 }
 
-func PrependZeros(input string, maxZeros int) string {
-	numZeros := rand.Intn(maxZeros)
-	if len(input) > 0 && input[0] == '-' {
-		zeros := strings.Repeat("0", numZeros)
-		return "-" + zeros + input[1:]
+func PrependZeros(attrName string, input string, maxZeros int) string {
+	tokenFormat := parser.GetAttributeTokenFormat(attrName)
+	if tokenFormat != parser.TokenIntEnumeration &&
+		tokenFormat != parser.TokenIntTimeInterval &&
+		tokenFormat != parser.TokenBitwise {
+		return input
 	}
 
-	return strings.Repeat("0", numZeros) + input
+	numZeros := rand.Intn(maxZeros)
+	zerosStr := strings.Repeat("0", numZeros)
+	if len(input) > 0 && input[0] == '-' {
+		return "-" + zerosStr + input[1:]
+	}
+	return zerosStr + input
 }
 
 func AddRandSpacing(s string, maxSpaces int) string {

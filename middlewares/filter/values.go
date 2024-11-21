@@ -168,9 +168,9 @@ func RandTimestampSuffixFilterObf(prepend bool, append bool, maxChars int) func(
 }
 
 // Prepended 0's FilterObf
-func RandPrependedZerosFilterObf(maxZeros int) func(parser.Filter) parser.Filter {
-	prependZerosFixed := func(value string) string {
-		return PrependZeros(value, maxZeros)
+func RandPrependZerosFilterObf(maxZeros int) func(parser.Filter) parser.Filter {
+	prependZerosFixed := func(attrName string, value string) string {
+		return PrependZeros(attrName, value, maxZeros)
 	}
 
 	return LeafApplierFilterMiddleware(func(filter parser.Filter) parser.Filter {
@@ -178,18 +178,18 @@ func RandPrependedZerosFilterObf(maxZeros int) func(parser.Filter) parser.Filter
 		case *parser.FilterEqualityMatch:
 			return &parser.FilterEqualityMatch{
 				AttributeDesc:  f.AttributeDesc,
-				AssertionValue: prependZerosFixed(f.AssertionValue),
+				AssertionValue: prependZerosFixed(f.AttributeDesc, f.AssertionValue),
 			}
 		case *parser.FilterSubstring:
 			newSubstrings := make([]parser.SubstringFilter, len(f.Substrings))
 			for i, sub := range f.Substrings {
 				newSubstrings[i] = parser.SubstringFilter{
-					Initial: prependZerosFixed(sub.Initial),
-					Final:   prependZerosFixed(sub.Final),
+					Initial: prependZerosFixed(f.AttributeDesc, sub.Initial),
+					Final:   prependZerosFixed(f.AttributeDesc, sub.Final),
 				}
 				newAny := make([]string, len(sub.Any))
 				for j, _any := range sub.Any {
-					newAny[j] = prependZerosFixed(_any)
+					newAny[j] = prependZerosFixed(f.AttributeDesc, _any)
 				}
 				newSubstrings[i].Any = newAny
 			}
@@ -200,23 +200,23 @@ func RandPrependedZerosFilterObf(maxZeros int) func(parser.Filter) parser.Filter
 		case *parser.FilterGreaterOrEqual:
 			return &parser.FilterGreaterOrEqual{
 				AttributeDesc:  f.AttributeDesc,
-				AssertionValue: prependZerosFixed(f.AssertionValue),
+				AssertionValue: prependZerosFixed(f.AttributeDesc, f.AssertionValue),
 			}
 		case *parser.FilterLessOrEqual:
 			return &parser.FilterLessOrEqual{
 				AttributeDesc:  f.AttributeDesc,
-				AssertionValue: prependZerosFixed(f.AssertionValue),
+				AssertionValue: prependZerosFixed(f.AttributeDesc, f.AssertionValue),
 			}
 		case *parser.FilterApproxMatch:
 			return &parser.FilterApproxMatch{
 				AttributeDesc:  f.AttributeDesc,
-				AssertionValue: prependZerosFixed(f.AssertionValue),
+				AssertionValue: prependZerosFixed(f.AttributeDesc, f.AssertionValue),
 			}
 		case *parser.FilterExtensibleMatch:
 			return &parser.FilterExtensibleMatch{
 				MatchingRule:  f.MatchingRule,
 				AttributeDesc: f.AttributeDesc,
-				MatchValue:    prependZerosFixed(f.MatchValue),
+				MatchValue:    prependZerosFixed(f.AttributeDesc, f.MatchValue),
 				DNAttributes:  f.DNAttributes,
 			}
 		}
