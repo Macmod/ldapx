@@ -41,9 +41,9 @@ The library provides several middlewares for LDAP filter transformation:
 |------|-----|------|---------|-------------|--------|--------|---------|
 | Filter | <kbd>S</kbd> | Spacing | Obfuscation | Adds random spaces between characters | `(cn=john)` | `( c n = j o h n )` | Max spaces configurable |
 | Filter | <kbd>T</kbd> | Timestamp | Obfuscation | Adds random chars to timestamp values | `(time=20230812Z)` | `(time=20230812abcZ)` | Prepend/append configurable |
-| Filter | <kbd>B</kbd> | AddBool | Obfuscation | Adds random boolean conditions | `(cn=john)` | `(&(cn=john)(|(a=1)(a=2)))` | Max depth configurable |
+| Filter | <kbd>B</kbd> | AddBool | Obfuscation | Adds random boolean conditions | `(cn=john)` | `(&(cn=john)(\|(a=1)(a=2)))` | Max depth configurable |
 | Filter | <kbd>D</kbd> | DblNegBool | Obfuscation | Adds double negations | `(cn=john)` | `(!(!(cn=john)))` | Max depth configurable |
-| Filter | <kbd>M</kbd> | DeMorganBool | Obfuscation | Applies De Morgan's laws | `(!(|(a=1)(b=2)))` | `(&(!(a=1))(!(b=2)))` | Probability based |
+| Filter | <kbd>M</kbd> | DeMorganBool | Obfuscation | Applies De Morgan's laws | `(!(\|(a=1)(b=2)))` | `(&(!(a=1))(!(b=2)))` | Probability based |
 | Filter | <kbd>O</kbd> | OIDAttribute | Obfuscation | Converts attrs to OIDs | `(cn=john)` | `(2.5.4.3=john)` | Uses standard LDAP OIDs |
 | Filter | <kbd>C</kbd> | Case | Obfuscation | Randomizes character case | `(cn=John)` | `(cN=jOhN)` | Probability based |
 | Filter | <kbd>X</kbd> | HexValue | Obfuscation | Hex encodes characters | `(cn=john)` | `(cn=\6a\6f\68\6e)` | Probability based |
@@ -56,7 +56,7 @@ The library provides several middlewares for LDAP filter transformation:
 | AttrList | <kbd>D</kbd> | Duplicate | Obfuscation | Duplicates attributes | `cn` | `cn,cn,cn` | Max duplicates configurable |
 | AttrList | <kbd>W</kbd> | AddWildcard | Obfuscation | Adds a wildcard attribute to the list | `cn,name` | `cn,name,*` |  |
 | AttrList | <kbd>w</kbd> | ReplaceWithWildcard | Obfuscation | Replaces the list with a wildcard | `cn,sn` | `*` | Replaces all attributes |
-| AttrList | <kbd>E</kbd> | ReplaceWithEmpty | Obfuscation | Empties the attributes list | `cn,sn` | `` | |
+| AttrList | <kbd>E</kbd> | ReplaceWithEmpty | Obfuscation | Empties the attributes list | `cn,sn` | | |
 | AttrList | <kbd>R</kbd> | ReorderList | Obfuscation | Randomly reorders attrs | `cn,sn,uid` | `uid,cn,sn` | Random permutation |
 | BaseDN | <kbd>C</kbd> | Case | Obfuscation | Randomizes DN case | `CN=lol,DC=draco,DC=local` | `cN=lOl,dC=dRaCo,Dc=loCaL` | Probability based |
 | BaseDN | <kbd>O</kbd> | OIDAttribute | Obfuscation | Converts DN attrs to OIDs | `cn=Admin` | `2.5.4.3=Admin` | Uses standard LDAP OIDs |
