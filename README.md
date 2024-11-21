@@ -48,10 +48,10 @@ The library provides several middlewares for LDAP filter transformation:
 | Filter | <kbd>C</kbd> | Case | Obfuscation | Randomizes character case | `(cn=John)` | `(cN=jOhN)` | Probability based |
 | Filter | <kbd>X</kbd> | HexValue | Obfuscation | Hex encodes characters | `(cn=john)` | `(cn=\6a\6f\68\6e)` | Probability based |
 | Filter | <kbd>R</kbd> | ReorderBool | Obfuscation | Reorders boolean conditions | `(&(a=1)(b=2))` | `(&(b=2)(a=1))` | Random reordering |
-| Filter | b | ExactBitwiseBreakout | Obfuscation | Breaks out exact matches into bitwise operations | `(flags=7)` | `(&(flags>=7)(flags<=7))` | For numeric attributes |
-| Filter | I | EqInclusion | Obfuscation | Converts equality to inclusion | `(cn=john)` | `(|(cn<=john)(cn>=john))` | Alternative equality |
-| Filter | E | EqExclusion | Obfuscation | Converts equality to exclusion | `(cn=john)` | `(!(|(cn<john)(cn>john)))` | Alternative equality |
-| Filter | d | BitwiseDecomposition | Obfuscation | Decomposes values into bitwise AND | `(flags=7)` | `(&(flags=4)(flags=2)(flags=1))` | For numeric attributes || AttrList | <kbd>C</kbd> | Case | Obfuscation | Randomizes attribute case | `cn,sn` | `cN,Sn` | Probability based |
+| Filter | b | ExactBitwiseBreakout | Obfuscation | Breaks out exact matches into bitwise operations | `(flags=7)` | `TODO` | For numeric attributes |
+| Filter | I | EqInclusion | Obfuscation | Converts equality to inclusion | `(cn=krbtgt)` | `(&(cn>=krbtgs)(cn<=krbtgu)(!(cn=krbtgs))(!(cn=krbtgu)))` | Alternative equality |
+| Filter | E | EqExclusion | Obfuscation | Converts equality to presence+exclusion | `(cn=krbtgt)` | `(&(cn=*)(!(cn<=krbtgs))(!(cn>=krbtgu)))` | Alternative equality |
+| Filter | d | BitwiseDecomposition | Obfuscation | Decomposes bitwise operations into multiple components | `(attr:1.2.840.113556.1.4.803:=7)` | `(&(attr:1.2.840.113556.1.4.803:=1)(attr:1.2.840.113556.1.4.803:=2)(attr:1.2.840.113556.1.4.803:=4))` | For numeric attributes || AttrList | <kbd>C</kbd> | Case | Obfuscation | Randomizes attribute case | `cn,sn` | `cN,Sn` | Probability based |
 | Filter | G | Garbage | Obfuscation | Adds random garbage conditions | `(cn=john)` | `(\|(cn=john)(eqwoi31=21oi32j))` | Configurable count |
 | Filter | A | EqApproxMatch | Obfuscation | Converts equality to approximate match | `(cn=john)` | `(cn~=john)` | Uses LDAP's `~=` operator, which in AD is equivalent to `=` |
 | AttrList | <kbd>O</kbd> | OIDAttribute | Obfuscation | Converts to OID form | `cn,sn` | `2.5.4.3,2.5.4.4` | Uses standard LDAP OIDs |
