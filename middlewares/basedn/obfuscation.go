@@ -3,7 +3,6 @@ package basednmid
 import (
 	"fmt"
 	"math/rand"
-	"regexp"
 	"strings"
 
 	"github.com/Macmod/ldapx/parser"
@@ -42,12 +41,11 @@ func OIDAttributeBaseDNObf() func(string) string {
 
 // Prepends zeros to attribute OIDs in BaseDN
 func OIDPrependZerosBaseDNObf(minZeros int, maxZeros int) func(string) string {
-	oidPattern := regexp.MustCompile(`^\d+(\.\d+)*`)
 	return func(dn string) string {
 		parts := strings.Split(dn, ",")
 		for i, part := range parts {
 			kv := strings.SplitN(part, "=", 2)
-			if len(kv) == 2 && oidPattern.MatchString(kv[0]) {
+			if len(kv) == 2 && parser.IsOID(kv[0]) {
 				oidParts := strings.Split(kv[0], ".")
 				for j, num := range oidParts {
 					zeros := strings.Repeat("0", minZeros+rand.Intn(maxZeros-minZeros+1))

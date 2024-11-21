@@ -12,6 +12,7 @@ import (
 func RandCaseAttrListObf(prob float32) func([]string) []string {
 	return func(attrs []string) []string {
 		result := make([]string, len(attrs))
+
 		for i, attr := range attrs {
 			var builder strings.Builder
 			for _, c := range attr {
@@ -46,20 +47,17 @@ func OIDAttributeAttrListObf() func([]string) []string {
 	}
 }
 
-// RandSpacingAttrListObf adds random spacing to attributes
-func RandSpacingAttrListObf(maxSpaces int) func([]string) []string {
+// RandOIDSpacingAttrListObf adds random spacing to the end of attributes in OID syntax
+func RandOIDSpacingAttrListObf(maxSpaces int) func([]string) []string {
 	return func(attrs []string) []string {
 		result := make([]string, len(attrs))
+
 		for i, attr := range attrs {
-			/*
-				var builder strings.Builder
-				for _, c := range attr {
-					spaces := strings.Repeat(" ", rand.Intn(maxSpaces))
-					builder.WriteString(spaces)
-					builder.WriteRune(c)
-				}
-			*/
-			result[i] = attr + strings.Repeat(" ", rand.Intn(maxSpaces))
+			if parser.IsOID(attr) {
+				result[i] = attr + strings.Repeat(" ", rand.Intn(maxSpaces))
+			} else {
+				result[i] = attr
+			}
 		}
 		return result
 	}

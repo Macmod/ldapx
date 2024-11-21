@@ -69,7 +69,7 @@ The library provides several middlewares for LDAP filter transformation:
 | AttrList | `O` | OIDAttribute | Obfuscation | Converts to OID form | `cn,sn` | `2.5.4.3,2.5.4.4` | Uses standard LDAP OIDs |
 | AttrList | `G` | GarbageNonExisting | Obfuscation | Adds fake attributes | `cn,sn` | `cn,sn,x-123` | Garbage is chosen randomly from an alphabet |
 | AttrList | `g` | GarbageExisting | Obfuscation | Adds real attributes | `cn` | `cn,sn,mail` | Garbage is chosen from real attributes |
-| AttrList | `S` | Spacing | Obfuscation | Adds random spaces in the attributes | `cn,name` | `c n,n  Am e` | Max spaces configurable |
+| AttrList | `S` | OIDSpacing | Obfuscation | Adds random spaces in the attributes if they are in OID syntax | `2.5.4.3,sn` | `2.5.4.3   ,sn` | |
 | AttrList | `D` | Duplicate | Obfuscation | Duplicates attributes | `cn` | `cn,cn,cn` | Max duplicates configurable |
 | AttrList | `W` | AddWildcard | Obfuscation | Adds a wildcard attribute to the list | `cn,name` | `cn,name,*` |  |
 | AttrList | `w` | ReplaceWithWildcard | Obfuscation | Replaces the list with a wildcard | `cn,sn` | `*` | Replaces all attributes |
@@ -84,7 +84,7 @@ The library provides several middlewares for LDAP filter transformation:
 
 ### Implementation status
 * Filter - `Spacing`, `HexValue` & `Wildcard` not working properly yet, `Garbage`, `ExactBitwiseBreakout`, `EqInclusion`, `EqExclusion` need improvements
-* AttrList - `Case` and `Spacing` not working properly
+* AttrList - `Case` not working properly
 * BaseDN - Six methods working (spaces only work in beginning and end / hex only works in the values)
 
 ## Acknowledgements

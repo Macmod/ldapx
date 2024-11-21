@@ -48,7 +48,7 @@ var baseDNMidFlags map[rune]string = map[rune]string{
 var attrListMidFlags map[rune]string = map[rune]string{
 	'C': "Case",
 	'O': "OIDAttribute",
-	'S': "Spacing",
+	'S': "OIDSpacing",
 	'D': "Duplicate",
 	'g': "GarbageExisting",
 	'G': "GarbageNonExisting",
@@ -83,7 +83,7 @@ func SetupFilterMidMap(configFile string) {
 	attrListMidMap = map[string]attrlistmid.AttrListMiddleware{
 		"Case":                attrlistmid.RandCaseAttrListObf(0.6),
 		"OIDAttribute":        attrlistmid.OIDAttributeAttrListObf(),
-		"Spacing":             attrlistmid.RandSpacingAttrListObf(2),
+		"OIDSpacing":          attrlistmid.RandOIDSpacingAttrListObf(5),
 		"Duplicate":           attrlistmid.DuplicateAttrListObf(1, 3),
 		"GarbageExisting":     attrlistmid.GarbageExistingAttrListObf(5),
 		"GarbageNonExisting":  attrlistmid.GarbageNonExistingAttrListObf(4, 8, GarbageCharset),
