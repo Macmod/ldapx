@@ -22,7 +22,7 @@ func (c *AttrListMiddlewareChain) Execute(attrs []string, verbose bool) []string
 	current := attrs
 	for _, middleware := range c.Middlewares {
 		if verbose {
-			log.Printf("[+] Applying middleware: %s\n", middleware.Name)
+			log.Printf("[+] Applying middleware on AttrList: %s\n", middleware.Name)
 		}
 		current = middleware.Func(current)
 	}

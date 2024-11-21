@@ -56,7 +56,13 @@ The library provides several middlewares for LDAP filter transformation:
 | BaseDN | O | OIDAttribute | Obfuscation | Converts DN attrs to OIDs | `cn=Admin` | `2.5.4.3=Admin` | Uses standard LDAP OIDs |
 | BaseDN | Z | OIDPrependZeros | Obfuscation | Prepends zeros to OID components | `2.5.4.3=admin` | `002.0005.04.03=admin` | Only applies if there are OID components (for instance, by applying O before) |
 | BaseDN | S | Spacing | Obfuscation | Adds random spaces in the BaseDN | `DC=draco` | `DC=draco     ` | Min/max spaces/probEnd configurable |
-| BaseDN | Q | DoubleQuotes | Obfuscation | Adds quotes to values | `cn=Admin` | `cn="Admin"` | Quotes DN values |
+| BaseDN | Q | DoubleQuotes | Obfuscation | Adds quotes to values | `cn=Admin` | `cn="Admin"` |  |
+| BaseDN | X | HexValue | Obfuscation | Hex encodes characters in the values | `cn=john` | `cn=\6a\6fmin` | Probability based | 
+
+### Implementation status
+* BaseDN - Six methods working (spaces only work in beginning and end / hex only works in the values)
+* Filter - In progress
+* AttrList - In progress
 
 ## Contributing
 

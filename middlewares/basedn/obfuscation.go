@@ -91,14 +91,22 @@ func DoubleQuotesBaseDNObf() func(string) string {
 // RandHexValueBaseDNObf randomly hex encodes characters in BaseDN
 func RandHexValueBaseDNObf(prob float32) func(string) string {
 	return func(dn string) string {
-		var builder strings.Builder
-		for _, c := range dn {
-			if rand.Float32() < prob {
-				builder.WriteString(fmt.Sprintf("\\%02x", c))
-			} else {
-				builder.WriteRune(c)
+		parts := strings.Split(dn, ",")
+		for i, part := range parts {
+			kv := strings.SplitN(part, "=", 2)
+			if len(kv) == 2 {
+				var builder strings.Builder
+				for _, c := range kv[1] {
+					if rand.Float32() < prob {
+						builder.WriteString(fmt.Sprintf("\\%02x", c))
+					} else {
+						builder.WriteRune(c)
+					}
+				}
+				kv[1] = builder.String()
+				parts[i] = kv[0] + "=" + kv[1]
 			}
 		}
-		return builder.String()
+		return strings.Join(parts, ",")
 	}
 }
