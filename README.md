@@ -31,7 +31,14 @@ For each type of middleware, the middlewares in the chain will be applied *in th
 If `-ldaps` is specified, then the connection to the target will use LDAPS.
 
 ## Examples
-(TODO)
+
+### Applying multiple middlewares in filters, attributes list and baseDN
+
+```bash
+$ ./ldapx -target 192.168.117.2:389 -f OGRD -a OW -b OZ
+```
+
+![Demo1](https://github.com/Macmod/ldapx/blob/main/images/demo1.png)
 
 ## Library Usage 
 (TODO)
