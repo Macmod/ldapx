@@ -2,6 +2,7 @@ package filtermid
 
 import (
 	"math/rand"
+	"slices"
 	"strings"
 
 	"github.com/Macmod/ldapx/parser"
@@ -160,13 +161,18 @@ func RandTimestampSuffixFilterObf(prepend bool, append bool, maxChars int) func(
 func RandPrependZerosFilterObf(maxZeros int) func(parser.Filter) parser.Filter {
 	prependZerosFixed := func(attrName string, value string) string {
 		tokenFormat, err := parser.GetAttributeTokenFormat(attrName)
-		if err != nil || tokenFormat != parser.TokenIntEnumeration &&
-			tokenFormat != parser.TokenIntTimeInterval &&
-			tokenFormat != parser.TokenBitwise {
+		if err != nil {
 			return value
 		}
 
-		return PrependZeros(value, maxZeros)
+		numberFormats := []parser.LDAPTokenFormat{parser.TokenIntEnumeration, parser.TokenIntTimeInterval, parser.TokenBitwise}
+		if slices.Contains(numberFormats, tokenFormat) {
+			return PrependZerosToNumber(value, maxZeros)
+		} else if tokenFormat == parser.TokenSID {
+			return PrependZerosToSID(value, maxZeros)
+		}
+
+		return value
 	}
 
 	return LeafApplierFilterMiddleware(func(filter parser.Filter) parser.Filter {
@@ -209,10 +215,16 @@ func RandSpacingFilterObf(maxSpaces int) func(f parser.Filter) parser.Filter {
 		case *parser.FilterEqualityMatch:
 			tokenType, err := parser.GetAttributeTokenFormat(v.AttributeDesc)
 
+			if err != nil {
+				return f
+			}
+
 			if strings.ToLower(v.AttributeDesc) == "anr" {
 				v.AssertionValue = AddANRSpacing(v.AssertionValue, maxSpaces)
-			} else if err == nil && tokenType == parser.TokenDNString {
+			} else if tokenType == parser.TokenDNString {
 				v.AssertionValue = AddDNSpacing(v.AssertionValue, maxSpaces)
+			} else if tokenType == parser.TokenSID {
+				v.AssertionValue = AddSIDSpacing(v.AssertionValue, maxSpaces)
 			}
 		case *parser.FilterSubstring:
 			if v.AttributeDesc == "aNR" {
@@ -225,17 +237,46 @@ func RandSpacingFilterObf(maxSpaces int) func(f parser.Filter) parser.Filter {
 					}
 				}
 			}
-		case *parser.FilterGreaterOrEqual, *parser.FilterLessOrEqual:
-			if v.(*parser.FilterGreaterOrEqual).AttributeDesc == "aNR" {
-				v.(*parser.FilterGreaterOrEqual).AssertionValue = AddANRSpacing(v.(*parser.FilterGreaterOrEqual).AssertionValue, maxSpaces)
+		case *parser.FilterGreaterOrEqual:
+			attrName := strings.ToLower(v.AttributeDesc)
+			tokenType, err := parser.GetAttributeTokenFormat(attrName)
+
+			if err != nil {
+				return f
+			}
+
+			if attrName == "anr" {
+				v.AssertionValue = AddANRSpacing(v.AssertionValue, maxSpaces)
+			} else if tokenType == parser.TokenSID {
+				v.AssertionValue = AddSIDSpacing(v.AssertionValue, maxSpaces)
+			}
+		case *parser.FilterLessOrEqual:
+			attrName := strings.ToLower(v.AttributeDesc)
+			tokenType, err := parser.GetAttributeTokenFormat(attrName)
+
+			if err != nil {
+				return f
+			}
+
+			if attrName == "anr" {
+				v.AssertionValue = AddANRSpacing(v.AssertionValue, maxSpaces)
+			} else if tokenType == parser.TokenSID {
+				v.AssertionValue = AddSIDSpacing(v.AssertionValue, maxSpaces)
 			}
 		case *parser.FilterApproxMatch:
 			tokenType, err := parser.GetAttributeTokenFormat(v.AttributeDesc)
+			attrName := strings.ToLower(v.AttributeDesc)
 
-			if strings.ToLower(v.AttributeDesc) == "anr" {
+			if err != nil {
+				return f
+			}
+
+			if attrName == "anr" {
 				v.AssertionValue = AddANRSpacing(v.AssertionValue, maxSpaces)
-			} else if err == nil && tokenType == parser.TokenDNString {
+			} else if tokenType == parser.TokenDNString {
 				v.AssertionValue = AddDNSpacing(v.AssertionValue, maxSpaces)
+			} else if tokenType == parser.TokenSID {
+				v.AssertionValue = AddSIDSpacing(v.AssertionValue, maxSpaces)
 			}
 		}
 		return f

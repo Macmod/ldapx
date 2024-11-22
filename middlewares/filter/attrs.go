@@ -22,7 +22,7 @@ func OIDAttributeFilterObf(maxZeros int, includePrefix bool) func(f parser.Filte
 	obfuscate := func(attr string) string {
 		oid, err := MapToOID(attr)
 		if err == nil {
-			mapped := PrefixRandZerosToOID(oid, maxZeros)
+			mapped := PrependZerosToOID(oid, maxZeros)
 			if includePrefix {
 				mapped = fmt.Sprintf("oID.%s", mapped)
 			}

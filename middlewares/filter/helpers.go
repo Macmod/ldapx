@@ -89,13 +89,47 @@ func ReplaceTimestamp(value string, prepend bool, append bool, maxChars int) str
 	})
 }
 
-func PrependZeros(input string, maxZeros int) string {
+// Prepend Zeros functions
+func PrependZerosToSID(sid string, maxZeros int) string {
+	parts := strings.Split(sid, "-")
+	for i := range parts {
+		if i == 0 {
+			continue
+		}
+
+		for j, c := range parts[i] {
+			if c >= '0' && c <= '9' {
+				prefix := parts[i][:j]
+				suffix := parts[i][j:]
+				numZeros := rand.Intn(maxZeros)
+				zerosStr := strings.Repeat("0", numZeros)
+				parts[i] = prefix + zerosStr + suffix
+				break
+			}
+		}
+	}
+	return strings.Join(parts, "-")
+}
+
+func PrependZerosToNumber(input string, maxZeros int) string {
 	numZeros := rand.Intn(maxZeros)
 	zerosStr := strings.Repeat("0", numZeros)
 	if len(input) > 0 && input[0] == '-' {
 		return "-" + zerosStr + input[1:]
 	}
 	return zerosStr + input
+}
+
+func PrependZerosToOID(oid string, maxZeros int) string {
+	parts := strings.Split(oid, ".")
+	var result []string
+
+	for _, part := range parts {
+		numZeros := rand.Intn(maxZeros + 1)
+		result = append(result, PrependZerosToNumber(part, len(part)+numZeros))
+	}
+
+	return strings.Join(result, ".")
 }
 
 func AddRandSpacing(s string, maxSpaces int) string {
@@ -125,18 +159,6 @@ func MapToOID(attrName string) (string, error) {
 	}
 
 	return oid, nil
-}
-
-func PrefixRandZerosToOID(oid string, maxZeros int) string {
-	parts := strings.Split(oid, ".")
-	var result []string
-
-	for _, part := range parts {
-		numZeros := rand.Intn(maxZeros + 1)
-		result = append(result, PrependZeros(part, len(part)+numZeros))
-	}
-
-	return strings.Join(result, ".")
 }
 
 // TODO: Review both methods' logic of randomness
@@ -181,4 +203,18 @@ func AddDNSpacing(value string, maxSpaces int) string {
 		}
 	}
 	return strings.Join(parts, ",")
+}
+
+func AddSIDSpacing(sid string, maxSpaces int) string {
+	parts := strings.Split(sid, "-")
+	if len(parts) >= 3 {
+		// Add spaces before revision number (parts[1])
+		spaces := strings.Repeat(" ", rand.Intn(maxSpaces+1))
+		parts[1] = spaces + parts[1]
+
+		// Add spaces before subauthority count (parts[2])
+		spaces = strings.Repeat(" ", rand.Intn(maxSpaces+1))
+		parts[2] = spaces + parts[2]
+	}
+	return strings.Join(parts, "-")
 }

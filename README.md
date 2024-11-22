@@ -30,7 +30,7 @@ Where:
 Each middleware is specified by a single-letter key (detailed below), and can be specified multiple times.
 For each type of middleware, the middlewares in the chain will be applied *in the order that they are specified* in the command.
 
-If `-ldaps` is specified, then the connection to the target will use LDAPS. This can come in handy if you must use a tool that doesn't support LDAPS. Use `-no-shell` if you don't want to interact with the shell to modify the settings on the fly.
+If `-ldaps` is specified, then the connection to the target will use LDAPS. This can come in handy if you must use a tool that doesn't support LDAPS. Use `-no-shell` if you don't want to interact with the shell to modify the settings while the program is running.
 
 ## Examples
 
@@ -51,7 +51,7 @@ The tool provides several middlewares "ready for use" for inline LDAP filter tra
 
 | Type | Key | Name | Purpose | Description | Input | Output | Details |
 |------|-----|------|---------|-------------|--------|--------|---------|
-| Filter | `S` | Spacing | Obfuscation | Adds random spaces between characters | `(memberOf=CN=lol,DC=draco)` | `(memberOf=  CN  =lol, DC =   draco)` | Only applies to DN string attributes & aNR attributes' prefix/suffix |
+| Filter | `S` | Spacing | Obfuscation | Adds random spaces between characters | `(memberOf=CN=lol,DC=draco)` | `(memberOf=  CN  =lol, DC =   draco)` | Only applies to DN string attributes, aNR attributes' prefix/suffix & SIDs |
 | Filter | `T` | Timestamp | Obfuscation | Adds random chars to timestamp values | `(time=20230812.123Z)` | `(time=20230812.123aBcZdeF)` | |
 | Filter | `B` | AddBool | Obfuscation | Adds random boolean conditions | `(cn=john)` | `(&(cn=john)(\|(a=1)(a=2)))` | Max depth configurable |
 | Filter | `D` | DblNegBool | Obfuscation | Adds double negations | `(cn=john)` | `(!(!(cn=john)))` | Max depth configurable |
@@ -66,7 +66,7 @@ The tool provides several middlewares "ready for use" for inline LDAP filter tra
 | Filter | `d` | BitwiseDecomposition | Obfuscation | Decomposes bitwise operations into multiple components | `(attr:1.2.840.113556.1.4.803:=7)` | `(&(attr:1.2.840.113556.1.4.803:=1)(attr:1.2.840.113556.1.4.803:=2)(attr:1.2.840.113556.1.4.803:=4))` | For numeric attributes || AttrList | `C` | Case | Obfuscation | Randomizes attribute case | `cn,sn` | `cN,Sn` | Probability based |
 | Filter | `G` | Garbage | Obfuscation | Adds random garbage conditions | `(cn=john)` | `(\|(cn=john)(eqwoi31=21oi32j))` | Configurable count |
 | Filter | `A` | EqApproxMatch | Obfuscation | Converts equality to approximate match | `(cn=john)` | `(cn~=john)` | Uses LDAP's `~=` operator, which in AD is equivalent to `=` |
-| Filter | `Z` | PrependZeros | Obfuscation | Prepends random zeros to numeric values | `(flags=123)` | `(flags=00123)` | Only for numeric attributes |
+| Filter | `Z` | PrependZeros | Obfuscation | Prepends random zeros to numeric values | `(flags=123)` | `(flags=00123)` | Only for numeric attributes and SIDs |
 | Filter | `W` | AddWildcard | Obfuscation | Adds wildcards by splitting values into substrings | `(cn=john)` | `(cn=jo*hn)` | Only for string attrs. & can break the filter if it's not specific enough |
 | Filter | `N` | NamesToANR | Obfuscation | Changes attributes in the aNR set to `aNR` | `(name=john)` | `(aNR==john)` | |
 | Filter | `n` | ANRGarbageSubstring | Obfuscation | Appends garbage to the end of `aNR` equalities | `(aNR==john)` | `(aNR==john*siaASJU)` | |
