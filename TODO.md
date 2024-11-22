@@ -5,3 +5,4 @@
 * [Feature] Changing the target connection address via the shell
 * [Feature] Add config file for fine-tuning all middlewares
 * [Feature] Support applying middlewares to LDAP operations other than search
+* [Study] Possibilities related to obfuscating LDAP_MATCHING_RULE_DN_WITH_DATA

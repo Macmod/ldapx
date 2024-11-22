@@ -7,7 +7,6 @@ import (
 )
 
 const GarbageCharset = "abcdefghijklmnopqrsutwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-const CharOrdering = "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
 
 // Taken from:
 // https://learn.microsoft.com/en-us/windows/win32/adschema/attributes-anr

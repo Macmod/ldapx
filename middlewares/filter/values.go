@@ -157,7 +157,6 @@ func RandTimestampSuffixFilterObf(prepend bool, append bool, maxChars int) func(
 	return applier
 }
 
-// Prepended 0's FilterObf
 func RandPrependZerosFilterObf(maxZeros int) func(parser.Filter) parser.Filter {
 	prependZerosFixed := func(attrName string, value string) string {
 		tokenFormat, err := parser.GetAttributeTokenFormat(attrName)
@@ -165,8 +164,7 @@ func RandPrependZerosFilterObf(maxZeros int) func(parser.Filter) parser.Filter {
 			return value
 		}
 
-		numberFormats := []parser.LDAPTokenFormat{parser.TokenIntEnumeration, parser.TokenIntTimeInterval, parser.TokenBitwise}
-		if slices.Contains(numberFormats, tokenFormat) {
+		if slices.Contains(parser.NumberFormats, tokenFormat) {
 			return PrependZerosToNumber(value, maxZeros)
 		} else if tokenFormat == parser.TokenSID {
 			return PrependZerosToSID(value, maxZeros)

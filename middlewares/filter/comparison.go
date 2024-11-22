@@ -1,6 +1,7 @@
 package filtermid
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
@@ -16,7 +17,7 @@ import (
 	  https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/d2435927-0999-4c62-8c6d-13ba31a52e1a)
 */
 
-const alphabet = "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+const CharOrdering = "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
 
 // TODO: Review
 func getNextString(s string) string {
@@ -25,35 +26,35 @@ func getNextString(s string) string {
 
 	// Start from rightmost character
 	for i := len(chars) - 1; i >= 0; i-- {
-		// Find current char position in alphabet
-		pos := strings.IndexRune(alphabet, chars[i])
+		// Find current char position in CharOrdering
+		pos := strings.IndexRune(CharOrdering, chars[i])
 
-		// If not last char in alphabet, increment to next
-		if pos < len(alphabet)-1 {
-			chars[i] = rune(alphabet[pos+1])
+		// If not last char in CharOrdering, increment to next
+		if pos < len(CharOrdering)-1 {
+			chars[i] = rune(CharOrdering[pos+1])
 			return string(chars)
 		}
 
-		// If last char in alphabet, set to first char and continue left
-		chars[i] = rune(alphabet[0])
+		// If last char in CharOrdering, set to first char and continue left
+		chars[i] = rune(CharOrdering[0])
 	}
 
-	// If all chars were last in alphabet, append first char
-	return s + string(alphabet[0])
+	// If all chars were last in CharOrdering, append first char
+	return s + string(CharOrdering[0])
 }
 
 func getPreviousString(s string) string {
 	chars := []rune(s)
 
 	for i := len(chars) - 1; i >= 0; i-- {
-		pos := strings.IndexRune(alphabet, chars[i])
+		pos := strings.IndexRune(CharOrdering, chars[i])
 
 		if pos > 0 {
-			chars[i] = rune(alphabet[pos-1])
+			chars[i] = rune(CharOrdering[pos-1])
 			return string(chars)
 		}
 
-		chars[i] = rune(alphabet[len(alphabet)-1])
+		chars[i] = rune(CharOrdering[len(CharOrdering)-1])
 	}
 
 	// If string is all first chars, remove first char
@@ -64,15 +65,52 @@ func getPreviousString(s string) string {
 	return s
 }
 
-// TODO: Don't apply for some attribute names like aNR, memberOf, objectCategory...
+func getNextSID(sid string) string {
+	parts := strings.Split(sid, "-")
+	if len(parts) < 1 {
+		return sid
+	}
+
+	if num, err := strconv.Atoi(parts[len(parts)-1]); err == nil {
+		parts[len(parts)-1] = strconv.Itoa(num + 1)
+	}
+	return strings.Join(parts, "-")
+}
+
+func getPreviousSID(sid string) string {
+	parts := strings.Split(sid, "-")
+	if len(parts) < 1 {
+		return sid
+	}
+
+	if num, err := strconv.Atoi(parts[len(parts)-1]); err == nil && num > 0 {
+		parts[len(parts)-1] = strconv.Itoa(num - 1)
+	}
+	return strings.Join(parts, "-")
+}
+
 func EqualityByInclusionFilterObf() func(parser.Filter) parser.Filter {
 	return LeafApplierFilterMiddleware(func(filter parser.Filter) parser.Filter {
 		if f, ok := filter.(*parser.FilterEqualityMatch); ok {
+			tokenType, err := parser.GetAttributeTokenFormat(f.AttributeDesc)
+			if err != nil {
+				return f
+			}
+
 			var valMinusOne, valPlusOne string
-			if val, err := strconv.Atoi(f.AssertionValue); err == nil {
-				valMinusOne = strconv.Itoa(val - 1)
-				valPlusOne = strconv.Itoa(val + 1)
-			} else {
+			if tokenType == parser.TokenSID {
+				if strings.Count(f.AssertionValue, "-") <= 2 {
+					return f
+				}
+
+				valMinusOne = getPreviousSID(f.AssertionValue)
+				valPlusOne = getNextSID(f.AssertionValue)
+			} else if slices.Contains(parser.NumberFormats, tokenType) {
+				if val, err := strconv.Atoi(f.AssertionValue); err == nil {
+					valMinusOne = strconv.Itoa(val - 1)
+					valPlusOne = strconv.Itoa(val + 1)
+				}
+			} else if tokenType == parser.TokenStringUnicode {
 				valMinusOne = getPreviousString(f.AssertionValue)
 				valPlusOne = getNextString(f.AssertionValue)
 			}
@@ -108,14 +146,28 @@ func EqualityByInclusionFilterObf() func(parser.Filter) parser.Filter {
 func EqualityByExclusionFilterObf() func(parser.Filter) parser.Filter {
 	return LeafApplierFilterMiddleware(func(filter parser.Filter) parser.Filter {
 		if f, ok := filter.(*parser.FilterEqualityMatch); ok {
+			tokenType, err := parser.GetAttributeTokenFormat(f.AttributeDesc)
+			if err != nil {
+				return f
+			}
+
 			var valMinusOne, valPlusOne string
-			if val, err := strconv.Atoi(f.AssertionValue); err == nil {
-				valMinusOne = strconv.Itoa(val - 1)
-				valPlusOne = strconv.Itoa(val + 1)
-			} else {
+			if tokenType == parser.TokenSID {
+				if strings.Count(f.AssertionValue, "-") <= 2 {
+					return f
+				}
+				valMinusOne = getPreviousSID(f.AssertionValue)
+				valPlusOne = getNextSID(f.AssertionValue)
+			} else if slices.Contains(parser.NumberFormats, tokenType) {
+				if val, err := strconv.Atoi(f.AssertionValue); err == nil {
+					valMinusOne = strconv.Itoa(val - 1)
+					valPlusOne = strconv.Itoa(val + 1)
+				}
+			} else if tokenType == parser.TokenStringUnicode {
 				valMinusOne = getPreviousString(f.AssertionValue)
 				valPlusOne = getNextString(f.AssertionValue)
 			}
+
 			return &parser.FilterAnd{
 				Filters: []parser.Filter{
 					&parser.FilterPresent{

@@ -2954,3 +2954,7 @@ var AttrContexts = map[string]LDAPAttrContext{
 	"x121address":                                           {"x121Address", "2.5.4.24", TokenStringNumeric, "2.5.5.6", ADSTypeNumericString, SDSTypeString, MAPITypeTString, TitleString_Numeric, "A string that contains digits."},
 	"x500uniqueidentifier":                                  {"x500uniqueIdentifier", "2.5.4.45", TokenHexObjectReplicaLink, "2.5.5.10", ADSTypeOctetString, SDSTypeByteArray, MAPITypeBinary, TitleObject_Replica_Link, "Object(Replica-Link) syntax."},
 }
+
+var NumberFormats = []LDAPTokenFormat{
+	TokenIntEnumeration, TokenIntTimeInterval, TokenBitwise,
+}
