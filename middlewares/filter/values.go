@@ -271,7 +271,7 @@ func RandAddWildcardFilterObf(prob float32) func(parser.Filter) parser.Filter {
 				sub := f.Substrings[subIdx]
 
 				if sub.Initial != "" {
-					// Grab a suffix and put it in either the next Any or Final
+					// Grab a suffix and put it in the next Any
 					sliceBefore, sliceAfter := splitSlice(f.Substrings, subIdx)
 
 					splitPoint := rand.Intn(len(sub.Initial))
@@ -279,23 +279,15 @@ func RandAddWildcardFilterObf(prob float32) func(parser.Filter) parser.Filter {
 					suffix := sub.Initial[splitPoint:]
 					sub.Initial = sub.Initial[:splitPoint]
 
-					if len(f.Substrings) > 1 {
-						f.Substrings = append(
-							append(
-								sliceBefore,
-								sub,
-								parser.SubstringFilter{Any: suffix},
-							),
-							sliceAfter...,
-						)
-					} else {
-						f.Substrings = append(
+					f.Substrings = append(
+						append(
 							sliceBefore,
 							sub,
-							parser.SubstringFilter{Final: suffix},
-						)
-					}
-				} else if sub.Any != "" {
+							parser.SubstringFilter{Any: suffix},
+						),
+						sliceAfter...,
+					)
+				} else if len(sub.Any) > 1 {
 					// If there's an any, we assume that there's Initial, Any and Final
 					// Grab a suffix and put it in the next Any
 					sliceBefore, sliceAfter := splitSlice(f.Substrings, subIdx)
@@ -314,7 +306,7 @@ func RandAddWildcardFilterObf(prob float32) func(parser.Filter) parser.Filter {
 						sliceAfter...,
 					)
 				} else if sub.Final != "" {
-					// Grab a prefix and put it in the previous Any or Initial
+					// Grab a prefix and put it in a previous Any
 					sliceBefore, sliceAfter := splitSlice(f.Substrings, subIdx)
 
 					splitPoint := rand.Intn(len(sub.Final)) + 1
@@ -322,25 +314,14 @@ func RandAddWildcardFilterObf(prob float32) func(parser.Filter) parser.Filter {
 					prefix := sub.Final[:splitPoint]
 					sub.Final = sub.Final[splitPoint:]
 
-					if len(f.Substrings) > 1 {
-						f.Substrings = append(
-							append(
-								sliceBefore,
-								parser.SubstringFilter{Any: prefix},
-								sub,
-							),
-							sliceAfter..., // Should be empty, but just to be safe
-						)
-					} else {
-						f.Substrings = append(
-							append(
-								sliceBefore, // Should be empty, but just to be safe
-								parser.SubstringFilter{Initial: prefix},
-								sub,
-							),
-							sliceAfter..., // Should be empty, but just to be safe
-						)
-					}
+					f.Substrings = append(
+						append(
+							sliceBefore,
+							parser.SubstringFilter{Any: prefix},
+							sub,
+						),
+						sliceAfter...,
+					)
 				}
 			}
 
