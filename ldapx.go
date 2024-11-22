@@ -34,6 +34,7 @@ var (
 	shutdownChan = make(chan struct{})
 	debug        bool
 	ldaps        bool
+	noShell      bool
 
 	fc *filtermid.FilterMiddlewareChain
 	ac *attrlistmid.AttrListMiddlewareChain
@@ -51,6 +52,7 @@ func init() {
 	flag.StringVar(&targetLDAPAddr, "target", "", "Target LDAP server address")
 	flag.BoolVar(&debug, "debug", false, "Enable debug output")
 	flag.BoolVar(&ldaps, "ldaps", false, "Connect to target over LDAPS (ignoring cert. validation)")
+	flag.BoolVar(&noShell, "no-shell", false, "Don't show the ldapx shell")
 	flag.StringVar(&filterChain, "f", "", "Chain of search filter middlewares")
 	flag.StringVar(&attrChain, "a", "", "Chain of attribute list middlewares")
 	flag.StringVar(&baseChain, "b", "", "Chain of baseDN middlewares")

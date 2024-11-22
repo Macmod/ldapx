@@ -51,8 +51,8 @@ The tool provides several middlewares "ready for use" for inline LDAP filter tra
 
 | Type | Key | Name | Purpose | Description | Input | Output | Details |
 |------|-----|------|---------|-------------|--------|--------|---------|
-| Filter | `S` | Spacing | Obfuscation | Adds random spaces between characters | `(memberOf=CN=lol,DC=draco)` | `(memberOf=  CN  =lol, DC =   draco)` | Only applies to DN string attributes and & aNR prefix/suffix |
-| Filter | `T` | Timestamp | Obfuscation | Adds random chars to timestamp values | `(time=20230812Z)` | `(time=20230812abcZ)` | Prepend/append configurable |
+| Filter | `S` | Spacing | Obfuscation | Adds random spaces between characters | `(memberOf=CN=lol,DC=draco)` | `(memberOf=  CN  =lol, DC =   draco)` | Only applies to DN string attributes & aNR attributes' prefix/suffix |
+| Filter | `T` | Timestamp | Obfuscation | Adds random chars to timestamp values | `(time=20230812.123Z)` | `(time=20230812.123aBcZdeF)` | |
 | Filter | `B` | AddBool | Obfuscation | Adds random boolean conditions | `(cn=john)` | `(&(cn=john)(\|(a=1)(a=2)))` | Max depth configurable |
 | Filter | `D` | DblNegBool | Obfuscation | Adds double negations | `(cn=john)` | `(!(!(cn=john)))` | Max depth configurable |
 | Filter | `M` | DeMorganBool | Obfuscation | Applies De Morgan's laws | `(!(\|(a=1)(b=2)))` | `(&(!(a=1))(!(b=2)))` | Probability based |
@@ -67,7 +67,7 @@ The tool provides several middlewares "ready for use" for inline LDAP filter tra
 | Filter | `G` | Garbage | Obfuscation | Adds random garbage conditions | `(cn=john)` | `(\|(cn=john)(eqwoi31=21oi32j))` | Configurable count |
 | Filter | `A` | EqApproxMatch | Obfuscation | Converts equality to approximate match | `(cn=john)` | `(cn~=john)` | Uses LDAP's `~=` operator, which in AD is equivalent to `=` |
 | Filter | `Z` | PrependZeros | Obfuscation | Prepends random zeros to numeric values | `(flags=123)` | `(flags=00123)` | Only for numeric attributes |
-| Filter | `W` | AddWildcard | Obfuscation | Adds wildcards by splitting values | `(cn=john)` | `(cn=jo*hn)` | Only for string attributes |
+| Filter | `W` | AddWildcard | Obfuscation | Adds wildcards by splitting values into substrings | `(cn=john)` | `(cn=jo*hn)` | Only for string attrs. & can break the filter if it's not specific enough |
 | Filter | `N` | NamesToANR | Obfuscation | Changes attributes in the aNR set to `aNR` | `(name=john)` | `(aNR==john)` | |
 | Filter | `n` | ANRGarbageSubstring | Obfuscation | Appends garbage to the end of `aNR` equalities | `(aNR==john)` | `(aNR==john*siaASJU)` | |
 | AttrList | `O` | OIDAttribute | Obfuscation | Converts to OID form | `cn,sn` | `2.5.4.3,2.5.4.4` | Uses standard LDAP OIDs |
@@ -87,7 +87,7 @@ The tool provides several middlewares "ready for use" for inline LDAP filter tra
 | BaseDN | `X` | HexValue | Obfuscation | Hex encodes characters in the values | `cn=john` | `cn=\6a\6fmin` | Probability based | 
 
 ### Implementation status
-* Filter - `HexValue` & `Wildcard` not working properly yet, `Garbage`, `ExactBitwiseBreakout`, `EqInclusion`, `EqExclusion` need improvements
+* Filter - `HexValue` not working properly yet, `Garbage`, `ExactBitwiseBreakout`, `EqInclusion`, `EqExclusion` need improvements
 * AttrList - `Case` not working properly
 * BaseDN - Six methods working (spaces only work in beginning and end / hex only works in the values)
 

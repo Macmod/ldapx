@@ -39,8 +39,8 @@ func RandCaseFilterObf(prob float32) func(f parser.Filter) parser.Filter {
 				if v.Substrings[i].Initial != "" {
 					v.Substrings[i].Initial = randomizeEachChar(v.Substrings[i].Initial, prob)
 				}
-				for j, any := range v.Substrings[i].Any {
-					v.Substrings[i].Any[j] = randomizeEachChar(any, prob)
+				if v.Substrings[i].Any != "" {
+					v.Substrings[i].Any = randomizeEachChar(v.Substrings[i].Any, prob)
 				}
 				if v.Substrings[i].Final != "" {
 					v.Substrings[i].Final = randomizeEachChar(v.Substrings[i].Final, prob)

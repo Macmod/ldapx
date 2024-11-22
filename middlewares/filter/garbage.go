@@ -47,10 +47,11 @@ func generateGarbageFilter(attr string, chars string) parser.Filter {
 				attrName = generateGarbageString(10, chars)
 			}
 
+			// TODO: Review
 			return &parser.FilterSubstring{
 				AttributeDesc: attrName,
 				Substrings: []parser.SubstringFilter{
-					{Initial: generateGarbageString(10, chars), Any: []string{generateGarbageString(4, chars)}, Final: generateGarbageString(3, chars)},
+					{Initial: generateGarbageString(10, chars), Any: generateGarbageString(4, chars), Final: generateGarbageString(3, chars)},
 				},
 			}
 		},

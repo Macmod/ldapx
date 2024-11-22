@@ -118,9 +118,10 @@ type FilterExtensibleMatch struct {
 func (f *FilterExtensibleMatch) Type() FilterType { return ExtensibleMatch }
 
 // SubstringFilter represents a component of a substring filter.
+// Either Initial, Any or Final will be set.
 type SubstringFilter struct {
 	Initial string
-	Any     []string
+	Any     string
 	Final   string
 }
 
@@ -182,7 +183,7 @@ func PacketToFilter(packet *ber.Packet) (Filter, error) {
 			case 0x0: // Initial
 				substrs = append(substrs, SubstringFilter{Initial: string(subPacket.Data.Bytes())})
 			case 0x1: // Any
-				substrs = append(substrs, SubstringFilter{Any: []string{string(subPacket.Data.Bytes())}})
+				substrs = append(substrs, SubstringFilter{Any: string(subPacket.Data.Bytes())})
 			case 0x2: // Final
 				substrs = append(substrs, SubstringFilter{Final: string(subPacket.Data.Bytes())})
 			}
@@ -360,8 +361,8 @@ func FilterToPacket(f Filter) *ber.Packet {
 			if substr.Initial != "" {
 				substrings.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, 0x0, substr.Initial, "Initial"))
 			}
-			for _, any := range substr.Any {
-				substrings.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, 0x1, any, "Any"))
+			if substr.Any != "" {
+				substrings.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, 0x1, substr.Any, "Any"))
 			}
 			if substr.Final != "" {
 				substrings.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, 0x2, substr.Final, "Final"))

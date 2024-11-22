@@ -16,6 +16,16 @@ import (
 	  https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/d2435927-0999-4c62-8c6d-13ba31a52e1a)
 */
 
+func splitSlice[T any](slice []T, idx int) ([]T, []T) {
+	before := make([]T, idx)
+	after := make([]T, len(slice)-idx-1)
+
+	copy(before, slice[:idx])
+	copy(after, slice[idx+1:])
+
+	return before, after
+}
+
 func ApproxMatchFilterObf() FilterMiddleware {
 	return LeafApplierFilterMiddleware(
 		func(filter parser.Filter) parser.Filter {
@@ -55,14 +65,9 @@ func RandHexValueFilterObf(prob float32) func(parser.Filter) parser.Filter {
 				for i, sub := range f.Substrings {
 					newSubstrings[i] = parser.SubstringFilter{
 						Initial: applyHexEncoding("name", sub.Initial),
+						Any:     applyHexEncoding("name", sub.Any),
 						Final:   applyHexEncoding("name", sub.Final),
 					}
-
-					newAny := make([]string, len(sub.Any))
-					for j, _any := range sub.Any {
-						newAny[j] = applyHexEncoding("name", _any)
-					}
-					newSubstrings[i].Any = newAny
 				}
 				return &parser.FilterSubstring{
 					AttributeDesc: f.AttributeDesc,
@@ -104,6 +109,7 @@ func RandHexValueFilterObf(prob float32) func(parser.Filter) parser.Filter {
 	return applier
 }
 
+// TODO: Simplify (are ExtensibleMatches possible for timestamp attributes?)
 func RandTimestampSuffixFilterObf(prepend bool, append bool, maxChars int) func(parser.Filter) parser.Filter {
 	replaceTimestampFixed := func(value string) string {
 		return ReplaceTimestamp(value, prepend, append, maxChars)
@@ -117,24 +123,6 @@ func RandTimestampSuffixFilterObf(prepend bool, append bool, maxChars int) func(
 					AttributeDesc:  f.AttributeDesc,
 					AssertionValue: replaceTimestampFixed(f.AssertionValue),
 				}
-			case *parser.FilterSubstring:
-				newSubstrings := make([]parser.SubstringFilter, len(f.Substrings))
-				for i, sub := range f.Substrings {
-					newSubstrings[i] = parser.SubstringFilter{
-						Initial: replaceTimestampFixed(sub.Initial),
-						Final:   replaceTimestampFixed(sub.Final),
-					}
-					newAny := make([]string, len(sub.Any))
-					for j, _any := range sub.Any {
-						newAny[j] = replaceTimestampFixed(_any)
-					}
-					newSubstrings[i].Any = newAny
-				}
-				return &parser.FilterSubstring{
-					AttributeDesc: f.AttributeDesc,
-					Substrings:    newSubstrings,
-				}
-
 			case *parser.FilterGreaterOrEqual:
 				return &parser.FilterGreaterOrEqual{
 					AttributeDesc:  f.AttributeDesc,
@@ -187,23 +175,6 @@ func RandPrependZerosFilterObf(maxZeros int) func(parser.Filter) parser.Filter {
 			return &parser.FilterEqualityMatch{
 				AttributeDesc:  f.AttributeDesc,
 				AssertionValue: prependZerosFixed(f.AttributeDesc, f.AssertionValue),
-			}
-		case *parser.FilterSubstring:
-			newSubstrings := make([]parser.SubstringFilter, len(f.Substrings))
-			for i, sub := range f.Substrings {
-				newSubstrings[i] = parser.SubstringFilter{
-					Initial: prependZerosFixed(f.AttributeDesc, sub.Initial),
-					Final:   prependZerosFixed(f.AttributeDesc, sub.Final),
-				}
-				newAny := make([]string, len(sub.Any))
-				for j, _any := range sub.Any {
-					newAny[j] = prependZerosFixed(f.AttributeDesc, _any)
-				}
-				newSubstrings[i].Any = newAny
-			}
-			return &parser.FilterSubstring{
-				AttributeDesc: f.AttributeDesc,
-				Substrings:    newSubstrings,
 			}
 		case *parser.FilterGreaterOrEqual:
 			return &parser.FilterGreaterOrEqual{
@@ -280,7 +251,7 @@ func RandAddWildcardFilterObf(prob float32) func(parser.Filter) parser.Filter {
 				tokenType, err := parser.GetAttributeTokenFormat(f.AttributeDesc)
 				if err == nil && tokenType == parser.TokenStringUnicode {
 					chars := []rune(f.AssertionValue)
-					splitPoint := rand.Intn(len(chars))
+					splitPoint := rand.Intn(len(chars) + 1)
 
 					return &parser.FilterSubstring{
 						AttributeDesc: f.AttributeDesc,
@@ -299,36 +270,80 @@ func RandAddWildcardFilterObf(prob float32) func(parser.Filter) parser.Filter {
 				subIdx := rand.Intn(len(f.Substrings))
 				sub := f.Substrings[subIdx]
 
-				// Choose what to split (initial, any, or final)
-				var target string
 				if sub.Initial != "" {
-					target = sub.Initial
-					sub.Initial = ""
-				} else if len(sub.Any) > 0 {
-					anyIdx := rand.Intn(len(sub.Any))
-					target = sub.Any[anyIdx]
-					sub.Any = append(sub.Any[:anyIdx], sub.Any[anyIdx+1:]...)
+					// Grab a suffix and put it in either the next Any or Final
+					sliceBefore, sliceAfter := splitSlice(f.Substrings, subIdx)
+
+					splitPoint := rand.Intn(len(sub.Initial))
+					//fmt.Printf("Initial split point %d\n", splitPoint)
+					suffix := sub.Initial[splitPoint:]
+					sub.Initial = sub.Initial[:splitPoint]
+
+					if len(f.Substrings) > 1 {
+						f.Substrings = append(
+							append(
+								sliceBefore,
+								sub,
+								parser.SubstringFilter{Any: suffix},
+							),
+							sliceAfter...,
+						)
+					} else {
+						f.Substrings = append(
+							sliceBefore,
+							sub,
+							parser.SubstringFilter{Final: suffix},
+						)
+					}
+				} else if sub.Any != "" {
+					// If there's an any, we assume that there's Initial, Any and Final
+					// Grab a suffix and put it in the next Any
+					sliceBefore, sliceAfter := splitSlice(f.Substrings, subIdx)
+
+					splitPoint := rand.Intn(len(sub.Any)-1) + 1
+					//fmt.Printf("Any split point %d\n", splitPoint)
+					suffix := sub.Any[splitPoint:]
+					sub.Any = sub.Any[:splitPoint]
+
+					f.Substrings = append(
+						append(
+							sliceBefore,
+							sub,
+							parser.SubstringFilter{Any: suffix},
+						),
+						sliceAfter...,
+					)
 				} else if sub.Final != "" {
-					target = sub.Final
-					sub.Final = ""
-				}
+					// Grab a prefix and put it in the previous Any or Initial
+					sliceBefore, sliceAfter := splitSlice(f.Substrings, subIdx)
 
-				if target != "" {
-					chars := []rune(target)
-					splitPoint := rand.Intn(len(chars))
-					part1 := string(chars[:splitPoint])
-					part2 := string(chars[splitPoint:])
+					splitPoint := rand.Intn(len(sub.Final)) + 1
+					//fmt.Printf("Final split point %d\n", splitPoint)
+					prefix := sub.Final[:splitPoint]
+					sub.Final = sub.Final[splitPoint:]
 
-					if part1 != "" {
-						sub.Any = append(sub.Any, part1)
+					if len(f.Substrings) > 1 {
+						f.Substrings = append(
+							append(
+								sliceBefore,
+								parser.SubstringFilter{Any: prefix},
+								sub,
+							),
+							sliceAfter..., // Should be empty, but just to be safe
+						)
+					} else {
+						f.Substrings = append(
+							append(
+								sliceBefore, // Should be empty, but just to be safe
+								parser.SubstringFilter{Initial: prefix},
+								sub,
+							),
+							sliceAfter..., // Should be empty, but just to be safe
+						)
 					}
-					if part2 != "" {
-						sub.Any = append(sub.Any, part2)
-					}
 				}
-
-				f.Substrings[subIdx] = sub
 			}
+
 			return f
 
 		default:
