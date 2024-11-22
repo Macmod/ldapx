@@ -138,3 +138,47 @@ func PrefixRandZerosToOID(oid string, maxZeros int) string {
 
 	return strings.Join(result, ".")
 }
+
+// TODO: Review both methods' logic of randomness
+func AddANRSpacing(value string, maxSpaces int) string {
+	spacesFst := strings.Repeat(" ", 1+rand.Intn(maxSpaces))
+	spacesEqSign := strings.Repeat(" ", 1+rand.Intn(maxSpaces))
+	spacesLst := strings.Repeat(" ", 1+rand.Intn(maxSpaces))
+	if strings.HasPrefix(strings.TrimSpace(value), "=") {
+		// If there's an equal sign prefix, we must consider adding spaces right after it too
+		idx := strings.Index(value, "=")
+
+		if idx != -1 && idx+1 < len(value) && rand.Float32() < 0.5 {
+			value = value[:idx+1] + spacesEqSign + value[idx+1:]
+		}
+	}
+
+	if rand.Float32() < 0.5 {
+		return spacesFst + value
+	} else if rand.Float32() < 0.5 {
+		return value + spacesLst
+	} else {
+		return spacesFst + value + spacesLst
+	}
+}
+
+func AddDNSpacing(value string, maxSpaces int) string {
+	parts := strings.Split(value, ",")
+	for i, part := range parts {
+		kv := strings.SplitN(part, "=", 2)
+		if len(kv) == 2 {
+			switch rand.Intn(4) {
+			case 0:
+				kv[0] = kv[0] + strings.Repeat(" ", 1+rand.Intn(maxSpaces))
+			case 1:
+				kv[1] = strings.Repeat(" ", 1+rand.Intn(maxSpaces)) + kv[1]
+			case 2:
+				kv[0] = strings.Repeat(" ", 1+rand.Intn(maxSpaces)) + kv[0]
+			case 3:
+				kv[1] = kv[1] + strings.Repeat(" ", 1+rand.Intn(maxSpaces))
+			}
+			parts[i] = strings.Join(kv, "=")
+		}
+	}
+	return strings.Join(parts, ",")
+}

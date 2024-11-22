@@ -74,7 +74,7 @@ var attrListMidFlags map[rune]string = map[rune]string{
 func SetupFilterMidMap(configFile string) {
 	filterMidMap = map[string]filtermid.FilterMiddleware{
 		"Timestamp":            filtermid.RandTimestampSuffixFilterObf(true, true, 10),
-		"Spacing":              filtermid.RandSpacingFilterObf(2),
+		"Spacing":              filtermid.RandSpacingFilterObf(4),
 		"AddBool":              filtermid.RandAddBoolFilterObf(4, 0.5),
 		"DblNegBool":           filtermid.RandDblNegBoolFilterObf(2, 0.5),
 		"DeMorganBool":         filtermid.RandDeMorganBoolFilterObf(0.5),

@@ -47,11 +47,11 @@ $ ldapx -target 192.168.117.2:389 -f OGRD -a OW -b OZ
 
 ## Middlewares
 
-The library provides several middlewares for LDAP filter transformation:
+The tool provides several middlewares "ready for use" for inline LDAP filter transformation:
 
 | Type | Key | Name | Purpose | Description | Input | Output | Details |
 |------|-----|------|---------|-------------|--------|--------|---------|
-| Filter | `S` | Spacing | Obfuscation | Adds random spaces between characters | `(cn=john)` | `( c n = j o h n )` | Max spaces configurable |
+| Filter | `S` | Spacing | Obfuscation | Adds random spaces between characters | `(memberOf=CN=lol,DC=draco)` | `(memberOf=  CN  =lol, DC =   draco)` | Only applies to DN string attributes and & aNR prefix/suffix |
 | Filter | `T` | Timestamp | Obfuscation | Adds random chars to timestamp values | `(time=20230812Z)` | `(time=20230812abcZ)` | Prepend/append configurable |
 | Filter | `B` | AddBool | Obfuscation | Adds random boolean conditions | `(cn=john)` | `(&(cn=john)(\|(a=1)(a=2)))` | Max depth configurable |
 | Filter | `D` | DblNegBool | Obfuscation | Adds double negations | `(cn=john)` | `(!(!(cn=john)))` | Max depth configurable |
@@ -87,7 +87,7 @@ The library provides several middlewares for LDAP filter transformation:
 | BaseDN | `X` | HexValue | Obfuscation | Hex encodes characters in the values | `cn=john` | `cn=\6a\6fmin` | Probability based | 
 
 ### Implementation status
-* Filter - `Spacing`, `HexValue` & `Wildcard` not working properly yet, `Garbage`, `ExactBitwiseBreakout`, `EqInclusion`, `EqExclusion` need improvements
+* Filter - `HexValue` & `Wildcard` not working properly yet, `Garbage`, `ExactBitwiseBreakout`, `EqInclusion`, `EqExclusion` need improvements
 * AttrList - `Case` not working properly
 * BaseDN - Six methods working (spaces only work in beginning and end / hex only works in the values)
 

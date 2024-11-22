@@ -2,12 +2,13 @@ package filtermid
 
 import (
 	"math/rand"
+	"strings"
 
 	"github.com/Macmod/ldapx/parser"
 )
 
 /*
-	Leaf Value Middlewares
+	Value Middlewares
 
 	References:
 	- DEFCON32 - MaLDAPtive
@@ -231,34 +232,40 @@ func RandPrependZerosFilterObf(maxZeros int) func(parser.Filter) parser.Filter {
 	})
 }
 
-// TODO: Investigate how to get this working
 func RandSpacingFilterObf(maxSpaces int) func(f parser.Filter) parser.Filter {
 	return LeafApplierFilterMiddleware(func(f parser.Filter) parser.Filter {
 		switch v := f.(type) {
 		case *parser.FilterEqualityMatch:
-			v.AssertionValue = AddRandSpacing(v.AssertionValue, maxSpaces)
+			tokenType, err := parser.GetAttributeTokenFormat(v.AttributeDesc)
+
+			if strings.ToLower(v.AttributeDesc) == "anr" {
+				v.AssertionValue = AddANRSpacing(v.AssertionValue, maxSpaces)
+			} else if err == nil && tokenType == parser.TokenDNString {
+				v.AssertionValue = AddDNSpacing(v.AssertionValue, maxSpaces)
+			}
 		case *parser.FilterSubstring:
-			for i := range v.Substrings {
-				if v.Substrings[i].Initial != "" {
-					v.Substrings[i].Initial = AddRandSpacing(v.Substrings[i].Initial, maxSpaces)
-				}
-				for j, _any := range v.Substrings[i].Any {
-					v.Substrings[i].Any[j] = AddRandSpacing(_any, maxSpaces)
-				}
-				if v.Substrings[i].Final != "" {
-					v.Substrings[i].Final = AddRandSpacing(v.Substrings[i].Final, maxSpaces)
+			if v.AttributeDesc == "aNR" {
+				for i := range v.Substrings {
+					if v.Substrings[i].Initial != "" {
+						v.Substrings[i].Initial = AddANRSpacing(v.Substrings[i].Initial, maxSpaces)
+					}
+					if v.Substrings[i].Final != "" {
+						v.Substrings[i].Final = AddANRSpacing(v.Substrings[i].Final, maxSpaces)
+					}
 				}
 			}
-		case *parser.FilterGreaterOrEqual:
-			v.AssertionValue = AddRandSpacing(v.AssertionValue, maxSpaces)
-		case *parser.FilterLessOrEqual:
-			v.AssertionValue = AddRandSpacing(v.AssertionValue, maxSpaces)
+		case *parser.FilterGreaterOrEqual, *parser.FilterLessOrEqual:
+			if v.(*parser.FilterGreaterOrEqual).AttributeDesc == "aNR" {
+				v.(*parser.FilterGreaterOrEqual).AssertionValue = AddANRSpacing(v.(*parser.FilterGreaterOrEqual).AssertionValue, maxSpaces)
+			}
 		case *parser.FilterApproxMatch:
-			v.AssertionValue = AddRandSpacing(v.AssertionValue, maxSpaces)
-		case *parser.FilterExtensibleMatch:
-			v.MatchingRule = AddRandSpacing(v.MatchingRule, maxSpaces)
-			v.AttributeDesc = AddRandSpacing(v.AttributeDesc, maxSpaces)
-			v.MatchValue = AddRandSpacing(v.MatchValue, maxSpaces)
+			tokenType, err := parser.GetAttributeTokenFormat(v.AttributeDesc)
+
+			if strings.ToLower(v.AttributeDesc) == "anr" {
+				v.AssertionValue = AddANRSpacing(v.AssertionValue, maxSpaces)
+			} else if err == nil && tokenType == parser.TokenDNString {
+				v.AssertionValue = AddDNSpacing(v.AssertionValue, maxSpaces)
+			}
 		}
 		return f
 	})
