@@ -30,7 +30,7 @@ Where:
 Each middleware is specified by a single-letter key (detailed below), and can be specified multiple times.
 For each type of middleware, the middlewares in the chain will be applied *in the order that they are specified* in the command.
 
-If `-ldaps` is specified, then the connection to the target will use LDAPS. This can come in handy if you must use a tool that doesn't support LDAPS.
+If `-ldaps` is specified, then the connection to the target will use LDAPS. This can come in handy if you must use a tool that doesn't support LDAPS. Use `-no-shell` if you don't want to interact with the shell to modify the settings on the fly.
 
 ## Examples
 

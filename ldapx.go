@@ -303,7 +303,9 @@ func main() {
 	logger.Printf("[+] BaseDNMiddlewares: [%s]", strings.Join(appliedBaseDNMiddlewares, ","))
 
 	// Start interactive shell in background
-	go RunShell()
+	if !noShell {
+		go RunShell()
+	}
 
 	// Main proxy loop
 	for {
