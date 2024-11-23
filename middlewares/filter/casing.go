@@ -18,51 +18,50 @@ import (
 
 // TODO: Avoid attribute types that have specific formats and may break?
 func RandCaseFilterObf(prob float32) func(f parser.Filter) parser.Filter {
-	return func(f parser.Filter) parser.Filter {
-		switch v := f.(type) {
-		case *parser.FilterEqualityMatch:
-			v.AttributeDesc = randomizeEachChar(v.AttributeDesc, prob)
-			v.AssertionValue = randomizeEachChar(v.AssertionValue, prob)
-		case *parser.FilterAnd:
-			for i := range v.Filters {
-				v.Filters[i] = RandCaseFilterObf(prob)(v.Filters[i])
-			}
-		case *parser.FilterOr:
-			for i := range v.Filters {
-				v.Filters[i] = RandCaseFilterObf(prob)(v.Filters[i])
-			}
-		case *parser.FilterNot:
-			v.Filter = RandCaseFilterObf(prob)(v.Filter)
-		case *parser.FilterSubstring:
-			v.AttributeDesc = randomizeEachChar(v.AttributeDesc, prob)
-			for i := range v.Substrings {
-				if v.Substrings[i].Initial != "" {
-					v.Substrings[i].Initial = randomizeEachChar(v.Substrings[i].Initial, prob)
+	return LeafApplierFilterMiddleware(
+		func(f parser.Filter) parser.Filter {
+			switch v := f.(type) {
+			case *parser.FilterEqualityMatch:
+				v.AttributeDesc = randomizeEachChar(v.AttributeDesc, prob)
+				v.AssertionValue = randomizeEachChar(v.AssertionValue, prob)
+				return v
+			case *parser.FilterSubstring:
+				v.AttributeDesc = randomizeEachChar(v.AttributeDesc, prob)
+				for i := range v.Substrings {
+					if v.Substrings[i].Initial != "" {
+						v.Substrings[i].Initial = randomizeEachChar(v.Substrings[i].Initial, prob)
+					}
+					if v.Substrings[i].Any != "" {
+						v.Substrings[i].Any = randomizeEachChar(v.Substrings[i].Any, prob)
+					}
+					if v.Substrings[i].Final != "" {
+						v.Substrings[i].Final = randomizeEachChar(v.Substrings[i].Final, prob)
+					}
 				}
-				if v.Substrings[i].Any != "" {
-					v.Substrings[i].Any = randomizeEachChar(v.Substrings[i].Any, prob)
-				}
-				if v.Substrings[i].Final != "" {
-					v.Substrings[i].Final = randomizeEachChar(v.Substrings[i].Final, prob)
-				}
+				return v
+			case *parser.FilterGreaterOrEqual:
+				v.AttributeDesc = randomizeEachChar(v.AttributeDesc, prob)
+				v.AssertionValue = randomizeEachChar(v.AssertionValue, prob)
+				return v
+			case *parser.FilterLessOrEqual:
+				v.AttributeDesc = randomizeEachChar(v.AttributeDesc, prob)
+				v.AssertionValue = randomizeEachChar(v.AssertionValue, prob)
+				return v
+			case *parser.FilterApproxMatch:
+				v.AttributeDesc = randomizeEachChar(v.AttributeDesc, prob)
+				v.AssertionValue = randomizeEachChar(v.AssertionValue, prob)
+				return v
+			case *parser.FilterPresent:
+				v.AttributeDesc = randomizeEachChar(v.AttributeDesc, prob)
+				return v
+			case *parser.FilterExtensibleMatch:
+				v.AttributeDesc = randomizeEachChar(v.AttributeDesc, prob)
+				v.MatchValue = randomizeEachChar(v.MatchValue, prob)
+				return v
 			}
-		case *parser.FilterGreaterOrEqual:
-			v.AttributeDesc = randomizeEachChar(v.AttributeDesc, prob)
-			v.AssertionValue = randomizeEachChar(v.AssertionValue, prob)
-		case *parser.FilterLessOrEqual:
-			v.AttributeDesc = randomizeEachChar(v.AttributeDesc, prob)
-			v.AssertionValue = randomizeEachChar(v.AssertionValue, prob)
-		case *parser.FilterApproxMatch:
-			v.AttributeDesc = randomizeEachChar(v.AttributeDesc, prob)
-			v.AssertionValue = randomizeEachChar(v.AssertionValue, prob)
-		case *parser.FilterPresent:
-			v.AttributeDesc = randomizeEachChar(v.AttributeDesc, prob)
-		case *parser.FilterExtensibleMatch:
-			v.AttributeDesc = randomizeEachChar(v.AttributeDesc, prob)
-			v.MatchValue = randomizeEachChar(v.MatchValue, prob) // Is this needed?
-		}
-		return f
-	}
+			return f
+		},
+	)
 }
 
 func randomizeEachChar(s string, prob float32) string {

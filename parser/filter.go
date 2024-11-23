@@ -164,8 +164,8 @@ func PacketToFilter(packet *ber.Packet) (Filter, error) {
 		if len(packet.Children) != 2 {
 			return nil, fmt.Errorf("Equality match filter should have 2 children")
 		}
-		attr := string(packet.Children[0].ByteValue)
-		value := string(packet.Children[1].ByteValue)
+		attr := string(packet.Children[0].Data.Bytes())
+		value := string(packet.Children[1].Data.Bytes())
 		return &FilterEqualityMatch{
 			AttributeDesc:  attr,
 			AssertionValue: value,
@@ -176,7 +176,7 @@ func PacketToFilter(packet *ber.Packet) (Filter, error) {
 			return nil, fmt.Errorf("Substring filter should have at least 2 children")
 		}
 
-		attr := string(packet.Children[0].ByteValue)
+		attr := string(packet.Children[0].Data.Bytes())
 		var substrs []SubstringFilter
 		for _, subPacket := range packet.Children[1].Children {
 			switch int(subPacket.Tag) {
@@ -198,8 +198,8 @@ func PacketToFilter(packet *ber.Packet) (Filter, error) {
 		if len(packet.Children) != 2 {
 			return nil, fmt.Errorf("GreaterOrEqual filter should have 2 children")
 		}
-		attr := string(packet.Children[0].ByteValue)
-		value := string(packet.Children[1].ByteValue)
+		attr := string(packet.Children[0].Data.Bytes())
+		value := string(packet.Children[1].Data.Bytes())
 		return &FilterGreaterOrEqual{
 			AttributeDesc:  attr,
 			AssertionValue: value,
@@ -209,8 +209,8 @@ func PacketToFilter(packet *ber.Packet) (Filter, error) {
 		if len(packet.Children) != 2 {
 			return nil, fmt.Errorf("LessOrEqual filter should have 2 children")
 		}
-		attr := string(packet.Children[0].ByteValue)
-		value := string(packet.Children[1].ByteValue)
+		attr := string(packet.Children[0].Data.Bytes())
+		value := string(packet.Children[1].Data.Bytes())
 		return &FilterLessOrEqual{
 			AttributeDesc:  attr,
 			AssertionValue: value,
@@ -230,12 +230,13 @@ func PacketToFilter(packet *ber.Packet) (Filter, error) {
 		if len(packet.Children) != 2 {
 			return nil, fmt.Errorf("ApproxMatch filter should have 2 children")
 		}
-		attr := string(packet.Children[0].ByteValue)
-		value := string(packet.Children[1].ByteValue)
+		attr := string(packet.Children[0].Data.Bytes())
+		value := string(packet.Children[1].Data.Bytes())
 		return &FilterApproxMatch{
 			AttributeDesc:  attr,
 			AssertionValue: value,
 		}, nil
+
 	case 0x9: // ExtensibleMatch filter
 		if len(packet.Children) < 2 {
 			return nil, fmt.Errorf("ExtensibleMatch filter should have at least 2 children")
@@ -267,6 +268,7 @@ func PacketToFilter(packet *ber.Packet) (Filter, error) {
 			MatchValue:    matchValue,
 			DNAttributes:  dnAttributes,
 		}, nil
+
 	default:
 		return nil, fmt.Errorf("unsupported filter type with tag: %x", packet.Tag)
 	}
@@ -301,8 +303,8 @@ func FilterToString(filter Filter, level int) string {
 			if sub.Initial != "" {
 				result.WriteString(fmt.Sprintf("%s  Initial: %s\n", indent, sub.Initial))
 			}
-			for i, any := range sub.Any {
-				result.WriteString(fmt.Sprintf("%s  Any[%d]: %s\n", indent, i, any))
+			if sub.Any != "" {
+				result.WriteString(fmt.Sprintf("%s  Any: %s\n", indent, sub.Any))
 			}
 			if sub.Final != "" {
 				result.WriteString(fmt.Sprintf("%s  Final: %s\n", indent, sub.Final))
