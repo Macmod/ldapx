@@ -75,6 +75,7 @@ func executor(in string) {
 			updateFilterChain("")
 			updateBaseDNChain("")
 			updateAttrListChain("")
+			fmt.Printf("All middleware chains cleared.\n")
 			return
 		}
 		handleClearCommand(blocks[1])
@@ -92,9 +93,10 @@ func executor(in string) {
 		}
 	case "help":
 		showHelp()
+	default:
+		fmt.Printf("Unknown command: '%s'\n", blocks[0])
 	}
 }
-
 func RunShell() {
 	p := prompt.New(
 		executor,
@@ -117,10 +119,13 @@ func handleClearCommand(param string) {
 	switch param {
 	case "filter":
 		updateFilterChain("")
+		fmt.Printf("Middleware chain Filter cleared.\n")
 	case "basedn":
 		updateBaseDNChain("")
+		fmt.Printf("Middleware chain BaseDN cleared.\n")
 	case "attrlist":
 		updateAttrListChain("")
+		fmt.Printf("Middleware chain AttrList cleared.\n")
 	default:
 		fmt.Printf("Unknown parameter: %s\n", param)
 	}
@@ -131,10 +136,16 @@ func handleSetCommand(param string, values []string) {
 	switch param {
 	case "filter":
 		updateFilterChain(value)
+		fmt.Printf("Middleware chain Filter updated:\n")
+		showChainConfig("Filter", filterChain, filterMidFlags)
 	case "basedn":
 		updateBaseDNChain(value)
+		fmt.Printf("Middleware chain BaseDN updated:\n")
+		showChainConfig("BaseDN", baseChain, baseDNMidFlags)
 	case "attrlist":
 		updateAttrListChain(value)
+		fmt.Printf("Middleware chain AttrList updated:\n")
+		showChainConfig("AttrList", attrChain, attrListMidFlags)
 	default:
 		fmt.Printf("Unknown parameter: %s\n", param)
 	}
@@ -169,10 +180,11 @@ func showChainConfig(name string, chain string, flags map[rune]string) {
 		return
 	}
 
+	fmt.Printf("  Chain: '%s'\n", chain)
 	for i, c := range chain {
 		if middlewareName, exists := flags[c]; exists {
 			indent := strings.Repeat("  ", i)
-			fmt.Printf("  %s|> %s\n", indent, middlewareName)
+			fmt.Printf("  %s|> %s (%c)\n", indent, middlewareName, c)
 		}
 	}
 

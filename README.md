@@ -87,7 +87,7 @@ The tool provides several middlewares "ready for use" for inline LDAP filter tra
 | BaseDN | `X` | HexValue | Obfuscation | Hex encodes characters in the values | `cn=john` | `cn=\6a\6fmin` | Probability based | 
 
 ### Implementation status
-* Filter - `HexValue` not working properly yet, `Garbage`, `ExactBitwiseBreakout`, `EqInclusion`, `EqExclusion` need improvements
+* Filter - `HexValue` not working properly yet, `Garbage`, `ExactBitwiseBreakout` and `BitwiseDecomposition` need improvements
 * AttrList - `Case` not working properly
 * BaseDN - Six methods working (spaces only work in beginning and end / hex only works in the values)
 
