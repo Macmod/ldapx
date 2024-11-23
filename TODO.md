@@ -1,8 +1,17 @@
+# In progress
+
 * [Fix] Guarantee that all obfuscation methods are "stable" / document the ones that aren't
-* [Fix] Review all middlewares to fix bugs and logic errors
-* [Fix] Try to connect only and always when the conn is needed
-* [Review] Cleanly exit the program and all goroutines and make sure it doesn't have any races
-* [Feature] Changing the target connection address via the shell
+* [Feature] Issue queries directly from ldapx
+* [Feature] Test queries directly from ldapx
+* [Review] Check if all middlewares work as intended to fix bugs and logic errors
+* [Review] Check if the logic behind the settings of each obfuscator is correct
+
+# Considering
+
 * [Feature] Add config file for fine-tuning all middlewares
-* [Feature] Support applying middlewares to LDAP operations other than search
+* [Fix] Try to connect only and always when the conn is needed
+* [Fix] Cleanly exit the program and all goroutines and make sure it doesn't have any races
 * [Study] Possibilities related to obfuscating LDAP_MATCHING_RULE_DN_WITH_DATA
+* [Study] Is it possible to replace a query interactively or does it timeout?
+* [Feature] Support applying middlewares to LDAP operations other than search
+* [Feature] Changing the target connection address via the shell
