@@ -49,27 +49,32 @@ $ ldapx -target 192.168.117.2:389 -f OGRD -a OW -b OZ
 
 The tool provides several middlewares "ready for use" for inline LDAP filter transformation. These middlewares were designed for use in Active Directory environments, but theoretically some of them could work in other LDAP environments.
 
-| Type | Key | Name | Purpose | Description | Input | Output | Details |
-|------|-----|------|---------|-------------|--------|--------|---------|
-| Filter | `S` | Spacing | Obfuscation | Adds random spaces between characters | `(memberOf=CN=lol,DC=draco)` | `(memberOf=  CN  =lol, DC =   draco)` | Only applies to DN string attributes, aNR attributes' prefix/suffix & SID attributes |
-| Filter | `T` | Timestamp | Obfuscation | Adds random chars to timestamp values | `(time=20230812.123Z)` | `(time=20230812.123aBcZdeF)` | |
-| Filter | `B` | AddBool | Obfuscation | Adds random boolean conditions | `(cn=john)` | `(&(cn=john)(\|(a=1)(a=2)))` | Max depth configurable |
-| Filter | `D` | DblNegBool | Obfuscation | Adds double negations | `(cn=john)` | `(!(!(cn=john)))` | Max depth configurable |
-| Filter | `M` | DeMorganBool | Obfuscation | Applies De Morgan's laws | `(!(\|(a=1)(b=2)))` | `(&(!(a=1))(!(b=2)))` | Probability based |
-| Filter | `O` | OIDAttribute | Obfuscation | Converts attrs to OIDs | `(cn=john)` | `(2.5.4.3=john)` | Uses standard LDAP OIDs |
-| Filter | `C` | Case | Obfuscation | Randomizes character case | `(cn=John)` | `(cN=jOhN)` | Probability based |
-| Filter | `X` | HexValue | Obfuscation | Hex encodes characters | `(cn=john)` | `(cn=\6a\6f\68\6e)` | Probability based |
-| Filter | `R` | ReorderBool | Obfuscation | Reorders boolean conditions | `(&(a=1)(b=2))` | `(&(b=2)(a=1))` | Random reordering |
-| Filter | `b` | ExactBitwiseBreakout | Obfuscation | Breaks out exact matches into bitwise operations | `(flags=7)` | `TODO` | For numeric attributes |
-| Filter | `I` | EqInclusion | Obfuscation | Converts equality to inclusion | `(cn=krbtgt)` | `(&(cn>=krbtgs)(cn<=krbtgu)(!(cn=krbtgs))(!(cn=krbtgu)))` | Works for numeric, string and SID attributes |
-| Filter | `E` | EqExclusion | Obfuscation | Converts equality to presence+exclusion | `(cn=krbtgt)` | `(&(cn=*)(!(cn<=krbtgs))(!(cn>=krbtgu)))` | Works for numeric, string and SID attributes |
-| Filter | `d` | BitwiseDecomposition | Obfuscation | Decomposes bitwise operations into multiple components | `(attr:1.2.840.113556.1.4.803:=7)` | `(&(attr:1.2.840.113556.1.4.803:=1)(attr:1.2.840.113556.1.4.803:=2)(attr:1.2.840.113556.1.4.803:=4))` | For numeric attributes || AttrList | `C` | Case | Obfuscation | Randomizes attribute case | `cn,sn` | `cN,Sn` | Probability based |
-| Filter | `G` | Garbage | Obfuscation | Adds random garbage conditions | `(cn=john)` | `(\|(cn=john)(eqwoi31=21oi32j))` | Configurable count |
-| Filter | `A` | EqApproxMatch | Obfuscation | Converts equality to approximate match | `(cn=john)` | `(cn~=john)` | Uses LDAP's `~=` operator, which in AD is equivalent to `=` |
-| Filter | `Z` | PrependZeros | Obfuscation | Prepends random zeros to numeric values | `(flags=123)` | `(flags=00123)` | Only for numeric attributes and SIDs |
-| Filter | `W` | AddWildcard | Obfuscation | Adds wildcards by splitting values into substrings | `(cn=john)` | `(cn=jo*hn)` | Only for string attrs. & can break the filter if it's not specific enough |
-| Filter | `N` | NamesToANR | Obfuscation | Changes attributes in the aNR set to `aNR` | `(name=john)` | `(aNR==john)` | |
-| Filter | `n` | ANRGarbageSubstring | Obfuscation | Appends garbage to the end of `aNR` equalities | `(aNR==john)` | `(aNR==john*siaASJU)` | |
+### Filter
+
+| Key | Name | Purpose | Description | Input  | Output | Details |
+|-----|------|---------|-------------|--------|--------|---------|
+| `S` | Spacing | Obfuscation | Adds random spaces between characters | `(memberOf=CN=lol,DC=draco)` | `(memberOf=  CN  =lol, DC =   draco)` | Only applies to DN string attributes, aNR attributes' prefix/suffix & SID attributes |
+| `T` | Timestamp | Obfuscation | Adds random chars to timestamp values | `(time=20230812.123Z)` | `(time=20230812.123aBcZdeF)` | |
+| `B` | AddBool | Obfuscation | Adds random boolean conditions | `(cn=john)` | `(&(cn=john)(\|(a=1)(a=2)))` | Max depth configurable |
+| `D` | DblNegBool | Obfuscation | Adds double negations | `(cn=john)` | `(!(!(cn=john)))` | Max depth configurable |
+| `M` | DeMorganBool | Obfuscation | Applies De Morgan's laws | `(!(\|(a=1)(b=2)))` | `(&(!(a=1))(!(b=2)))` | Probability based |
+| `O` | OIDAttribute | Obfuscation | Converts attrs to OIDs | `(cn=john)` | `(2.5.4.3=john)` | Uses standard LDAP OIDs |
+| `C` | Case | Obfuscation | Randomizes character case | `(cn=John)` | `(cN=jOhN)` | Probability based |
+| `X` | HexValue | Obfuscation | Hex encodes characters | `(cn=john)` | `(cn=\6a\6f\68\6e)` | Probability based |
+| `R` | ReorderBool | Obfuscation | Reorders boolean conditions | `(&(a=1)(b=2))` | `(&(b=2)(a=1))` | Random reordering |
+| `b` | ExactBitwiseBreakout | Obfuscation | Breaks out exact matches into bitwise operations | `(flags=7)` | `TODO` | For numeric attributes |
+| `I` | EqInclusion | Obfuscation | Converts equality to inclusion | `(cn=krbtgt)` | `(&(cn>=krbtgs)(cn<=krbtgu)(!(cn=krbtgs))(!(cn=krbtgu)))` | Works for numeric, string and SID attributes |
+| `E` | EqExclusion | Obfuscation | Converts equality to presence+exclusion | `(cn=krbtgt)` | `(&(cn=*)(!(cn<=krbtgs))(!(cn>=krbtgu)))` | Works for numeric, string and SID attributes |
+| `d` | BitwiseDecomposition | Obfuscation | Decomposes bitwise operations into multiple components | `(attr:1.2.840.113556.1.4.803:=7)` | `(&(attr:1.2.840.113556.1.4.803:=1)(attr:1.2.840.113556.1.4.803:=2)(attr:1.2.840.113556.1.4.803:=4))` | For numeric attributes || AttrList | `C` | Case | Obfuscation | Randomizes attribute case | `cn,sn` | `cN,Sn` | Probability based |
+| `G` | Garbage | Obfuscation | Adds random garbage conditions | `(cn=john)` | `(\|(cn=john)(eqwoi31=21oi32j))` | Configurable count |
+| `A` | EqApproxMatch | Obfuscation | Converts equality to approximate match | `(cn=john)` | `(cn~=john)` | Uses LDAP's `~=` operator, which in AD is equivalent to `=` |
+| `Z` | PrependZeros | Obfuscation | Prepends random zeros to numeric values | `(flags=123)` | `(flags=00123)` | Only for numeric attributes and SIDs |
+| `W` | AddWildcard | Obfuscation | Adds wildcards by splitting values into substrings | `(cn=john)` | `(cn=jo*hn)` | Only for string attrs. & can break the filter if it's not specific enough |
+| `N` | NamesToANR | Obfuscation | Changes attributes in the aNR set to `aNR` | `(name=john)` | `(aNR==john)` | |
+| `n` | ANRGarbageSubstring | Obfuscation | Appends garbage to the end of `aNR` equalities | `(aNR==john)` | `(aNR==john*siaASJU)` | |
+
+### Attributes List
+
 | AttrList | `O` | OIDAttribute | Obfuscation | Converts to OID form | `cn,sn` | `2.5.4.3,2.5.4.4` | Uses standard LDAP OIDs |
 | AttrList | `G` | GarbageNonExisting | Obfuscation | Adds fake attributes | `cn,sn` | `cn,sn,x-123` | Garbage is chosen randomly from an alphabet |
 | AttrList | `g` | GarbageExisting | Obfuscation | Adds real attributes | `cn` | `cn,sn,mail` | Garbage is chosen from real attributes |
@@ -79,6 +84,9 @@ The tool provides several middlewares "ready for use" for inline LDAP filter tra
 | AttrList | `w` | ReplaceWithWildcard | Obfuscation | Replaces the list with a wildcard | `cn,sn` | `*` | Replaces all attributes |
 | AttrList | `E` | ReplaceWithEmpty | Obfuscation | Empties the attributes list | `cn,sn` | | |
 | AttrList | `R` | ReorderList | Obfuscation | Randomly reorders attrs | `cn,sn,uid` | `uid,cn,sn` | Random permutation |
+
+### BaseDN
+
 | BaseDN | `C` | Case | Obfuscation | Randomizes DN case | `CN=lol,DC=draco,DC=local` | `cN=lOl,dC=dRaCo,Dc=loCaL` | Probability based |
 | BaseDN | `O` | OIDAttribute | Obfuscation | Converts DN attrs to OIDs | `cn=Admin` | `2.5.4.3=Admin` | Uses standard LDAP OIDs |
 | BaseDN | `Z` | OIDPrependZeros | Obfuscation | Prepends zeros to OID components | `2.5.4.3=admin` | `002.0005.04.03=admin` | Only applies if there are OID components (for instance, by applying O before) |
