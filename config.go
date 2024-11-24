@@ -90,7 +90,7 @@ func SetupFilterMidMap(configFile string) {
 		"ExactBitwiseBreakout": filtermid.ExactBitwiseBreakoutFilterObf(),
 		"EqInclusion":          filtermid.EqualityByInclusionFilterObf(),
 		"EqExclusion":          filtermid.EqualityByExclusionFilterObf(),
-		"BitwiseDecomposition": filtermid.BitwiseDecomposeFilterObf(3, false),
+		"BitwiseDecomposition": filtermid.BitwiseDecomposeFilterObf(32, false),
 	}
 
 	attrListMidMap = map[string]attrlistmid.AttrListMiddleware{

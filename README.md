@@ -62,7 +62,7 @@ The tool provides several middlewares "ready for use" for inline LDAP filter tra
 | `C` | Case | Obfuscation | Randomizes character case | `(cn=John)` | `(cN=jOhN)` | Probability based |
 | `X` | HexValue | Obfuscation | Hex encodes characters | `(cn=john)` | `(cn=\6a\6f\68\6e)` | Probability based |
 | `R` | ReorderBool | Obfuscation | Reorders boolean conditions | `(&(a=1)(b=2))` | `(&(b=2)(a=1))` | Random reordering |
-| `b` | ExactBitwiseBreakout | Obfuscation | Breaks out exact matches into bitwise operations | `(flags=7)` | `TODO` | For numeric attributes |
+| `b` | ExactBitwiseBreakout | Obfuscation | Breaks out exact matches into bitwise operations | `(attr=7)` | `(&(attr:1.2.840.113556.1.4.803:=7)(!(attr:1.2.840.113556.1.4.804:=4294967288)))` | For numeric attributes |
 | `I` | EqInclusion | Obfuscation | Converts equality to inclusion | `(cn=krbtgt)` | `(&(cn>=krbtgs)(cn<=krbtgu)(!(cn=krbtgs))(!(cn=krbtgu)))` | Works for numeric, string and SID attributes |
 | `E` | EqExclusion | Obfuscation | Converts equality to presence+exclusion | `(cn=krbtgt)` | `(&(cn=*)(!(cn<=krbtgs))(!(cn>=krbtgu)))` | Works for numeric, string and SID attributes |
 | `d` | BitwiseDecomposition | Obfuscation | Decomposes bitwise operations into multiple components | `(attr:1.2.840.113556.1.4.803:=7)` | `(&(attr:1.2.840.113556.1.4.803:=1)(attr:1.2.840.113556.1.4.803:=2)(attr:1.2.840.113556.1.4.803:=4))` | For numeric attributes || AttrList | `C` | Case | Obfuscation | Randomizes attribute case | `cn,sn` | `cN,Sn` | Probability based |
@@ -99,7 +99,7 @@ The tool provides several middlewares "ready for use" for inline LDAP filter tra
 | `X` | HexValue | Obfuscation | Hex encodes characters in the values | `cn=john` | `cn=\6a\6fmin` | Probability based | 
 
 ### Implementation status
-* Filter - `HexValue` not working properly yet, `Garbage`, `BitwiseDecomposition` need improvements
+* Filter - `HexValue` not working properly yet, `Garbage` needs improvements
 * AttrList - `Case` not working properly
 * BaseDN - Six methods working (spaces only work in beginning and end / hex only works in the values)
 
