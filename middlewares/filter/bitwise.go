@@ -1,6 +1,7 @@
 package filtermid
 
 import (
+	"slices"
 	"strconv"
 
 	"github.com/Macmod/ldapx/parser"
@@ -22,7 +23,12 @@ func hasSingleOneBit(n int64) bool {
 func ExactBitwiseBreakoutFilterObf() func(parser.Filter) parser.Filter {
 	return LeafApplierFilterMiddleware(func(filter parser.Filter) parser.Filter {
 		if f, ok := filter.(*parser.FilterEqualityMatch); ok {
-			if val, err := strconv.ParseInt(f.AssertionValue, 10, 64); err == nil {
+			tokenType, err := parser.GetAttributeTokenFormat(f.AttributeDesc)
+			if err != nil || !slices.Contains(parser.NumberFormats, tokenType) {
+				return f
+			}
+
+			if val, err := strconv.ParseUint(f.AssertionValue, 10, 32); err == nil {
 				return &parser.FilterAnd{
 					Filters: []parser.Filter{
 						&parser.FilterExtensibleMatch{
@@ -34,7 +40,7 @@ func ExactBitwiseBreakoutFilterObf() func(parser.Filter) parser.Filter {
 							Filter: &parser.FilterExtensibleMatch{
 								MatchingRule:  "1.2.840.113556.1.4.804",
 								AttributeDesc: f.AttributeDesc,
-								MatchValue:    strconv.FormatInt(^val, 10),
+								MatchValue:    strconv.FormatUint(uint64(^uint32(val)), 10),
 							},
 						},
 					},

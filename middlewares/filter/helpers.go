@@ -68,10 +68,10 @@ func GetSomeRandChars(maxChars int) []rune {
 }
 
 func ReplaceTimestamp(value string, prepend bool, append bool, maxChars int) string {
-	re := regexp.MustCompile(`(\d{14})\.(\d*)Z$`) // TODO: What about leading zeros?
+	re := regexp.MustCompile(`^([0-9]{14})([.,].*)Z(.*)`)
 	return re.ReplaceAllStringFunc(value, func(match string) string {
 		parts := re.FindStringSubmatch(match)
-		if len(parts) == 3 {
+		if len(parts) == 4 {
 			var prependStr string
 			var appendStr string
 
@@ -83,7 +83,7 @@ func ReplaceTimestamp(value string, prepend bool, append bool, maxChars int) str
 				appendStr = string(GetSomeRandChars(maxChars))
 			}
 
-			return fmt.Sprintf("%s.%s%sZ%s", parts[1], parts[2], prependStr, appendStr)
+			return fmt.Sprintf("%s%s%sZ%s%s", parts[1], parts[2], prependStr, appendStr, parts[3])
 		}
 		return match
 	})
