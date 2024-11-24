@@ -75,6 +75,8 @@ The tool provides several middlewares "ready for use" for inline LDAP filter tra
 
 ### Attributes List
 
+| Key      | Name | Purpose | Description | Input  | Output | Details |
+|----------|------|---------|-------------|--------|--------|---------|
 | AttrList | `O` | OIDAttribute | Obfuscation | Converts to OID form | `cn,sn` | `2.5.4.3,2.5.4.4` | Uses standard LDAP OIDs |
 | AttrList | `G` | GarbageNonExisting | Obfuscation | Adds fake attributes | `cn,sn` | `cn,sn,x-123` | Garbage is chosen randomly from an alphabet |
 | AttrList | `g` | GarbageExisting | Obfuscation | Adds real attributes | `cn` | `cn,sn,mail` | Garbage is chosen from real attributes |
@@ -87,6 +89,8 @@ The tool provides several middlewares "ready for use" for inline LDAP filter tra
 
 ### BaseDN
 
+| Key    | Name | Purpose | Description | Input  | Output | Details |
+|--------|------|---------|-------------|--------|--------|---------|
 | BaseDN | `C` | Case | Obfuscation | Randomizes DN case | `CN=lol,DC=draco,DC=local` | `cN=lOl,dC=dRaCo,Dc=loCaL` | Probability based |
 | BaseDN | `O` | OIDAttribute | Obfuscation | Converts DN attrs to OIDs | `cn=Admin` | `2.5.4.3=Admin` | Uses standard LDAP OIDs |
 | BaseDN | `Z` | OIDPrependZeros | Obfuscation | Prepends zeros to OID components | `2.5.4.3=admin` | `002.0005.04.03=admin` | Only applies if there are OID components (for instance, by applying O before) |
