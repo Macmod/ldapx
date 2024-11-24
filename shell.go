@@ -39,6 +39,14 @@ var showParamSuggestions = []prompt.Suggest{
 	{Text: "testattrlist", Description: "Attribute list to use for the `test` command"},
 }
 
+var helpParamSuggestions = []prompt.Suggest{
+	{Text: "filter", Description: "Show available filter middlewares"},
+	{Text: "basedn", Description: "Show available basedn middlewares"},
+	{Text: "attrlist", Description: "Show available attribute list middlewares"},
+	{Text: "testbasedn", Description: "Show testbasedn parameter info"},
+	{Text: "testattrlist", Description: "Show testattrlist parameter info"},
+}
+
 var testBaseDN = "DC=test,DC=local"
 var testAttrList = []string{"cn", "objectClass", "sAMAccountName"}
 
@@ -60,6 +68,8 @@ func completer(in prompt.Document) []prompt.Suggest {
 		return prompt.FilterHasPrefix(clearParamSuggestions, w, true)
 	case "show":
 		return prompt.FilterHasPrefix(showParamSuggestions, w, true)
+	case "help":
+		return prompt.FilterHasPrefix(helpParamSuggestions, w, true)
 	default:
 		return []prompt.Suggest{}
 	}
@@ -100,7 +110,11 @@ func executor(in string) {
 			showCurrentConfig("")
 		}
 	case "help":
-		showHelp()
+		if len(blocks) > 1 {
+			showHelp(blocks[1])
+		} else {
+			showHelp()
+		}
 	case "test":
 		if len(blocks) < 2 {
 			fmt.Println("Usage: test <ldap_query>")
@@ -215,23 +229,51 @@ func showChainConfig(name string, chain string, flags map[rune]string) {
 	fmt.Println("")
 }
 
-func showHelp() {
-	fmt.Println("Available commands:")
-	fmt.Println("  set <parameter> <value>    Set a configuration parameter")
-	fmt.Println("  clear [<middlewarechain>]  Clear a middleware chain")
-	fmt.Println("  show [<parameter>]         Show a configuration parameter or all")
-	fmt.Println("  help                       Show this help message")
-	fmt.Println("  exit                       Exit the program")
-	fmt.Println("  test <query>               Simulate an LDAP query through the middlewares without sending it")
-	fmt.Println("\nParameters:")
-	fmt.Println("  filter       - Filter middleware chain")
-	fmt.Println("  basedn       - BaseDN middleware chain")
-	fmt.Println("  attrlist     - Attribute list middleware chain")
-	fmt.Println("  testbasedn   - BaseDN to use for the `test` command")
-	fmt.Println("  testattrlist - Attribute list to use for the `test` command (separated by commas)")
+func showHelp(args ...string) {
+	if len(args) == 0 {
+		fmt.Println("Available commands:")
+		fmt.Println("  set <parameter> <value>    Set a configuration parameter")
+		fmt.Println("  clear [<middlewarechain>]  Clear a middleware chain")
+		fmt.Println("  show [<parameter>]         Show a configuration parameter or all")
+		fmt.Println("  help [<parameter>]         Show this help message or parameter-specific help")
+		fmt.Println("  exit                       Exit the program")
+		fmt.Println("  test <query>               Simulate an LDAP query through the middlewares without sending it")
+		fmt.Println("\nParameters:")
+		fmt.Println("  filter       - Filter middleware chain")
+		fmt.Println("  basedn       - BaseDN middleware chain")
+		fmt.Println("  attrlist     - Attribute list middleware chain")
+		fmt.Println("  testbasedn   - BaseDN to use for the `test` command")
+		fmt.Println("  testattrlist - Attribute list to use for the `test` command (separated by commas)")
+		fmt.Println("\nUse 'help <parameter>' for detailed information about specific parameters")
+		fmt.Println("")
+		return
+	}
+
+	switch args[0] {
+	case "filter":
+		fmt.Println("Filter middleware chain:")
+		for flag, name := range filterMidFlags {
+			fmt.Printf("  %c - %s\n", flag, name)
+		}
+	case "basedn":
+		fmt.Println("BaseDN middleware chain:")
+		for flag, name := range baseDNMidFlags {
+			fmt.Printf("  %c - %s\n", flag, name)
+		}
+	case "attrlist":
+		fmt.Println("Attribute list middleware chain:")
+		for flag, name := range attrListMidFlags {
+			fmt.Printf("  %c - %s\n", flag, name)
+		}
+	case "testbasedn":
+		fmt.Println("testbasedn - BaseDN to use for the `test` command")
+	case "testattrlist":
+		fmt.Println("testattrlist - Attribute list to use for the `test` command (separated by commas)")
+	default:
+		fmt.Printf("Unknown parameter: %s\n", args[0])
+	}
 	fmt.Println("")
 }
-
 func showGlobalConfig() {
 	fmt.Printf("[Global settings]\n")
 	fmt.Printf("  Debug: %v\n", debug)
