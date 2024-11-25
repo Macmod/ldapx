@@ -5,7 +5,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Macmod/ldapx/ldaplib"
 	"github.com/Macmod/ldapx/parser"
 	"github.com/c-bata/go-prompt"
 )
@@ -288,32 +287,18 @@ func showGlobalConfig() {
 	fmt.Println("")
 }
 
-func QueryToFilter(query string) (parser.Filter, error) {
-	packet, err := ldaplib.CompileFilter(query)
-	if err != nil {
-		return nil, err
-	}
-	return parser.PacketToFilter(packet)
-}
-
-func FilterToQuery(filter parser.Filter) (string, error) {
-	packet := parser.FilterToPacket(filter)
-	query, err := ldaplib.DecompileFilter(packet)
-	return query, err
-}
-
 func handleTestCommand(query string) {
 	fmt.Printf("%s\n", strings.Repeat("─", 55))
 	logger.Printf("[+] Simulated LDAP Search\n")
 	logger.Printf("[+] Input: %s\n", query)
 
-	filter, err := QueryToFilter(query)
+	filter, err := parser.QueryToFilter(query)
 	if err != nil {
 		red.Printf("Error compiling query: %v\n", err)
 		return
 	}
 
-	parsed, err := FilterToQuery(filter)
+	parsed, err := parser.FilterToQuery(filter)
 	if err != nil {
 		red.Printf("Unknown error: %v\n", err)
 		return
@@ -334,7 +319,7 @@ func handleTestCommand(query string) {
 		bc,
 	)
 
-	newParsed, err := FilterToQuery(newFilter)
+	newParsed, err := parser.FilterToQuery(newFilter)
 	if err != nil {
 		red.Printf("Unknown error: '%v'", err)
 	}

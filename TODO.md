@@ -10,8 +10,7 @@
 * [Feature] Add config file for fine-tuning all middlewares
 * [Fix] Try to connect only and always when the conn is needed
 * [Fix] Cleanly exit the program and all goroutines and make sure it doesn't have any races
-* [Study] Possibilities related to obfuscating LDAP_MATCHING_RULE_DN_WITH_DATA
+* [Study] Possibilities related to obfuscating LDAP_MATCHING_RULE_DN_WITH_DATA, Timestamps with comma/timezones, ExtensibleMatchFilter's with negative values, TokenSID ordering, etc
 * [Study] Is it possible to replace a query interactively or does it timeout?
-* [Improvement] Integrate ldaplib to existing code to minimize duplication
 * [Feature] Support applying middlewares to LDAP operations other than search (Add, Modify, Delete)
 * [Feature] Changing the target connection address via the shell

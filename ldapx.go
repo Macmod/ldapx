@@ -10,7 +10,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Macmod/ldapx/ldaplib"
 	attrlistmid "github.com/Macmod/ldapx/middlewares/attrlist"
 	basednmid "github.com/Macmod/ldapx/middlewares/basedn"
 	filtermid "github.com/Macmod/ldapx/middlewares/filter"
@@ -137,7 +136,8 @@ func handleLDAPConnection(conn net.Conn) {
 				return
 			}
 
-			ldaplib.AddLDAPDescriptions(packet)
+			parser.AddLDAPDescriptions(packet)
+
 			reqMessageID := packet.Children[0].Value.(int64)
 			reqMessageType := packet.Children[1].Description
 
@@ -154,7 +154,7 @@ func handleLDAPConnection(conn net.Conn) {
 					continue
 				}
 
-				oldFilterStr, err := ldaplib.DecompileFilter(filterData)
+				oldFilterStr, err := parser.FilterToQuery(filter)
 				if err != nil {
 					yellow.Printf("[WARNING] %s\n", err)
 				}
@@ -165,7 +165,7 @@ func handleLDAPConnection(conn net.Conn) {
 					filter, baseDN, attrs, fc, ac, bc,
 				)
 
-				newFilterStr, err := ldaplib.DecompileFilter(parser.FilterToPacket(newFilter))
+				newFilterStr, err := parser.FilterToQuery(newFilter)
 				if err != nil {
 					yellow.Printf("[WARNING] %s\n", err)
 				}
@@ -207,7 +207,7 @@ func handleLDAPConnection(conn net.Conn) {
 					return
 				}
 
-				ldaplib.AddLDAPDescriptions(responsePacket)
+				parser.AddLDAPDescriptions(responsePacket)
 				respMessageID := responsePacket.Children[0].Value.(int64)
 				respMessageType := responsePacket.Children[1].Description
 

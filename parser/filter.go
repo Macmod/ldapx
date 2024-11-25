@@ -1,8 +1,14 @@
 package parser
 
 import (
+	"bytes"
+	hexpac "encoding/hex"
+	"errors"
 	"fmt"
+	"io"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	ber "github.com/go-asn1-ber/asn1-ber"
 )
@@ -412,4 +418,440 @@ func FilterToPacket(f Filter) *ber.Packet {
 	}
 
 	return nil
+}
+
+// Conversions from Filter to Query and vice-versa
+func FilterToQuery(filter Filter) (string, error) {
+	switch f := filter.(type) {
+	case *FilterAnd:
+		var subFilters []string
+		for _, subFilter := range f.Filters {
+			subStr, err := FilterToQuery(subFilter)
+			if err != nil {
+				return "", err
+			}
+			subFilters = append(subFilters, subStr)
+		}
+		return "(&" + strings.Join(subFilters, "") + ")", nil
+
+	case *FilterOr:
+		var subFilters []string
+		for _, subFilter := range f.Filters {
+			subStr, err := FilterToQuery(subFilter)
+			if err != nil {
+				return "", err
+			}
+			subFilters = append(subFilters, subStr)
+		}
+		return "(|" + strings.Join(subFilters, "") + ")", nil
+
+	case *FilterNot:
+		subStr, err := FilterToQuery(f.Filter)
+		if err != nil {
+			return "", err
+		}
+		return "(!" + subStr + ")", nil
+
+	case *FilterEqualityMatch:
+		return fmt.Sprintf("(%s=%s)", ldapEscape(f.AttributeDesc), ldapEscape(f.AssertionValue)), nil
+
+	case *FilterSubstring:
+		var parts []string
+		for _, part := range f.Substrings {
+			switch {
+			case part.Initial != "":
+				parts = append(parts, ldapEscape(part.Initial))
+			case part.Any != "":
+				parts = append(parts, ldapEscape(part.Any))
+			case part.Final != "":
+				parts = append(parts, ldapEscape(part.Final))
+			}
+		}
+
+		// Handle edge cases
+		if len(parts) > 0 {
+			if f.Substrings[0].Initial == "" {
+				parts[0] = "*" + parts[0]
+			}
+			if f.Substrings[len(f.Substrings)-1].Final == "" {
+				parts[len(parts)-1] = parts[len(parts)-1] + "*"
+			}
+		}
+
+		return fmt.Sprintf("(%s=%s)", ldapEscape(f.AttributeDesc), strings.Join(parts, "*")), nil
+	case *FilterGreaterOrEqual:
+		return fmt.Sprintf("(%s>=%s)", ldapEscape(f.AttributeDesc), ldapEscape(f.AssertionValue)), nil
+
+	case *FilterLessOrEqual:
+		return fmt.Sprintf("(%s<=%s)", ldapEscape(f.AttributeDesc), ldapEscape(f.AssertionValue)), nil
+
+	case *FilterPresent:
+		return fmt.Sprintf("(%s=*)", ldapEscape(f.AttributeDesc)), nil
+
+	case *FilterApproxMatch:
+		return fmt.Sprintf("(%s~=%s)", ldapEscape(f.AttributeDesc), ldapEscape(f.AssertionValue)), nil
+
+	case *FilterExtensibleMatch:
+		var parts []string
+		if f.AttributeDesc != "" {
+			parts = append(parts, ldapEscape(f.AttributeDesc))
+		}
+		if f.DNAttributes {
+			parts = append(parts, "dn")
+		}
+		if f.MatchingRule != "" {
+			parts = append(parts, ldapEscape(f.MatchingRule))
+		}
+		if f.MatchValue != "" {
+			parts = append(parts, "="+ldapEscape(f.MatchValue))
+		}
+		return fmt.Sprintf("(%s)", strings.Join(parts, ":")), nil
+
+	default:
+		return "", fmt.Errorf("unsupported filter type: %T", filter)
+	}
+}
+
+func QueryToFilter(query string) (Filter, error) {
+	query = strings.TrimSpace(query)
+	if len(query) == 0 {
+		return nil, fmt.Errorf("empty query string")
+	}
+
+	if query[0] != '(' || query[len(query)-1] != ')' {
+		return nil, fmt.Errorf("invalid query format")
+	}
+
+	var filter Filter
+	var err error
+
+	switch query[1] {
+	case '&':
+		filter, err = parseAndFilter(query)
+	case '|':
+		filter, err = parseOrFilter(query)
+	case '!':
+		filter, err = parseNotFilter(query)
+	default:
+		filter, err = parseSimpleFilter(query)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return filter, nil
+}
+
+func parseAndFilter(query string) (Filter, error) {
+	subFilters, err := parseSubFilters(query[2 : len(query)-1])
+	if err != nil {
+		return nil, err
+	}
+	return &FilterAnd{Filters: subFilters}, nil
+}
+
+func parseOrFilter(query string) (Filter, error) {
+	subFilters, err := parseSubFilters(query[2 : len(query)-1])
+	if err != nil {
+		return nil, err
+	}
+	return &FilterOr{Filters: subFilters}, nil
+}
+
+func parseNotFilter(query string) (Filter, error) {
+	if len(query) < 4 {
+		return nil, fmt.Errorf("invalid NOT filter")
+	}
+	subFilter, err := QueryToFilter(query[2 : len(query)-1])
+	if err != nil {
+		return nil, err
+	}
+	return &FilterNot{Filter: subFilter}, nil
+}
+
+func decodeEscapedSymbols(src []byte) (string, error) {
+	var (
+		buffer  bytes.Buffer
+		offset  int
+		reader  = bytes.NewReader(src)
+		byteHex []byte
+		byteVal []byte
+	)
+
+	for {
+		runeVal, runeSize, err := reader.ReadRune()
+		if err == io.EOF {
+			return buffer.String(), nil
+		} else if err != nil {
+			return "", NewError(ErrorFilterCompile, fmt.Errorf("ldap: failed to read filter: %v", err))
+		} else if runeVal == unicode.ReplacementChar {
+			return "", NewError(ErrorFilterCompile, fmt.Errorf("ldap: error reading rune at position %d", offset))
+		}
+
+		if runeVal == '\\' {
+			// http://tools.ietf.org/search/rfc4515
+			// \ (%x5C) is not a valid character unless it is followed by two HEX characters due to not
+			// being a member of UTF1SUBSET.
+			if byteHex == nil {
+				byteHex = make([]byte, 2)
+				byteVal = make([]byte, 1)
+			}
+
+			if _, err := io.ReadFull(reader, byteHex); err != nil {
+				if err == io.ErrUnexpectedEOF {
+					return "", NewError(ErrorFilterCompile, errors.New("ldap: missing characters for escape in filter"))
+				}
+				return "", NewError(ErrorFilterCompile, fmt.Errorf("ldap: invalid characters for escape in filter: %v", err))
+			}
+
+			if _, err := hexpac.Decode(byteVal, byteHex); err != nil {
+				return "", NewError(ErrorFilterCompile, fmt.Errorf("ldap: invalid characters for escape in filter: %v", err))
+			}
+
+			buffer.Write(byteVal)
+		} else {
+			buffer.WriteRune(runeVal)
+		}
+
+		offset += runeSize
+	}
+}
+
+func parseSimpleFilter(query string) (Filter, error) {
+	const (
+		stateReadingAttr = iota
+		stateReadingExtensibleMatchingRule
+		stateReadingCondition
+	)
+
+	dnAttributes := false
+	attribute := bytes.NewBuffer(nil)
+	matchingRule := bytes.NewBuffer(nil)
+	condition := bytes.NewBuffer(nil)
+
+	query = strings.TrimSpace(query)
+	if len(query) < 3 || query[0] != '(' || query[len(query)-1] != ')' {
+		return nil, fmt.Errorf("invalid simple filter format")
+	}
+
+	var resultFilter Filter
+
+	state := stateReadingAttr
+	pos := 1
+	for pos < len(query) {
+		remainingQuery := query[pos:]
+		char, width := utf8.DecodeRuneInString(remainingQuery)
+		if char == ')' {
+			break
+		}
+
+		if char == utf8.RuneError {
+			return nil, fmt.Errorf("ldap: error reading rune at position %d", pos)
+		}
+
+		switch state {
+		case stateReadingAttr:
+			switch {
+			case char == ':' && strings.HasPrefix(remainingQuery, ":dn:="):
+				dnAttributes = true
+				state = stateReadingCondition
+				resultFilter = &FilterExtensibleMatch{}
+				pos += 5
+			case char == ':' && strings.HasPrefix(remainingQuery, ":dn:"):
+				dnAttributes = true
+				state = stateReadingExtensibleMatchingRule
+				resultFilter = &FilterExtensibleMatch{}
+				pos += 4
+			case char == ':' && strings.HasPrefix(remainingQuery, ":="):
+				state = stateReadingCondition
+				resultFilter = &FilterExtensibleMatch{}
+				pos += 2
+			case char == ':':
+				state = stateReadingExtensibleMatchingRule
+				resultFilter = &FilterExtensibleMatch{}
+				pos++
+			case char == '=':
+				state = stateReadingCondition
+				resultFilter = &FilterEqualityMatch{}
+				pos++
+			case char == '>' && strings.HasPrefix(remainingQuery, ">="):
+				state = stateReadingCondition
+				resultFilter = &FilterGreaterOrEqual{}
+				pos += 2
+			case char == '<' && strings.HasPrefix(remainingQuery, "<="):
+				state = stateReadingCondition
+				resultFilter = &FilterLessOrEqual{}
+				pos += 2
+			case char == '~' && strings.HasPrefix(remainingQuery, "~="):
+				state = stateReadingCondition
+				resultFilter = &FilterApproxMatch{}
+				pos += 2
+			default:
+				attribute.WriteRune(char)
+				pos += width
+			}
+
+		case stateReadingExtensibleMatchingRule:
+			switch {
+			case char == ':' && strings.HasPrefix(remainingQuery, ":="):
+				state = stateReadingCondition
+				pos += 2
+			default:
+				matchingRule.WriteRune(char)
+				pos += width
+			}
+
+		case stateReadingCondition:
+			condition.WriteRune(char)
+			pos += width
+		}
+	}
+
+	if pos == len(query) {
+		return nil, fmt.Errorf("ldap: unexpected end of filter")
+	}
+
+	if resultFilter == nil {
+		return nil, fmt.Errorf("ldap: error parsing filter")
+	}
+
+	encodedString, encodeErr := decodeEscapedSymbols(condition.Bytes())
+	if encodeErr != nil {
+		return nil, fmt.Errorf("Error decoding escaped symbols")
+	}
+
+	switch resultFilter := resultFilter.(type) {
+	case *FilterExtensibleMatch:
+		resultFilter.MatchingRule = matchingRule.String()
+		resultFilter.AttributeDesc = attribute.String()
+		resultFilter.MatchValue = encodedString
+		resultFilter.DNAttributes = dnAttributes
+		return resultFilter, nil
+	case *FilterApproxMatch:
+		resultFilter.AttributeDesc = attribute.String()
+		resultFilter.AssertionValue = encodedString
+		return resultFilter, nil
+	case *FilterGreaterOrEqual:
+		resultFilter.AttributeDesc = attribute.String()
+		resultFilter.AssertionValue = encodedString
+		return resultFilter, nil
+	case *FilterLessOrEqual:
+		resultFilter.AttributeDesc = attribute.String()
+		resultFilter.AssertionValue = encodedString
+		return resultFilter, nil
+	case *FilterEqualityMatch:
+		if bytes.Equal(condition.Bytes(), []byte{'*'}) {
+			// Looks like an equality match, but it's actually a presence filter
+			return &FilterPresent{
+				AttributeDesc: attribute.String(),
+			}, nil
+		} else if bytes.Contains(condition.Bytes(), []byte{'*'}) { // Review to use bytes
+			// Looks like an equality match, but it's actually a substring filter
+			substrs := make([]SubstringFilter, 0)
+			parts := bytes.Split(condition.Bytes(), []byte{'*'})
+			for i, part := range parts {
+				if len(part) == 0 {
+					continue
+				}
+
+				encodedString, encodeErr := decodeEscapedSymbols(part)
+				if encodeErr != nil {
+					return nil, fmt.Errorf("Error decoding escaped symbols")
+				}
+
+				switch i {
+				case 0:
+					substrs = append(substrs, SubstringFilter{
+						Initial: encodedString,
+					})
+				case len(parts) - 1:
+					substrs = append(substrs, SubstringFilter{
+						Final: encodedString,
+					})
+				default:
+					substrs = append(substrs, SubstringFilter{
+						Any: encodedString,
+					})
+				}
+			}
+
+			return &FilterSubstring{
+				AttributeDesc: attribute.String(),
+				Substrings:    substrs,
+			}, nil
+		} else {
+			// It's actually an equality match
+			resultFilter.AttributeDesc = attribute.String()
+			resultFilter.AssertionValue = encodedString
+			return resultFilter, nil
+		}
+	default:
+		return nil, fmt.Errorf("unsupported filter type: %T", resultFilter)
+	}
+}
+
+func parseSubFilters(query string) ([]Filter, error) {
+	var subFilters []Filter
+	var currentFilter string
+	var depth int
+
+	for _, char := range query {
+		if char == '(' {
+			depth++
+		} else if char == ')' {
+			depth--
+		}
+
+		currentFilter += string(char)
+
+		if depth == 0 {
+			filter, err := QueryToFilter(currentFilter)
+			if err != nil {
+				return nil, err
+			}
+			subFilters = append(subFilters, filter)
+			currentFilter = ""
+		}
+	}
+
+	return subFilters, nil
+}
+
+func parseSubstringFilter(attributeDesc, assertionValue string) (Filter, error) {
+	parts := strings.Split(assertionValue, "*")
+	var substrings []SubstringFilter
+
+	for i, part := range parts {
+		if part == "" {
+			continue
+		}
+
+		if i == 0 && !strings.HasPrefix(assertionValue, "*") {
+			substrings = append(substrings, SubstringFilter{Initial: part})
+		} else if i == len(parts)-1 && !strings.HasSuffix(assertionValue, "*") {
+			substrings = append(substrings, SubstringFilter{Final: part})
+		} else {
+			substrings = append(substrings, SubstringFilter{Any: part})
+		}
+	}
+
+	return &FilterSubstring{
+		AttributeDesc: attributeDesc,
+		Substrings:    substrings,
+	}, nil
+}
+
+func ldapUnescape(str string) string {
+	str = strings.ReplaceAll(str, `\(`, `(`)
+	str = strings.ReplaceAll(str, `\)`, `)`)
+	str = strings.ReplaceAll(str, `\\`, `\`)
+	return str
+}
+
+func ldapEscape(str string) string {
+	str = strings.ReplaceAll(str, `\`, `\\`)
+	str = strings.ReplaceAll(str, `(`, `\(`)
+	str = strings.ReplaceAll(str, `)`, `\)`)
+	return str
 }
