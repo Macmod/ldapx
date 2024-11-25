@@ -1,4 +1,4 @@
-package basednmid
+package basedn
 
 import "log"
 

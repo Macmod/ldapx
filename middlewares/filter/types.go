@@ -1,4 +1,4 @@
-package filtermid
+package filter
 
 import (
 	"log"

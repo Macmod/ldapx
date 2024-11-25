@@ -1,4 +1,4 @@
-package attrlistmid
+package attrlist
 
 import (
 	"math/rand"
