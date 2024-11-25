@@ -82,7 +82,7 @@ func SetupFilterMidMap(configFile string) {
 		"EqApproxMatch":        filtermid.ApproxMatchFilterObf(),
 		"AddWildcard":          filtermid.RandAddWildcardFilterObf(1),
 		"PrependZeros":         filtermid.RandPrependZerosFilterObf(2),
-		"Garbage":              filtermid.RandGarbageFilterObf(2, GarbageCharset),
+		"Garbage":              filtermid.RandGarbageFilterObf(2, 8, GarbageCharset),
 		"OIDAttribute":         filtermid.OIDAttributeFilterObf(3, true),
 		"Case":                 filtermid.RandCaseFilterObf(0.6),
 		"HexValue":             filtermid.RandHexValueFilterObf(0.2),

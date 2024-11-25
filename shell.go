@@ -17,6 +17,7 @@ var suggestions = []prompt.Suggest{
 	{Text: "exit", Description: "Exit the program"},
 	{Text: "clear", Description: "Clear a middleware chain"},
 	{Text: "test", Description: "Test an LDAP query through the middlewares"},
+	{Text: "version", Description: "Show version information"},
 }
 
 var setParamSuggestions = []prompt.Suggest{
@@ -121,11 +122,12 @@ func executor(in string) {
 			return
 		}
 		handleTestCommand(strings.Join(blocks[1:], " "))
+	case "version":
+		fmt.Printf("ldapx %s\n", version)
 	default:
 		fmt.Printf("Unknown command: '%s'\n", blocks[0])
 	}
 }
-
 func RunShell() {
 	p := prompt.New(
 		executor,

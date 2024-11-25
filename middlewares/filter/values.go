@@ -17,16 +17,6 @@ import (
 	  https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/d2435927-0999-4c62-8c6d-13ba31a52e1a)
 */
 
-func splitSlice[T any](slice []T, idx int) ([]T, []T) {
-	before := make([]T, idx)
-	after := make([]T, len(slice)-idx-1)
-
-	copy(before, slice[:idx])
-	copy(after, slice[idx+1:])
-
-	return before, after
-}
-
 func ApproxMatchFilterObf() FilterMiddleware {
 	return LeafApplierFilterMiddleware(
 		func(filter parser.Filter) parser.Filter {
@@ -311,7 +301,7 @@ func RandAddWildcardFilterObf(prob float32) func(parser.Filter) parser.Filter {
 
 				if sub.Initial != "" {
 					// Grab a suffix and put it in the next Any
-					sliceBefore, sliceAfter := splitSlice(f.Substrings, subIdx)
+					sliceBefore, sliceAfter := SplitSlice(f.Substrings, subIdx)
 
 					splitPoint := rand.Intn(len(sub.Initial))
 					//fmt.Printf("Initial split point %d\n", splitPoint)
@@ -329,7 +319,7 @@ func RandAddWildcardFilterObf(prob float32) func(parser.Filter) parser.Filter {
 				} else if len(sub.Any) > 1 {
 					// If there's an any, we assume that there's Initial, Any and Final
 					// Grab a suffix and put it in the next Any
-					sliceBefore, sliceAfter := splitSlice(f.Substrings, subIdx)
+					sliceBefore, sliceAfter := SplitSlice(f.Substrings, subIdx)
 
 					splitPoint := rand.Intn(len(sub.Any)-1) + 1
 					//fmt.Printf("Any split point %d\n", splitPoint)
@@ -346,7 +336,7 @@ func RandAddWildcardFilterObf(prob float32) func(parser.Filter) parser.Filter {
 					)
 				} else if sub.Final != "" {
 					// Grab a prefix and put it in a previous Any
-					sliceBefore, sliceAfter := splitSlice(f.Substrings, subIdx)
+					sliceBefore, sliceAfter := SplitSlice(f.Substrings, subIdx)
 
 					splitPoint := rand.Intn(len(sub.Final)) + 1
 					//fmt.Printf("Final split point %d\n", splitPoint)

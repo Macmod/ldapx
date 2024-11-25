@@ -19,6 +19,8 @@ import (
 	ber "github.com/go-asn1-ber/asn1-ber"
 )
 
+var version = "v1.0.0"
+
 var logger = log.New(os.Stderr, "", log.LstdFlags)
 
 var green = color.New(color.FgGreen)
@@ -56,6 +58,7 @@ func init() {
 	flag.StringVar(&filterChain, "f", "", "Chain of search filter middlewares")
 	flag.StringVar(&attrChain, "a", "", "Chain of attribute list middlewares")
 	flag.StringVar(&baseChain, "b", "", "Chain of baseDN middlewares")
+	flag.Bool("version", false, "Show version information")
 }
 
 func copyBerPacket(packet *ber.Packet) *ber.Packet {
@@ -130,7 +133,7 @@ func handleLDAPConnection(conn net.Conn) {
 			packet, err := ber.ReadPacket(bufConn)
 			if err != nil {
 				fmt.Println("")
-				logger.Printf("Error reading LDAP request: %v\n", err)
+				logger.Printf("[-] Error reading LDAP request: %v\n", err)
 				return
 			}
 
@@ -178,7 +181,7 @@ func handleLDAPConnection(conn net.Conn) {
 
 			if _, err := targetConn.Write(newPacket.Bytes()); err != nil {
 				fmt.Printf("\n")
-				logger.Printf("Error forwarding LDAP request: %v\n", err)
+				logger.Printf("[-] Error forwarding LDAP request: %v\n", err)
 				return
 			}
 
@@ -200,7 +203,7 @@ func handleLDAPConnection(conn net.Conn) {
 				responsePacket, err := ber.ReadPacket(bufTargetConn)
 				if err != nil {
 					fmt.Println("")
-					logger.Printf("Error reading LDAP response: %v\n", err)
+					logger.Printf("[-] Error reading LDAP response: %v\n", err)
 					return
 				}
 
@@ -210,7 +213,7 @@ func handleLDAPConnection(conn net.Conn) {
 
 				responseBytes := responsePacket.Bytes()
 				if _, err := conn.Write(responseBytes); err != nil {
-					log.Printf("Error sending response back to client: %v\n", err)
+					logger.Printf("[-] Error sending response back to client: %v\n", err)
 					return
 				}
 
@@ -265,6 +268,11 @@ func updateAttrListChain(chain string) {
 
 func main() {
 	flag.Parse()
+
+	if flag.Lookup("version").Value.(flag.Getter).Get().(bool) {
+		fmt.Printf("ldapx %s\n", version)
+		os.Exit(0)
+	}
 
 	SetupFilterMidMap("")
 

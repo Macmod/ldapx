@@ -42,6 +42,28 @@ $ ldapx -target 192.168.117.2:389 -f OGRD -a OW -b OZ
 
 ![Demo1](https://github.com/Macmod/ldapx/blob/main/images/demo1.png)
 
+You can also use the builting shell to change your middlewares on the fly (`set` command) or simulate LDAP queries (`test` command):
+
+```bash
+ldapx> help
+Available commands:
+  set <parameter> <value>    Set a configuration parameter
+  clear [<middlewarechain>]  Clear a middleware chain
+  show [<parameter>]         Show a configuration parameter or all
+  help [<parameter>]         Show this help message or parameter-specific help
+  exit                       Exit the program
+  test <query>               Simulate an LDAP query through the middlewares without sending it
+
+Parameters:
+  filter       - Filter middleware chain
+  basedn       - BaseDN middleware chain
+  attrlist     - Attribute list middleware chain
+  testbasedn   - BaseDN to use for the `test` command
+  testattrlist - Attribute list to use for the `test` command (separated by commas)
+
+Use 'help <parameter>' for detailed information about specific parameters
+```
+
 ## Library Usage 
 (TODO)
 
@@ -99,8 +121,8 @@ The tool provides several middlewares "ready for use" for inline LDAP filter tra
 | `X` | HexValue | Obfuscation | Hex encodes characters in the values | `cn=john` | `cn=\6a\6fmin` | Probability based | 
 
 ### Implementation status
-* Filter - `HexValue` not working properly yet, `Garbage` needs improvements
-* AttrList - `Case` not working properly
+* Filter - `HexValue` not working properly yet
+* AttrList - `Case` not working properly yet
 * BaseDN - Six methods working (spaces only work in beginning and end / hex only works in the values)
 
 ## Acknowledgements
@@ -111,7 +133,7 @@ The tool provides several middlewares "ready for use" for inline LDAP filter tra
 
 ## Contributing
 
-Contributions are also welcome by [opening an issue](https://github.com/Macmod/ldapx/issues/new) or by [submitting a pull request](https://github.com/Macmod/ldapx/pulls).
+Contributions are welcome by [opening an issue](https://github.com/Macmod/ldapx/issues/new) or by [submitting a pull request](https://github.com/Macmod/ldapx/pulls).
 
 ## License
 MIT License

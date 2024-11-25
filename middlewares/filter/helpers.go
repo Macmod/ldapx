@@ -9,6 +9,7 @@ import (
 	"github.com/Macmod/ldapx/parser"
 )
 
+// LeafApplierFilterMiddleware applies a FilterMiddleware to all leaf nodes of a filter tree
 func LeafApplierFilterMiddleware(fm FilterMiddleware) FilterMiddleware {
 	var applier FilterMiddleware
 	applier = func(filter parser.Filter) parser.Filter {
@@ -36,6 +37,25 @@ func LeafApplierFilterMiddleware(fm FilterMiddleware) FilterMiddleware {
 	}
 
 	return applier
+}
+
+// Miscellaneous helper functions
+func SplitSlice[T any](slice []T, idx int) ([]T, []T) {
+	before := make([]T, idx)
+	after := make([]T, len(slice)-idx-1)
+
+	copy(before, slice[:idx])
+	copy(after, slice[idx+1:])
+
+	return before, after
+}
+
+func GenerateGarbageString(n int, chars string) string {
+	result := make([]byte, n)
+	for i := range result {
+		result[i] = chars[rand.Intn(len(chars))]
+	}
+	return string(result)
 }
 
 func HexEncodeChar(c rune) string {
