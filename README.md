@@ -66,7 +66,7 @@ Parameters:
 Use 'help <parameter>' for detailed information about specific parameters
 ```
 
-![Demo2](https://github.com/Macmod/ldapx/blob/main/images/demo1.png)
+![Demo2](https://github.com/Macmod/ldapx/blob/main/images/demo2.png)
 
 ## Middlewares
 
