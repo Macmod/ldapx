@@ -64,9 +64,6 @@ Parameters:
 Use 'help <parameter>' for detailed information about specific parameters
 ```
 
-## Library Usage 
-(TODO)
-
 ## Middlewares
 
 The tool provides several middlewares "ready for use" for inline LDAP filter transformation. These middlewares were designed for use in Active Directory environments, but theoretically some of them could work in other LDAP environments.
@@ -124,6 +121,9 @@ The tool provides several middlewares "ready for use" for inline LDAP filter tra
 * Filter - `HexValue` not working properly yet
 * AttrList - `Case` not working properly yet
 * BaseDN - Six methods working (spaces only work in beginning and end / hex only works in the values)
+
+## Library Usage 
+(TODO)
 
 ## Acknowledgements
 

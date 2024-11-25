@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/Macmod/ldapx/parser"
@@ -235,6 +236,80 @@ func AddSIDSpacing(sid string, maxSpaces int) string {
 		// Add spaces before subauthority count (parts[2])
 		spaces = strings.Repeat(" ", rand.Intn(maxSpaces+1))
 		parts[2] = spaces + parts[2]
+	}
+	return strings.Join(parts, "-")
+}
+
+// Comparison helpers
+
+const CharOrdering = "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+
+// TODO: Review
+func GetNextString(s string) string {
+	// Convert string to rune slice for easier manipulation
+	chars := []rune(s)
+
+	// Start from rightmost character
+	for i := len(chars) - 1; i >= 0; i-- {
+		// Find current char position in CharOrdering
+		pos := strings.IndexRune(CharOrdering, chars[i])
+
+		// If not last char in CharOrdering, increment to next
+		if pos < len(CharOrdering)-1 {
+			chars[i] = rune(CharOrdering[pos+1])
+			return string(chars)
+		}
+
+		// If last char in CharOrdering, set to first char and continue left
+		chars[i] = rune(CharOrdering[0])
+	}
+
+	// If all chars were last in CharOrdering, append first char
+	return s + string(CharOrdering[0])
+}
+
+func GetPreviousString(s string) string {
+	chars := []rune(s)
+
+	for i := len(chars) - 1; i >= 0; i-- {
+		pos := strings.IndexRune(CharOrdering, chars[i])
+
+		if pos > 0 {
+			chars[i] = rune(CharOrdering[pos-1])
+			return string(chars)
+		}
+
+		chars[i] = rune(CharOrdering[len(CharOrdering)-1])
+	}
+
+	// If string is all first chars, remove first char
+	if len(s) > 1 {
+		return s[:len(s)-1]
+	}
+
+	return s
+}
+
+func GetNextSID(sid string) string {
+	parts := strings.Split(sid, "-")
+	if len(parts) < 1 {
+		return sid
+	}
+
+	if num, err := strconv.Atoi(parts[len(parts)-1]); err == nil {
+		parts[len(parts)-1] = strconv.Itoa(num + 1)
+	}
+	return strings.Join(parts, "-")
+}
+
+func GetPreviousSID(sid string) string {
+	parts := strings.Split(sid, "-")
+	if len(parts) < 1 {
+		return sid
+	}
+
+	if num, err := strconv.Atoi(parts[len(parts)-1]); err == nil && num > 0 {
+		parts[len(parts)-1] = strconv.Itoa(num - 1)
 	}
 	return strings.Join(parts, "-")
 }
