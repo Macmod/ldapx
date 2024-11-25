@@ -42,6 +42,8 @@ $ ldapx -target 192.168.117.2:389 -f OGRD -a OW -b OZ
 
 ![Demo1](https://github.com/Macmod/ldapx/blob/main/images/demo1.png)
 
+### Using the shell
+
 You can also use the builting shell to change your middlewares on the fly (`set` command) or simulate LDAP queries (`test` command):
 
 ```bash
@@ -63,6 +65,8 @@ Parameters:
 
 Use 'help <parameter>' for detailed information about specific parameters
 ```
+
+![Demo2](https://github.com/Macmod/ldapx/blob/main/images/demo1.png)
 
 ## Middlewares
 
