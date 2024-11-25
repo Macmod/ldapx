@@ -842,13 +842,6 @@ func parseSubstringFilter(attributeDesc, assertionValue string) (Filter, error) 
 	}, nil
 }
 
-func ldapUnescape(str string) string {
-	str = strings.ReplaceAll(str, `\(`, `(`)
-	str = strings.ReplaceAll(str, `\)`, `)`)
-	str = strings.ReplaceAll(str, `\\`, `\`)
-	return str
-}
-
 func ldapEscape(str string) string {
 	str = strings.ReplaceAll(str, `\`, `\\`)
 	str = strings.ReplaceAll(str, `(`, `\(`)

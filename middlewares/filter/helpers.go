@@ -76,6 +76,19 @@ func RandomlyHexEncodeString(s string, prob float32) string {
 	return result.String()
 }
 
+func RandomlyHexEncodeDNString(dnString string, prob float32) string {
+	parts := strings.Split(dnString, ",")
+	for i, part := range parts {
+		kv := strings.SplitN(part, "=", 2)
+		if len(kv) == 2 {
+			value := kv[1]
+			encodedValue := RandomlyHexEncodeString(value, prob)
+			parts[i] = kv[0] + "=" + encodedValue
+		}
+	}
+	return strings.Join(parts, ",")
+}
+
 func GetSomeRandChars(maxChars int) []rune {
 	numChars := rand.Intn(maxChars)
 	randomChars := make([]rune, numChars)

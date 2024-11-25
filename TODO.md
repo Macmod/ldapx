@@ -2,7 +2,6 @@
 
 * [Fix] Guarantee that all obfuscation methods are "stable" / document the ones that aren't
 * [Feature] Issue queries directly from ldapx
-* [Review] Check if all middlewares work as intended to fix bugs and logic errors
 * [Review] Check if the logic behind the settings of each obfuscator is correct
 
 # Considering

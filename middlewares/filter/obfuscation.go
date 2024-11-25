@@ -741,8 +741,8 @@ func ApproxMatchFilterObf() FilterMiddleware {
 func RandHexValueFilterObf(prob float32) func(parser.Filter) parser.Filter {
 	applyHexEncoding := func(attr string, value string) string {
 		tokenFormat, err := parser.GetAttributeTokenFormat(attr)
-		if err == nil && tokenFormat == parser.TokenStringUnicode {
-			return RandomlyHexEncodeString(value, prob)
+		if err == nil && tokenFormat == parser.TokenDNString {
+			return RandomlyHexEncodeDNString(value, prob)
 		}
 		return value
 	}
@@ -756,44 +756,10 @@ func RandHexValueFilterObf(prob float32) func(parser.Filter) parser.Filter {
 					AssertionValue: applyHexEncoding(f.AttributeDesc, f.AssertionValue),
 				}
 
-			case *parser.FilterSubstring:
-				newSubstrings := make([]parser.SubstringFilter, len(f.Substrings))
-				for i, sub := range f.Substrings {
-					newSubstrings[i] = parser.SubstringFilter{
-						Initial: applyHexEncoding("name", sub.Initial),
-						Any:     applyHexEncoding("name", sub.Any),
-						Final:   applyHexEncoding("name", sub.Final),
-					}
-				}
-				return &parser.FilterSubstring{
-					AttributeDesc: f.AttributeDesc,
-					Substrings:    newSubstrings,
-				}
-
-			case *parser.FilterGreaterOrEqual:
-				return &parser.FilterGreaterOrEqual{
-					AttributeDesc:  f.AttributeDesc,
-					AssertionValue: applyHexEncoding(f.AttributeDesc, f.AssertionValue),
-				}
-
-			case *parser.FilterLessOrEqual:
-				return &parser.FilterLessOrEqual{
-					AttributeDesc:  f.AttributeDesc,
-					AssertionValue: applyHexEncoding(f.AttributeDesc, f.AssertionValue),
-				}
-
 			case *parser.FilterApproxMatch:
 				return &parser.FilterApproxMatch{
 					AttributeDesc:  f.AttributeDesc,
 					AssertionValue: applyHexEncoding(f.AttributeDesc, f.AssertionValue),
-				}
-
-			case *parser.FilterExtensibleMatch:
-				return &parser.FilterExtensibleMatch{
-					MatchingRule:  f.MatchingRule,
-					AttributeDesc: f.AttributeDesc,
-					MatchValue:    applyHexEncoding(f.AttributeDesc, f.MatchValue),
-					DNAttributes:  f.DNAttributes,
 				}
 
 			default:
