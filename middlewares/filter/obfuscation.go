@@ -290,7 +290,10 @@ func EqualityByInclusionFilterObf() func(parser.Filter) parser.Filter {
 			} else if tokenType == parser.TokenStringUnicode {
 				valMinusOne = GetPreviousString(f.AssertionValue)
 				valPlusOne = GetNextString(f.AssertionValue)
+			} else {
+				return filter
 			}
+
 			return &parser.FilterAnd{
 				Filters: []parser.Filter{
 					&parser.FilterGreaterOrEqual{
@@ -343,6 +346,8 @@ func EqualityByExclusionFilterObf() func(parser.Filter) parser.Filter {
 			} else if tokenType == parser.TokenStringUnicode {
 				valMinusOne = GetPreviousString(f.AssertionValue)
 				valPlusOne = GetNextString(f.AssertionValue)
+			} else {
+				return filter
 			}
 
 			return &parser.FilterAnd{
