@@ -122,7 +122,64 @@ The tool provides several middlewares "ready for use" for inline LDAP filter tra
 | `X` | HexValue | Obfuscation | Hex encodes characters in the values | `cn=john` | `cn=\6a\6fmin` | Probability based | 
 
 ## Library Usage 
-(TODO)
+
+To use `ldapx` as a library, you can import the `parser` package and the individual middleware packages that you wish to use.
+
+To apply the middlewares to a readable LDAP query, you must parse it into a `parser.Filter` using `parser.QueryToFilter()`. Then you can either apply the middlewares, convert it back to a query using `parser.FilterToQuery()`, or convert it to a network packet using `parser.FilterToPacket()`. You can also convert network packets to `parser.Filter` structures using `parser.PacketToFilter()`.
+
+There are no docs on individual middlewares yet, but you can check the source code (`config.go` / `middlewares/*/*.go`) for method signatures and usage.
+
+### Example
+
+```go
+package main
+
+import (
+    "fmt"
+
+    filtermid "github.com/Macmod/ldapx/middlewares/filter"
+    "github.com/Macmod/ldapx/parser"
+)
+
+func main() {
+    query := "(&(cn=john)(sn=doe))"
+    fmt.Printf("Original Query: %s\n", query)
+
+    myFilter, err := parser.QueryToFilter(query)
+
+    if err != nil {
+            fmt.Errorf("error parsing query")
+    }
+
+    // FilterToString can be used to show
+    // the internal representation of the parsed filter
+    fmt.Println(parser.FilterToString(myFilter, 0))
+
+    // Applying the OID middleware
+    obfuscator := filtermid.OIDAttributeFilterObf(3, false)
+    newFilter := obfuscator(myFilter)
+
+    newQuery, err := parser.FilterToQuery(newFilter)
+    if err != nil {
+            fmt.Errorf("error converting filter to query")
+    }
+
+    fmt.Printf("Changed Query: %s\n", newQuery)
+}
+```
+
+Output:
+```
+Original Query: (&(cn=john)(sn=doe))
+Filter Type: 0
+AND Filter with 2 sub-filters:
+  Filter Type: 3
+  Equality Match - Attribute: cn, Value: john
+  Filter Type: 3
+  Equality Match - Attribute: sn, Value: doe
+
+Changed Query: (&(2.005.4.03=john)(2.005.04.004=doe))
+```
 
 ## Contributing
 
