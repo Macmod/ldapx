@@ -8,6 +8,15 @@ import (
 	"github.com/Macmod/ldapx/parser"
 )
 
+/*
+	Obfuscation BaseDN Middlewares
+
+	References:
+	- DEFCON32 - MaLDAPtive
+	- Microsoft Open Specifications - MS-ADTS
+	  https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/d2435927-0999-4c62-8c6d-13ba31a52e1a)
+*/
+
 // RandCaseBaseDNObf randomly changes case of BaseDN components
 func RandCaseBaseDNObf(prob float32) func(string) string {
 	return func(dn string) string {

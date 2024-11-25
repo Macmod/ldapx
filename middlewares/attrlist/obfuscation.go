@@ -8,6 +8,15 @@ import (
 	"github.com/Macmod/ldapx/parser"
 )
 
+/*
+	Obfuscation AttrList Middlewares
+
+	References:
+	- DEFCON32 - MaLDAPtive
+	- Microsoft Open Specifications - MS-ADTS
+	  https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/d2435927-0999-4c62-8c6d-13ba31a52e1a)
+*/
+
 // RandCaseAttrListObf randomly changes case of attribute names
 func RandCaseAttrListObf(prob float32) func([]string) []string {
 	return func(attrs []string) []string {

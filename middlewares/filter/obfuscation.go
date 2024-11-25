@@ -507,11 +507,6 @@ func BitwiseExpandPossibleFilterObf() func(parser.Filter) parser.Filter {
 
 /*
 	Boolean Obfuscation Middlewares
-
-	References:
-	- DEFCON32 - MaLDAPtive
-	- Microsoft Open Specifications - MS-ADTS
-	  https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/d2435927-0999-4c62-8c6d-13ba31a52e1a)
 */
 
 func RandAddBoolFilterObf(maxDepth int, prob float32) func(f parser.Filter) parser.Filter {
