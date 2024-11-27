@@ -18,6 +18,23 @@ import (
 	ber "github.com/go-asn1-ber/asn1-ber"
 )
 
+type Stats struct {
+	Forward struct {
+		PacketsReceived uint64
+		PacketsSent     uint64
+		BytesReceived   uint64
+		BytesSent       uint64
+		CountsByType    map[int]uint64
+	}
+	Reverse struct {
+		PacketsReceived uint64
+		PacketsSent     uint64
+		BytesReceived   uint64
+		BytesSent       uint64
+		CountsByType    map[int]uint64
+	}
+}
+
 var version = "v1.0.0"
 
 var logger = log.New(os.Stderr, "", log.LstdFlags)
@@ -30,6 +47,8 @@ var blue = color.New(color.FgBlue)
 var insecureTlsConfig = &tls.Config{
 	InsecureSkipVerify: true,
 }
+
+var globalStats Stats
 
 var (
 	shutdownChan = make(chan struct{})
@@ -58,6 +77,9 @@ func init() {
 	flag.StringVar(&attrChain, "a", "", "Chain of attribute list middlewares")
 	flag.StringVar(&baseChain, "b", "", "Chain of baseDN middlewares")
 	flag.Bool("version", false, "Show version information")
+
+	globalStats.Forward.CountsByType = make(map[int]uint64)
+	globalStats.Reverse.CountsByType = make(map[int]uint64)
 }
 
 func copyBerPacket(packet *ber.Packet) *ber.Packet {
@@ -114,6 +136,10 @@ func handleLDAPConnection(conn net.Conn) {
 
 	// Connect to target conn
 	targetConn, err := connectToTarget(targetLDAPAddr)
+
+	targetConnReader := bufio.NewReader(targetConn)
+	targetConnWriter := bufio.NewWriter(targetConn)
+
 	if err != nil {
 		fmt.Println("")
 		log.Printf("Failed to connect to target LDAP server: %v\n", err)
@@ -123,25 +149,35 @@ func handleLDAPConnection(conn net.Conn) {
 
 	done := make(chan struct{}) // Channel to signal when either goroutine is done
 
+	connReader := bufio.NewReader(conn)
+	connWriter := bufio.NewWriter(conn)
+
 	go func() {
 		// Close `done` channel when done to signal response goroutine to exit
 		defer close(done)
 
-		bufConn := bufio.NewReader(conn)
 		for {
-			packet, err := ber.ReadPacket(bufConn)
+			packet, err := ber.ReadPacket(connReader)
 			if err != nil {
 				fmt.Println("")
 				logger.Printf("[-] Error reading LDAP request: %v\n", err)
 				return
 			}
 
-			parser.AddLDAPDescriptions(packet)
+			var newPacket *ber.Packet
+
+			globalStats.Forward.PacketsReceived++
+			globalStats.Forward.BytesReceived += uint64(len(packet.Bytes()))
+			application := uint8(packet.Children[1].Tag)
+			globalStats.Forward.CountsByType[int(application)]++
 
 			reqMessageID := packet.Children[0].Value.(int64)
-			reqMessageType := packet.Children[1].Description
+			applicationText, ok := parser.ApplicationMap[application]
+			if !ok {
+				applicationText = fmt.Sprintf("Unknown Application", application)
+			}
 
-			if reqMessageType == "Search Request" {
+			if application == parser.ApplicationSearchRequest {
 				fmt.Println("\n" + strings.Repeat("─", 55))
 				logger.Printf("[+] Search Request Intercepted (%d)\n", reqMessageID)
 				baseDN := packet.Children[1].Children[0].Value.(string)
@@ -172,53 +208,73 @@ func handleLDAPConnection(conn net.Conn) {
 
 				green.Printf("Changed Request\n    BaseDN: %s\n    Attributes: %v\n    Filter: %s\n", newBaseDN, newAttrs, newFilterStr)
 
-				packet.Children[1].Children[6] = parser.FilterToPacket(newFilter)
-				packet.Children[1].Children[7] = encodeAttributeList(newAttrs)
-				packet.Children[1].Children[0] = encodeBaseDN(newBaseDN)
+				newPacket = copyBerPacket(packet)
+
+				newPacket.Children[1].Children[0] = encodeBaseDN(newBaseDN) //encodeBaseDN(newBaseDN)
+				newPacket.Children[1].Children[6] = parser.FilterToPacket(newFilter)
+				newPacket.Children[1].Children[7] = encodeAttributeList(newAttrs)
 			}
 
-			newPacket := copyBerPacket(packet)
+			// If no modifications were performed, just forward the original packet
+			if newPacket == nil {
+				newPacket = packet
+			}
 
-			if _, err := targetConn.Write(newPacket.Bytes()); err != nil {
+			if _, err := targetConnWriter.Write(newPacket.Bytes()); err != nil {
 				fmt.Printf("\n")
 				logger.Printf("[-] Error forwarding LDAP request: %v\n", err)
 				return
 			}
+			globalStats.Forward.PacketsSent++
+			globalStats.Forward.BytesSent += uint64(len(newPacket.Bytes()))
+
+			if err := targetConnWriter.Flush(); err != nil {
+				fmt.Printf("\n")
+				logger.Printf("[-] Error flushing LDAP response: %v\n", err)
+				return
+			}
 
 			if debug {
-				logger.Printf("[C->T] [%d - %s]\n", reqMessageID, reqMessageType)
-				//ber.WritePacket(logger.Writer(), packet)
+				logger.Printf("[C->T] [%d - %s]\n", reqMessageID, applicationText)
 			}
 		}
 	}()
 
 	go func() {
-		bufTargetConn := bufio.NewReader(targetConn)
-
 		for {
 			select {
 			case <-done:
 				return // Exit if the request goroutine is done
 			default:
-				responsePacket, err := ber.ReadPacket(bufTargetConn)
+				responsePacket, err := ber.ReadPacket(targetConnReader)
 				if err != nil {
 					fmt.Println("")
 					logger.Printf("[-] Error reading LDAP response: %v\n", err)
 					return
 				}
 
-				parser.AddLDAPDescriptions(responsePacket)
-				respMessageID := responsePacket.Children[0].Value.(int64)
-				respMessageType := responsePacket.Children[1].Description
+				globalStats.Reverse.PacketsReceived++
+				globalStats.Reverse.BytesReceived += uint64(len(responsePacket.Bytes()))
+				application := uint8(responsePacket.Children[1].Tag)
+				globalStats.Reverse.CountsByType[int(application)]++
 
+				respMessageID := responsePacket.Children[0].Value.(int64)
+				applicationText, ok := parser.ApplicationMap[application]
+				if !ok {
+					applicationText = fmt.Sprintf("Unknown Application", application)
+				}
 				responseBytes := responsePacket.Bytes()
-				if _, err := conn.Write(responseBytes); err != nil {
+				if _, err := connWriter.Write(responseBytes); err != nil {
 					logger.Printf("[-] Error sending response back to client: %v\n", err)
 					return
 				}
+				globalStats.Reverse.PacketsSent++
+				globalStats.Reverse.BytesSent += uint64(len(responseBytes))
+
+				connWriter.Flush()
 
 				if debug {
-					logger.Printf("[C<-T] [%d - %s] (%d bytes)\n", respMessageID, respMessageType, len(responseBytes))
+					logger.Printf("[C<-T] [%d - %s] (%d bytes)\n", respMessageID, applicationText, len(responseBytes))
 				}
 			}
 		}

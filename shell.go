@@ -14,15 +14,17 @@ var suggestions = []prompt.Suggest{
 	{Text: "show", Description: "Show current configuration"},
 	{Text: "help", Description: "Show help message"},
 	{Text: "exit", Description: "Exit the program"},
-	{Text: "clear", Description: "Clear a middleware chain"},
+	{Text: "clear", Description: "Clear a configuration parameter"},
 	{Text: "test", Description: "Test an LDAP query through the middlewares"},
 	{Text: "version", Description: "Show version information"},
+	{Text: "stats", Description: "Show statistics"},
 }
 
 var setParamSuggestions = []prompt.Suggest{
 	{Text: "filter", Description: "Set filter middleware chain"},
 	{Text: "basedn", Description: "Set basedn middleware chain"},
 	{Text: "attrlist", Description: "Set attribute list middleware chain"},
+	{Text: "stats", Description: "Clear statistics"},
 }
 
 var clearParamSuggestions = []prompt.Suggest{
@@ -93,7 +95,8 @@ func executor(in string) {
 			updateFilterChain("")
 			updateBaseDNChain("")
 			updateAttrListChain("")
-			fmt.Printf("All middleware chains cleared.\n")
+			clearStats()
+			fmt.Printf("All parameters cleared.\n")
 			return
 		}
 		handleClearCommand(blocks[1])
@@ -123,6 +126,8 @@ func executor(in string) {
 		handleTestCommand(strings.Join(blocks[1:], " "))
 	case "version":
 		fmt.Printf("ldapx %s\n", version)
+	case "stats":
+		handleStatsCommand()
 	default:
 		fmt.Printf("Unknown command: '%s'\n", blocks[0])
 	}
@@ -156,6 +161,9 @@ func handleClearCommand(param string) {
 	case "attrlist":
 		updateAttrListChain("")
 		fmt.Printf("Middleware chain AttrList cleared.\n")
+	case "stats":
+		clearStats()
+		fmt.Println("Statistics cleared.")
 	default:
 		fmt.Printf("Unknown parameter: %s\n", param)
 	}
@@ -328,4 +336,57 @@ func handleTestCommand(query string) {
 	green.Printf("  BaseDN: %s\n", newBaseDN)
 	green.Printf("  Attributes: %v\n", newAttrs)
 	green.Printf("  Filter: %v\n", newParsed)
+}
+
+func handleStatsCommand() {
+	fmt.Println("[Client -> Target]")
+	fmt.Printf("  Packets Received: %d\n", globalStats.Forward.PacketsReceived)
+	fmt.Printf("  Packets Sent: %d\n", globalStats.Forward.PacketsSent)
+	fmt.Printf("  Bytes Received: %d\n", globalStats.Forward.BytesReceived)
+	fmt.Printf("  Bytes Sent: %d\n", globalStats.Forward.BytesSent)
+	fmt.Println("  Counts by Type:")
+	for appType, count := range globalStats.Forward.CountsByType {
+		appName, ok := parser.ApplicationMap[uint8(appType)]
+		if !ok {
+			appName = fmt.Sprintf("Unknown (%d)", appType)
+		}
+		fmt.Printf("    %s: %d\n", appName, count)
+	}
+
+	fmt.Println("\n[Client <- Target]")
+	fmt.Printf("  Packets Received: %d\n", globalStats.Reverse.PacketsReceived)
+	fmt.Printf("  Packets Sent: %d\n", globalStats.Reverse.PacketsSent)
+	fmt.Printf("  Bytes Received: %d\n", globalStats.Reverse.BytesReceived)
+	fmt.Printf("  Bytes Sent: %d\n", globalStats.Reverse.BytesSent)
+	fmt.Println("  Counts by Type:")
+	for appType, count := range globalStats.Reverse.CountsByType {
+		appName, ok := parser.ApplicationMap[uint8(appType)]
+		if !ok {
+			appName = fmt.Sprintf("Unknown (%d)", appType)
+		}
+		fmt.Printf("    %s: %d\n", appName, count)
+	}
+}
+
+func clearStats() {
+	globalStats = Stats{
+		Forward: struct {
+			PacketsReceived uint64
+			PacketsSent     uint64
+			BytesReceived   uint64
+			BytesSent       uint64
+			CountsByType    map[int]uint64
+		}{
+			CountsByType: make(map[int]uint64),
+		},
+		Reverse: struct {
+			PacketsReceived uint64
+			PacketsSent     uint64
+			BytesReceived   uint64
+			BytesSent       uint64
+			CountsByType    map[int]uint64
+		}{
+			CountsByType: make(map[int]uint64),
+		},
+	}
 }

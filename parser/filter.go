@@ -332,87 +332,86 @@ func FilterToString(filter Filter, level int) string {
 	return result.String()
 }
 
-// TODO: Review
 func FilterToPacket(f Filter) *ber.Packet {
 	switch filter := f.(type) {
 	case *FilterAnd:
-		packet := ber.Encode(ber.ClassContext, ber.TypeConstructed, 0x0, nil, "AND")
+		packet := ber.Encode(ber.ClassContext, ber.TypeConstructed, 0x0, nil, "")
 		for _, subFilter := range filter.Filters {
 			packet.AppendChild(FilterToPacket(subFilter))
 		}
 		return packet
 
 	case *FilterOr:
-		packet := ber.Encode(ber.ClassContext, ber.TypeConstructed, 0x1, nil, "OR")
+		packet := ber.Encode(ber.ClassContext, ber.TypeConstructed, 0x1, nil, "")
 		for _, subFilter := range filter.Filters {
 			packet.AppendChild(FilterToPacket(subFilter))
 		}
 		return packet
 
 	case *FilterNot:
-		packet := ber.Encode(ber.ClassContext, ber.TypeConstructed, 0x2, nil, "NOT")
+		packet := ber.Encode(ber.ClassContext, ber.TypeConstructed, 0x2, nil, "")
 		packet.AppendChild(FilterToPacket(filter.Filter))
 		return packet
 
 	case *FilterEqualityMatch:
-		packet := ber.Encode(ber.ClassContext, ber.TypeConstructed, 0x3, nil, "Equality Match")
-		packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, filter.AttributeDesc, "Attribute Desc"))
-		packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, filter.AssertionValue, "Assertion Value"))
+		packet := ber.Encode(ber.ClassContext, ber.TypeConstructed, 0x3, nil, "")
+		packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, filter.AttributeDesc, ""))
+		packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, filter.AssertionValue, ""))
 		return packet
 
 	case *FilterSubstring:
-		packet := ber.Encode(ber.ClassContext, ber.TypeConstructed, 0x4, nil, "Substring")
-		packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, filter.AttributeDesc, "Attribute Desc"))
+		packet := ber.Encode(ber.ClassContext, ber.TypeConstructed, 0x4, nil, "")
+		packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, filter.AttributeDesc, ""))
 
-		substrings := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Substrings")
+		substrings := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "")
 		for _, substr := range filter.Substrings {
 			if substr.Initial != "" {
-				substrings.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, 0x0, substr.Initial, "Initial"))
+				substrings.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, 0x0, substr.Initial, ""))
 			}
 			if substr.Any != "" {
-				substrings.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, 0x1, substr.Any, "Any"))
+				substrings.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, 0x1, substr.Any, ""))
 			}
 			if substr.Final != "" {
-				substrings.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, 0x2, substr.Final, "Final"))
+				substrings.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, 0x2, substr.Final, ""))
 			}
 		}
 		packet.AppendChild(substrings)
 		return packet
 
 	case *FilterGreaterOrEqual:
-		packet := ber.Encode(ber.ClassContext, ber.TypeConstructed, 0x5, nil, "Greater Or Equal")
-		packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, filter.AttributeDesc, "Attribute Desc"))
-		packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, filter.AssertionValue, "Assertion Value"))
+		packet := ber.Encode(ber.ClassContext, ber.TypeConstructed, 0x5, nil, "")
+		packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, filter.AttributeDesc, ""))
+		packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, filter.AssertionValue, ""))
 		return packet
 
 	case *FilterLessOrEqual:
-		packet := ber.Encode(ber.ClassContext, ber.TypeConstructed, 0x6, nil, "Less Or Equal")
-		packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, filter.AttributeDesc, "Attribute Desc"))
-		packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, filter.AssertionValue, "Assertion Value"))
+		packet := ber.Encode(ber.ClassContext, ber.TypeConstructed, 0x6, nil, "")
+		packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, filter.AttributeDesc, ""))
+		packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, filter.AssertionValue, ""))
 		return packet
 
 	case *FilterPresent:
-		return ber.NewString(ber.ClassContext, ber.TypePrimitive, 0x7, filter.AttributeDesc, "Present")
+		return ber.NewString(ber.ClassContext, ber.TypePrimitive, 0x7, filter.AttributeDesc, "")
 
 	case *FilterApproxMatch:
-		packet := ber.Encode(ber.ClassContext, ber.TypeConstructed, 0x8, nil, "Approx Match")
-		packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, filter.AttributeDesc, "Attribute Desc"))
-		packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, filter.AssertionValue, "Assertion Value"))
+		packet := ber.Encode(ber.ClassContext, ber.TypeConstructed, 0x8, nil, "")
+		packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, filter.AttributeDesc, ""))
+		packet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, filter.AssertionValue, ""))
 		return packet
 
 	case *FilterExtensibleMatch:
-		packet := ber.Encode(ber.ClassContext, ber.TypeConstructed, 0x9, nil, "Extensible Match")
+		packet := ber.Encode(ber.ClassContext, ber.TypeConstructed, 0x9, nil, "")
 		if filter.MatchingRule != "" {
-			packet.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, 0x1, filter.MatchingRule, "Matching Rule"))
+			packet.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, 0x1, filter.MatchingRule, ""))
 		}
 		if filter.AttributeDesc != "" {
-			packet.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, 0x2, filter.AttributeDesc, "Attribute Desc"))
+			packet.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, 0x2, filter.AttributeDesc, ""))
 		}
 		if filter.MatchValue != "" {
-			packet.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, 0x3, filter.MatchValue, "Match Value"))
+			packet.AppendChild(ber.NewString(ber.ClassContext, ber.TypePrimitive, 0x3, filter.MatchValue, ""))
 		}
 		if filter.DNAttributes {
-			packet.AppendChild(ber.NewBoolean(ber.ClassContext, ber.TypePrimitive, 0x4, true, "DN Attributes"))
+			packet.AppendChild(ber.NewBoolean(ber.ClassContext, ber.TypePrimitive, 0x4, true, ""))
 		}
 		return packet
 	}
