@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 
 	attrlistmid "github.com/Macmod/ldapx/middlewares/attrlist"
 	basednmid "github.com/Macmod/ldapx/middlewares/basedn"
@@ -19,6 +20,7 @@ import (
 )
 
 type Stats struct {
+	sync.Mutex
 	Forward struct {
 		PacketsReceived uint64
 		PacketsSent     uint64
@@ -166,10 +168,12 @@ func handleLDAPConnection(conn net.Conn) {
 
 			var newPacket *ber.Packet
 
+			globalStats.Lock()
 			globalStats.Forward.PacketsReceived++
 			globalStats.Forward.BytesReceived += uint64(len(packet.Bytes()))
 			application := uint8(packet.Children[1].Tag)
 			globalStats.Forward.CountsByType[int(application)]++
+			globalStats.Unlock()
 
 			reqMessageID := packet.Children[0].Value.(int64)
 			applicationText, ok := parser.ApplicationMap[application]
@@ -225,8 +229,10 @@ func handleLDAPConnection(conn net.Conn) {
 				logger.Printf("[-] Error forwarding LDAP request: %v\n", err)
 				return
 			}
+			globalStats.Lock()
 			globalStats.Forward.PacketsSent++
 			globalStats.Forward.BytesSent += uint64(len(newPacket.Bytes()))
+			globalStats.Unlock()
 
 			if err := targetConnWriter.Flush(); err != nil {
 				fmt.Printf("\n")
@@ -253,10 +259,12 @@ func handleLDAPConnection(conn net.Conn) {
 					return
 				}
 
+				globalStats.Lock()
 				globalStats.Reverse.PacketsReceived++
 				globalStats.Reverse.BytesReceived += uint64(len(responsePacket.Bytes()))
 				application := uint8(responsePacket.Children[1].Tag)
 				globalStats.Reverse.CountsByType[int(application)]++
+				globalStats.Unlock()
 
 				respMessageID := responsePacket.Children[0].Value.(int64)
 				applicationText, ok := parser.ApplicationMap[application]
@@ -268,8 +276,10 @@ func handleLDAPConnection(conn net.Conn) {
 					logger.Printf("[-] Error sending response back to client: %v\n", err)
 					return
 				}
+				globalStats.Lock()
 				globalStats.Reverse.PacketsSent++
 				globalStats.Reverse.BytesSent += uint64(len(responseBytes))
+				globalStats.Unlock()
 
 				connWriter.Flush()
 
