@@ -12,4 +12,3 @@
 * [Study] Possibilities related to obfuscating LDAP_MATCHING_RULE_DN_WITH_DATA, Timestamps with comma/timezones, ExtensibleMatchFilter's with negative values, TokenSID ordering, etc
 * [Study] Is it possible to replace a query interactively or does it timeout?
 * [Feature] Support applying middlewares to LDAP operations other than search (Add, Modify, Delete)
-* [Feature] Changing the target connection address via the shell

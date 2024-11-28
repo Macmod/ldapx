@@ -52,6 +52,8 @@ var insecureTlsConfig = &tls.Config{
 	InsecureSkipVerify: true,
 }
 
+var targetConn net.Conn
+
 var globalStats Stats
 
 var (
@@ -89,28 +91,42 @@ func init() {
 	globalStats.Reverse.CountsByType = make(map[int]uint64)
 }
 
-func connectToTarget(addr string) (net.Conn, error) {
-	var targetConn net.Conn
+func reconnectTarget() error {
+	// Close the existing target connection
+	if targetConn != nil {
+		targetConn.Close()
+	}
+
+	// Connect to the new target
+	var err error
+	targetConn, err = connect(targetLDAPAddr)
+	if err != nil {
+		return fmt.Errorf("failed to connect to target LDAP server: %v", err)
+	}
+
+	return nil
+}
+
+func connect(addr string) (net.Conn, error) {
+	var conn net.Conn
 	var err error
 	var dialer net.Dialer
 
 	if ldaps {
-		targetConn, err = tls.DialWithDialer(&dialer, "tcp", addr, insecureTlsConfig)
+		conn, err = tls.DialWithDialer(&dialer, "tcp", addr, insecureTlsConfig)
 	} else {
-		targetConn, err = net.Dial("tcp", addr)
+		conn, err = net.Dial("tcp", addr)
 	}
 
-	return targetConn, err
+	return conn, err
 }
 
 func handleLDAPConnection(conn net.Conn) {
 	defer conn.Close()
 
 	// Connect to target conn
-	targetConn, err := connectToTarget(targetLDAPAddr)
-
-	targetConnReader := bufio.NewReader(targetConn)
-	targetConnWriter := bufio.NewWriter(targetConn)
+	var err error
+	targetConn, err = connect(targetLDAPAddr)
 
 	if err != nil {
 		fmt.Println("")
@@ -118,6 +134,9 @@ func handleLDAPConnection(conn net.Conn) {
 		return
 	}
 	defer targetConn.Close()
+
+	targetConnReader := bufio.NewReader(targetConn)
+	targetConnWriter := bufio.NewWriter(targetConn)
 
 	done := make(chan struct{}) // Channel to signal when either goroutine is done
 

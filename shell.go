@@ -24,6 +24,7 @@ var setParamSuggestions = []prompt.Suggest{
 	{Text: "filter", Description: "Set filter middleware chain"},
 	{Text: "basedn", Description: "Set basedn middleware chain"},
 	{Text: "attrlist", Description: "Set attribute list middleware chain"},
+	{Text: "target", Description: "Set target LDAP server address and reconnect"},
 }
 
 var clearParamSuggestions = []prompt.Suggest{
@@ -194,6 +195,16 @@ func handleSetCommand(param string, values []string) {
 			testAttrList[i] = strings.TrimSpace(testAttrList[i])
 		}
 		fmt.Printf("Test attribute list set to: %v\n", testAttrList)
+	case "target":
+		targetLDAPAddr = value
+		fmt.Printf("Target LDAP server address set to: %s\n", targetLDAPAddr)
+		fmt.Println("Connecting to the new target...")
+		err := reconnectTarget()
+		if err != nil {
+			fmt.Printf("Failed to connect to the new target: %v\n", err)
+		} else {
+			fmt.Println("Successfully connected to the new target.")
+		}
 	default:
 		fmt.Printf("Unknown parameter: %s\n", param)
 	}
