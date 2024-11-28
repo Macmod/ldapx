@@ -347,6 +347,7 @@ func NewError(resultCode uint16, err error) error {
 	return &Error{ResultCode: resultCode, Err: err}
 }
 
+/*
 func AddDefaultLDAPResponseDescriptions(packet *ber.Packet) error {
 	resultCode := uint16(LDAPResultSuccess)
 	matchedDN := ""
@@ -548,3 +549,4 @@ func AddControlDescriptions(packet *ber.Packet) error {
 	}
 	return nil
 }
+*/

@@ -2,12 +2,14 @@ package main
 
 import (
 	"bufio"
+	"crypto/sha256"
 	"crypto/tls"
 	"flag"
 	"fmt"
 	"log"
 	"net"
 	"os"
+	"reflect"
 	"strings"
 	"sync"
 
@@ -67,6 +69,8 @@ var (
 	filterChain    string
 	attrChain      string
 	baseChain      string
+
+	tracking bool
 )
 
 func init() {
@@ -78,45 +82,11 @@ func init() {
 	flag.StringVar(&filterChain, "f", "", "Chain of search filter middlewares")
 	flag.StringVar(&attrChain, "a", "", "Chain of attribute list middlewares")
 	flag.StringVar(&baseChain, "b", "", "Chain of baseDN middlewares")
+	flag.BoolVar(&tracking, "T", true, "Applies a tracking algorithm to avoid issues where complex middlewares + paged searches break LDAP cookies (may be memory intensive)")
 	flag.Bool("version", false, "Show version information")
 
 	globalStats.Forward.CountsByType = make(map[int]uint64)
 	globalStats.Reverse.CountsByType = make(map[int]uint64)
-}
-
-func copyBerPacket(packet *ber.Packet) *ber.Packet {
-	newPacket := ber.Encode(packet.ClassType, packet.TagType, packet.Tag, packet.Value, packet.Description)
-	for _, child := range packet.Children {
-		if len(child.Children) == 0 {
-			newPacket.AppendChild(child)
-		} else {
-			newPacket.AppendChild(copyBerPacket(child))
-		}
-	}
-
-	return newPacket
-}
-
-func extractAttributeSelection(subpacket *ber.Packet) []string {
-	attrs := make([]string, 0)
-
-	for _, child := range subpacket.Children {
-		attrs = append(attrs, child.Data.String())
-	}
-
-	return attrs
-}
-
-func encodeAttributeList(attrs []string) *ber.Packet {
-	seq := ber.NewSequence("Attribute List")
-	for _, attr := range attrs {
-		seq.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, attr, "Attribute"))
-	}
-	return seq
-}
-
-func encodeBaseDN(baseDN string) *ber.Packet {
-	return ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, baseDN, "Base DN")
 }
 
 func connectToTarget(addr string) (net.Conn, error) {
@@ -154,10 +124,45 @@ func handleLDAPConnection(conn net.Conn) {
 	connReader := bufio.NewReader(conn)
 	connWriter := bufio.NewWriter(conn)
 
+	sendPacketForward := func(packet *ber.Packet) {
+		if _, err := targetConnWriter.Write(packet.Bytes()); err != nil {
+			fmt.Printf("\n")
+			logger.Printf("[-] Error forwarding LDAP request: %v\n", err)
+			return
+		}
+		globalStats.Lock()
+		globalStats.Forward.PacketsSent++
+		globalStats.Forward.BytesSent += uint64(len(packet.Bytes()))
+		globalStats.Unlock()
+
+		if err := targetConnWriter.Flush(); err != nil {
+			fmt.Printf("\n")
+			logger.Printf("[-] Error flushing LDAP response: %v\n", err)
+			return
+		}
+	}
+
+	sendPacketReverse := func(packet *ber.Packet) {
+		responseBytes := packet.Bytes()
+		if _, err := connWriter.Write(responseBytes); err != nil {
+			logger.Printf("[-] Error sending response back to client: %v\n", err)
+			return
+		}
+		globalStats.Lock()
+		globalStats.Reverse.PacketsSent++
+		globalStats.Reverse.BytesSent += uint64(len(responseBytes))
+		globalStats.Unlock()
+
+		connWriter.Flush()
+	}
+
 	go func() {
 		// Close `done` channel when done to signal response goroutine to exit
 		defer close(done)
 
+		var searchRequestMap = make(map[string]*ber.Packet)
+
+	ForwardLoop:
 		for {
 			packet, err := ber.ReadPacket(connReader)
 			if err != nil {
@@ -165,8 +170,6 @@ func handleLDAPConnection(conn net.Conn) {
 				logger.Printf("[-] Error reading LDAP request: %v\n", err)
 				return
 			}
-
-			var newPacket *ber.Packet
 
 			globalStats.Lock()
 			globalStats.Forward.PacketsReceived++
@@ -183,10 +186,50 @@ func handleLDAPConnection(conn net.Conn) {
 
 			if application == parser.ApplicationSearchRequest {
 				fmt.Println("\n" + strings.Repeat("─", 55))
+
+				if tracking {
+					// Handle possible cookie corruption by tracking the original corresponding request
+					if len(packet.Children) > 2 {
+						controls := packet.Children[2].Children
+						for _, control := range controls {
+							if len(control.Children) > 1 && control.Children[0].Value == "1.2.840.113556.1.4.319" {
+								cookie := control.Children[1].Data.Bytes()
+
+								if len(cookie) > 8 {
+									// Hash the search message (packet.Children[1]) to retrieve the correct search packet from the map
+									searchMessage := packet.Children[1].Bytes()
+									searchMessageHash := fmt.Sprintf("%x", sha256.Sum256(searchMessage))
+									searchPacket, ok := searchRequestMap[searchMessageHash]
+
+									if ok {
+										logger.Printf("[+] [Paging] Sarch Request Intercepted (%d)\n", reqMessageID)
+
+										forwardPacket := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
+										forwardPacket.AppendChild(packet.Children[0])
+										forwardPacket.AppendChild(searchPacket.Children[1])
+										forwardPacket.AppendChild(packet.Children[2])
+
+										sendPacketForward(forwardPacket)
+										logger.Printf("[+] [Paging] Search Request Forwarded (%d)\n", reqMessageID)
+
+										continue ForwardLoop
+									} else {
+										logger.Printf("[-] Error finding previous packet (tracking algorithm)")
+									}
+								}
+							}
+						}
+					}
+
+					searchMessage := packet.Children[1].Bytes()
+					searchMessageHash := fmt.Sprintf("%x", sha256.Sum256(searchMessage))
+					searchRequestMap[searchMessageHash] = packet
+				}
+
 				logger.Printf("[+] Search Request Intercepted (%d)\n", reqMessageID)
 				baseDN := packet.Children[1].Children[0].Value.(string)
 				filterData := packet.Children[1].Children[6]
-				attrs := extractAttributeSelection(packet.Children[1].Children[7])
+				attrs := BerChildrenToList(packet.Children[1].Children[7])
 
 				filter, err := parser.PacketToFilter(filterData)
 				if err != nil {
@@ -199,7 +242,7 @@ func handleLDAPConnection(conn net.Conn) {
 					yellow.Printf("[WARNING] %s\n", err)
 				}
 
-				blue.Printf("Intercepted Request\n    BaseDN: %s\n    Attributes: %v\n    Filter: %s\n", baseDN, attrs, oldFilterStr)
+				blue.Printf("Intercepted Request\n    BaseDN: %s\n    Filter: %s\n    Attributes: %v\n", baseDN, attrs, oldFilterStr)
 
 				newFilter, newBaseDN, newAttrs := TransformSearchRequest(
 					filter, baseDN, attrs, fc, ac, bc,
@@ -210,35 +253,35 @@ func handleLDAPConnection(conn net.Conn) {
 					yellow.Printf("[WARNING] %s\n", err)
 				}
 
-				green.Printf("Changed Request\n    BaseDN: %s\n    Attributes: %v\n    Filter: %s\n", newBaseDN, newAttrs, newFilterStr)
+				// Change the fields that need to be changed
+				updatedFlag := false
+				if newBaseDN != baseDN {
+					UpdateBerChildLeaf(packet.Children[1], 0, EncodeBaseDN(newBaseDN))
+					updatedFlag = true
+				}
 
-				newPacket = copyBerPacket(packet)
+				// TODO: Compare the Filter structures instead to minimize the risk of bugs
+				if oldFilterStr != newFilterStr {
+					UpdateBerChildLeaf(packet.Children[1], 6, parser.FilterToPacket(newFilter))
+					updatedFlag = true
+				}
 
-				newPacket.Children[1].Children[0] = encodeBaseDN(newBaseDN) //encodeBaseDN(newBaseDN)
-				newPacket.Children[1].Children[6] = parser.FilterToPacket(newFilter)
-				newPacket.Children[1].Children[7] = encodeAttributeList(newAttrs)
+				if !reflect.DeepEqual(attrs, newAttrs) {
+					UpdateBerChildLeaf(packet.Children[1], 7, EncodeAttributeList(newAttrs))
+					updatedFlag = true
+				}
+
+				if updatedFlag {
+					green.Printf("Changed Request\n    BaseDN: %s\n    Filter: %s\n    Attributes: %v\n", newBaseDN, newAttrs, newFilterStr)
+				} else {
+					blue.Printf("Nothing changed in the request\n")
+				}
+
+				// We need to copy it to refresh the internal Data of the parent packet
+				packet = CopyBerPacket(packet)
 			}
 
-			// If no modifications were performed, just forward the original packet
-			if newPacket == nil {
-				newPacket = packet
-			}
-
-			if _, err := targetConnWriter.Write(newPacket.Bytes()); err != nil {
-				fmt.Printf("\n")
-				logger.Printf("[-] Error forwarding LDAP request: %v\n", err)
-				return
-			}
-			globalStats.Lock()
-			globalStats.Forward.PacketsSent++
-			globalStats.Forward.BytesSent += uint64(len(newPacket.Bytes()))
-			globalStats.Unlock()
-
-			if err := targetConnWriter.Flush(); err != nil {
-				fmt.Printf("\n")
-				logger.Printf("[-] Error flushing LDAP response: %v\n", err)
-				return
-			}
+			sendPacketForward(packet)
 
 			if debug {
 				logger.Printf("[C->T] [%d - %s]\n", reqMessageID, applicationText)
@@ -271,20 +314,11 @@ func handleLDAPConnection(conn net.Conn) {
 				if !ok {
 					applicationText = fmt.Sprintf("Unknown Application", application)
 				}
-				responseBytes := responsePacket.Bytes()
-				if _, err := connWriter.Write(responseBytes); err != nil {
-					logger.Printf("[-] Error sending response back to client: %v\n", err)
-					return
-				}
-				globalStats.Lock()
-				globalStats.Reverse.PacketsSent++
-				globalStats.Reverse.BytesSent += uint64(len(responseBytes))
-				globalStats.Unlock()
 
-				connWriter.Flush()
+				sendPacketReverse(responsePacket)
 
 				if debug {
-					logger.Printf("[C<-T] [%d - %s] (%d bytes)\n", respMessageID, applicationText, len(responseBytes))
+					logger.Printf("[C<-T] [%d - %s] (%d bytes)\n", respMessageID, applicationText, len(responsePacket.Bytes()))
 				}
 			}
 		}

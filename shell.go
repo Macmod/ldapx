@@ -24,13 +24,13 @@ var setParamSuggestions = []prompt.Suggest{
 	{Text: "filter", Description: "Set filter middleware chain"},
 	{Text: "basedn", Description: "Set basedn middleware chain"},
 	{Text: "attrlist", Description: "Set attribute list middleware chain"},
-	{Text: "stats", Description: "Clear statistics"},
 }
 
 var clearParamSuggestions = []prompt.Suggest{
 	{Text: "filter", Description: "Clear filter middleware chain"},
 	{Text: "basedn", Description: "Clear basedn middleware chain"},
 	{Text: "attrlist", Description: "Clear attribute list middleware chain"},
+	{Text: "stats", Description: "Clear statistics"},
 }
 
 var showParamSuggestions = []prompt.Suggest{
@@ -81,7 +81,8 @@ func executor(in string) {
 	in = strings.TrimSpace(in)
 	blocks := strings.Split(in, " ")
 
-	if len(blocks) == 0 {
+	if len(blocks) == 0 || blocks[0] == "" {
+		fmt.Println("No command provided. Type 'help' to see available commands.")
 		return
 	}
 
@@ -242,17 +243,19 @@ func showHelp(args ...string) {
 	if len(args) == 0 {
 		fmt.Println("Available commands:")
 		fmt.Println("  set <parameter> <value>    Set a configuration parameter")
-		fmt.Println("  clear [<middlewarechain>]  Clear a middleware chain")
+		fmt.Println("  clear [<parameter>]        Clear a configuration parameter or all")
 		fmt.Println("  show [<parameter>]         Show a configuration parameter or all")
 		fmt.Println("  help [<parameter>]         Show this help message or parameter-specific help")
 		fmt.Println("  exit                       Exit the program")
 		fmt.Println("  test <query>               Simulate an LDAP query through the middlewares without sending it")
+		fmt.Println("  stats                      Show packet statistics")
 		fmt.Println("\nParameters:")
 		fmt.Println("  filter       - Filter middleware chain")
 		fmt.Println("  basedn       - BaseDN middleware chain")
 		fmt.Println("  attrlist     - Attribute list middleware chain")
 		fmt.Println("  testbasedn   - BaseDN to use for the `test` command")
 		fmt.Println("  testattrlist - Attribute list to use for the `test` command (separated by commas)")
+		fmt.Println("  stats        - Packet statistics")
 		fmt.Println("\nUse 'help <parameter>' for detailed information about specific parameters")
 		fmt.Println("")
 		return
@@ -312,7 +315,7 @@ func handleTestCommand(query string) {
 		return
 	}
 
-	blue.Printf("Parsed Request:\n")
+	blue.Printf("Input Request:\n")
 	blue.Printf("  BaseDN: %s\n", testBaseDN)
 	blue.Printf("  Attributes: %v\n", testAttrList)
 	blue.Printf("  Filter: %s\n", parsed)
@@ -332,7 +335,7 @@ func handleTestCommand(query string) {
 		red.Printf("Unknown error: '%v'", err)
 	}
 
-	green.Printf("Changed Request:\n")
+	green.Printf("Output Request:\n")
 	green.Printf("  BaseDN: %s\n", newBaseDN)
 	green.Printf("  Attributes: %v\n", newAttrs)
 	green.Printf("  Filter: %v\n", newParsed)

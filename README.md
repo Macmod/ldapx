@@ -52,11 +52,12 @@ You can also use the builting shell to change your middlewares on the fly (`set`
 ldapx> help
 Available commands:
   set <parameter> <value>    Set a configuration parameter
-  clear [<middlewarechain>]  Clear a middleware chain
+  clear [<parameter>]        Clear a configuration parameter or all
   show [<parameter>]         Show a configuration parameter or all
   help [<parameter>]         Show this help message or parameter-specific help
   exit                       Exit the program
   test <query>               Simulate an LDAP query through the middlewares without sending it
+  stats                      Show packet statistics
 
 Parameters:
   filter       - Filter middleware chain
@@ -64,6 +65,7 @@ Parameters:
   attrlist     - Attribute list middleware chain
   testbasedn   - BaseDN to use for the `test` command
   testattrlist - Attribute list to use for the `test` command (separated by commas)
+  stats        - Packet statistics
 
 Use 'help <parameter>' for detailed information about specific parameters
 ```

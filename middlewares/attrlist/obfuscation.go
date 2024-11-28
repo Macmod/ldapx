@@ -73,15 +73,21 @@ func RandOIDSpacingAttrListObf(maxSpaces int) func([]string) []string {
 }
 
 // DuplicateAttrListObf duplicates random attributes
-func DuplicateAttrListObf(minDups int, maxDups int) func([]string) []string {
+func DuplicateAttrListObf(minDups int, prob float64) func([]string) []string {
 	return func(attrs []string) []string {
 		result := make([]string, 0)
+
 		for _, attr := range attrs {
-			duplicates := 1 + minDups + rand.Intn(maxDups)
+			duplicates := minDups
+			for rand.Float64() < prob {
+				duplicates++
+			}
+
 			for i := 0; i < duplicates; i++ {
 				result = append(result, attr)
 			}
 		}
+
 		return result
 	}
 }
