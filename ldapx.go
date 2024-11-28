@@ -261,7 +261,7 @@ func handleLDAPConnection(conn net.Conn) {
 					yellow.Printf("[WARNING] %s\n", err)
 				}
 
-				blue.Printf("Intercepted Request\n    BaseDN: %s\n    Filter: %s\n    Attributes: %v\n", baseDN, attrs, oldFilterStr)
+				blue.Printf("Intercepted Request\n    BaseDN: %s\n    Filter: %s\n    Attributes: %v\n", baseDN, oldFilterStr, attrs)
 
 				newFilter, newBaseDN, newAttrs := TransformSearchRequest(
 					filter, baseDN, attrs, fc, ac, bc,
@@ -291,7 +291,7 @@ func handleLDAPConnection(conn net.Conn) {
 				}
 
 				if updatedFlag {
-					green.Printf("Changed Request\n    BaseDN: %s\n    Filter: %s\n    Attributes: %v\n", newBaseDN, newAttrs, newFilterStr)
+					green.Printf("Changed Request\n    BaseDN: %s\n    Filter: %s\n    Attributes: %v\n", newBaseDN, newFilterStr, newAttrs)
 				} else {
 					blue.Printf("Nothing changed in the request\n")
 				}
