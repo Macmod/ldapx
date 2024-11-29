@@ -43,6 +43,33 @@ type Filter interface {
 	Type() FilterType
 }
 
+func GetAttrName(filter Filter) (string, error) {
+	switch f := filter.(type) {
+	case *FilterAnd:
+		return "", fmt.Errorf("AND filters have no attribute name.")
+	case *FilterOr:
+		return "", fmt.Errorf("OR filters have no attribute name.")
+	case *FilterNot:
+		return "", fmt.Errorf("NOT filters have no attribute name.")
+	case *FilterEqualityMatch:
+		return f.AttributeDesc, nil
+	case *FilterSubstring:
+		return f.AttributeDesc, nil
+	case *FilterGreaterOrEqual:
+		return f.AttributeDesc, nil
+	case *FilterLessOrEqual:
+		return f.AttributeDesc, nil
+	case *FilterPresent:
+		return f.AttributeDesc, nil
+	case *FilterApproxMatch:
+		return f.AttributeDesc, nil
+	case *FilterExtensibleMatch:
+		return f.AttributeDesc, nil
+	default:
+		return "", fmt.Errorf("Unknown filters have no attribute name.")
+	}
+}
+
 // Base structs for different filter types:
 
 // FilterAnd represents an AND filter.
@@ -745,7 +772,7 @@ func parseSimpleFilter(query string) (Filter, error) {
 			return &FilterPresent{
 				AttributeDesc: attribute.String(),
 			}, nil
-		} else if bytes.Contains(condition.Bytes(), []byte{'*'}) { // Review to use bytes
+		} else if bytes.Contains(condition.Bytes(), []byte{'*'}) {
 			// Looks like an equality match, but it's actually a substring filter
 			substrs := make([]SubstringFilter, 0)
 			parts := bytes.Split(condition.Bytes(), []byte{'*'})

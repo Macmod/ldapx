@@ -1032,3 +1032,141 @@ func RandAddWildcardFilterObf(prob float32) func(parser.Filter) parser.Filter {
 		}
 	})
 }
+
+func generateTypo(attr string) string {
+	runes := []rune(attr)
+
+	index := rand.Intn(len(runes))
+
+	var typoRune rune
+	if rand.Intn(2) == 0 {
+		typoRune = rune(rand.Intn(26) + 'a')
+	} else {
+		typoRune = rune(rand.Intn(26) + 'A')
+	}
+
+	runes[index] = typoRune
+
+	return string(runes)
+}
+
+func ReplaceTautologiesFilterObf() func(parser.Filter) parser.Filter {
+	greedyAttrPresences := []string{
+		// The 4 first are explicitly mentioned in MS-ADTS section 3.1.1.3.1.3.1 (Search Filters)
+		"objectclass", "distinguishedname", "name", "objectguid",
+		"objectcategory", "whencreated", "whenchanged", "usncreated", "usnchanged",
+	}
+
+	existingAttrs := make([]string, 0, len(parser.AttrContexts))
+	for attr := range parser.AttrContexts {
+		existingAttrs = append(existingAttrs, attr)
+	}
+
+	// For any filter, the basic tautology [should] be true
+	makeBasicTautology := func(filter parser.Filter) parser.Filter {
+		return &parser.FilterOr{
+			Filters: []parser.Filter{
+				&parser.FilterNot{Filter: filter},
+				filter,
+			},
+		}
+	}
+
+	// MS-ADTS implies that 0 & 0 is always true :-)
+	randomBitwiseTautologyAnd := func(parser.Filter) parser.Filter {
+		randomAttr := parser.BitwiseAttrs[rand.Intn(len(parser.BitwiseAttrs))]
+
+		return &parser.FilterOr{
+			Filters: []parser.Filter{
+				&parser.FilterExtensibleMatch{
+					MatchingRule:  "1.2.840.113556.1.4.803",
+					AttributeDesc: randomAttr,
+					MatchValue:    "0",
+				},
+				&parser.FilterNot{
+					Filter: &parser.FilterPresent{
+						AttributeDesc: randomAttr,
+					},
+				},
+			},
+		}
+	}
+
+	// OR with 2**32-1
+	randomBitwiseTautologyOr := func(parser.Filter) parser.Filter {
+		randomAttr := parser.BitwiseAttrs[rand.Intn(len(parser.BitwiseAttrs))]
+
+		return &parser.FilterOr{
+			Filters: []parser.Filter{
+				&parser.FilterExtensibleMatch{
+					MatchingRule:  "1.2.840.113556.1.4.804",
+					AttributeDesc: randomAttr,
+					MatchValue:    "4294967295",
+				},
+				&parser.FilterNot{
+					Filter: &parser.FilterPresent{
+						AttributeDesc: randomAttr,
+					},
+				},
+				&parser.FilterEqualityMatch{
+					AttributeDesc:  randomAttr,
+					AssertionValue: "0",
+				},
+			},
+		}
+	}
+
+	randomTypoTautology := func(parser.Filter) parser.Filter {
+		// Get a random existing attribute
+		var typoAttr string
+		for {
+			randomAttr := existingAttrs[rand.Intn(len(existingAttrs))]
+
+			// Generate a typo of the random attribute
+			typoAttr = generateTypo(randomAttr)
+
+			// Check if the typo matches an existing attribute
+			if slices.Contains(existingAttrs, strings.ToLower(typoAttr)) {
+				continue
+			}
+
+			return &parser.FilterNot{
+				Filter: &parser.FilterPresent{
+					AttributeDesc: typoAttr,
+				},
+			}
+		}
+	}
+
+	randomPresenceBasicTautology := func(filter parser.Filter) parser.Filter {
+		var randomAttr string
+		currentAttr, _ := parser.GetAttrName(filter)
+		for randomAttr == "" || randomAttr == currentAttr {
+			randomAttr = existingAttrs[rand.Intn(len(existingAttrs))]
+		}
+
+		return makeBasicTautology(
+			&parser.FilterPresent{
+				AttributeDesc: randomAttr,
+			},
+		)
+	}
+
+	tautologies := []func(parser.Filter) parser.Filter{
+		randomBitwiseTautologyAnd,
+		randomBitwiseTautologyOr,
+		randomTypoTautology,
+		randomPresenceBasicTautology,
+	}
+
+	return LeafApplierFilterMiddleware(func(filter parser.Filter) parser.Filter {
+		switch f := filter.(type) {
+		case *parser.FilterPresent:
+			if slices.Contains(greedyAttrPresences, strings.ToLower(f.AttributeDesc)) {
+				return tautologies[rand.Intn(len(tautologies))](f)
+			}
+		}
+
+		return filter
+	})
+}

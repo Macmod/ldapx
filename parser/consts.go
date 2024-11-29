@@ -2958,3 +2958,19 @@ var AttrContexts = map[string]LDAPAttrContext{
 var NumberFormats = []LDAPTokenFormat{
 	TokenIntEnumeration, TokenIntTimeInterval, TokenBitwise,
 }
+
+var BitwiseAttrs = []string{
+	"acsservicetype", "authenticationoptions", "dhcptype", "flags",
+	"frsflags", "frsreplicasettype", "gpoptions", "groupattributes",
+	"grouptype", "instancetype", "ipsecdatatype", "linkid",
+	"localeid", "localizationdisplayid", "localpolicyflags", "mapiid",
+	"msdfsr-flags", "msdfsr-options", "msdfsr-replicationgrouptype", "msds-azoperationid",
+	"msds-intid", "msds-nctype", "msds-optionalfeatureflags", "msieee80211-datatype",
+	"msmqnt4flags", "msmqostype", "msmqservicetype", "msradiusservicetype",
+	"mstsendpointtype", "mstsremotecontrol", "nameserviceflags", "nextrid",
+	"options", "packageflags", "packagetype", "policyreplicationflags",
+	"primarygroupid", "printattributes", "privilegeattributes", "remotesourcetype",
+	"rid", "ridnextrid", "rpcnsentryflags", "samaccounttype",
+	"scopeflags", "searchflags", "syncattributes", "systemflags",
+	"trustattributes", "trusttype", "useraccountcontrol",
+}

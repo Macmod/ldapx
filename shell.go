@@ -110,9 +110,9 @@ func executor(in string) {
 		handleSetCommand(blocks[1], blocks[2:])
 	case "show":
 		if len(blocks) > 1 {
-			showCurrentConfig(blocks[1])
+			handleShowCommand(blocks[1])
 		} else {
-			showCurrentConfig("")
+			handleShowCommand("")
 		}
 	case "help":
 		if len(blocks) > 1 {
@@ -210,7 +210,7 @@ func handleSetCommand(param string, values []string) {
 	}
 }
 
-func showCurrentConfig(param string) {
+func handleShowCommand(param string) {
 	if param == "" {
 		showGlobalConfig()
 		showChainConfig("Filter", filterChain, filterMidFlags)
@@ -228,6 +228,10 @@ func showCurrentConfig(param string) {
 		showChainConfig("BaseDN", baseChain, baseDNMidFlags)
 	case "attrlist":
 		showChainConfig("AttrList", attrChain, attrListMidFlags)
+	case "testbasedn":
+		fmt.Println(testBaseDN)
+	case "testattrlist":
+		fmt.Println(testAttrList)
 	}
 }
 
