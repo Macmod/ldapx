@@ -1050,6 +1050,22 @@ func generateTypo(attr string) string {
 	return string(runes)
 }
 
+func EqualityToExtensibleFilterObf(dn bool) func(parser.Filter) parser.Filter {
+	return LeafApplierFilterMiddleware(func(filter parser.Filter) parser.Filter {
+		switch f := filter.(type) {
+		case *parser.FilterEqualityMatch:
+			return &parser.FilterExtensibleMatch{
+				MatchingRule:  "",
+				AttributeDesc: f.AttributeDesc,
+				MatchValue:    f.AssertionValue,
+				DNAttributes:  dn,
+			}
+		}
+
+		return filter
+	})
+}
+
 func ReplaceTautologiesFilterObf() func(parser.Filter) parser.Filter {
 	greedyAttrPresences := []string{
 		// The 4 first are explicitly mentioned in MS-ADTS section 3.1.1.3.1.3.1 (Search Filters)
@@ -1117,9 +1133,9 @@ func ReplaceTautologiesFilterObf() func(parser.Filter) parser.Filter {
 	}
 
 	randomTypoTautology := func(parser.Filter) parser.Filter {
-		// Get a random existing attribute
 		var typoAttr string
 		for {
+			// Get a random existing attribute
 			randomAttr := existingAttrs[rand.Intn(len(existingAttrs))]
 
 			// Generate a typo of the random attribute
@@ -1152,11 +1168,75 @@ func ReplaceTautologiesFilterObf() func(parser.Filter) parser.Filter {
 		)
 	}
 
+	randomEqualityBasicTautology := func(filter parser.Filter) parser.Filter {
+		var randomAttr string
+		currentAttr, _ := parser.GetAttrName(filter)
+		for randomAttr == "" || randomAttr == currentAttr {
+			randomAttr = existingAttrs[rand.Intn(len(existingAttrs))]
+		}
+
+		return makeBasicTautology(
+			&parser.FilterEqualityMatch{
+				AttributeDesc:  randomAttr,
+				AssertionValue: string(rand.Intn(26) + 'a'),
+			},
+		)
+	}
+
+	randomSubstringBasicTautology := func(filter parser.Filter) parser.Filter {
+		var randomAttr string
+		currentAttr, _ := parser.GetAttrName(filter)
+		for randomAttr == "" || randomAttr == currentAttr {
+			randomAttr = existingAttrs[rand.Intn(len(existingAttrs))]
+		}
+
+		substrings := []parser.SubstringFilter{}
+		if rand.Intn(2) == 0 {
+			substrings = append(substrings, parser.SubstringFilter{Initial: string(rand.Intn(26) + 'a')})
+		}
+		if rand.Intn(2) == 0 {
+			substrings = append(substrings, parser.SubstringFilter{Any: string(rand.Intn(26) + 'a')})
+		}
+		if rand.Intn(2) == 0 {
+			substrings = append(substrings, parser.SubstringFilter{Final: string(rand.Intn(26) + 'a')})
+		}
+
+		return makeBasicTautology(
+			&parser.FilterSubstring{
+				AttributeDesc: randomAttr,
+				Substrings:    substrings,
+			},
+		)
+	}
+
+	randomBitwiseBasicTautology := func(filter parser.Filter) parser.Filter {
+		randomAttr := parser.BitwiseAttrs[rand.Intn(len(parser.BitwiseAttrs))]
+
+		var matchingRule string
+		kind := rand.Intn(2)
+		if kind == 0 {
+			matchingRule = "1.2.840.113556.1.4.804"
+		} else {
+			matchingRule = "1.2.840.113556.1.4.803"
+		}
+
+		return makeBasicTautology(
+			&parser.FilterExtensibleMatch{
+				MatchingRule:  matchingRule,
+				AttributeDesc: randomAttr,
+				MatchValue:    strconv.Itoa(rand.Intn(4294967296)),
+			},
+		)
+	}
+
 	tautologies := []func(parser.Filter) parser.Filter{
 		randomBitwiseTautologyAnd,
 		randomBitwiseTautologyOr,
 		randomTypoTautology,
 		randomPresenceBasicTautology,
+		randomEqualityBasicTautology,
+		randomSubstringBasicTautology,
+		randomBitwiseBasicTautology,
 	}
 
 	return LeafApplierFilterMiddleware(func(filter parser.Filter) parser.Filter {

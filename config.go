@@ -28,7 +28,7 @@ var (
 
 var filterMidFlags map[rune]string = map[rune]string{
 	'S': "Spacing",
-	'T': "Timestamp",
+	't': "TimestampGarbage",
 	'B': "AddBool",
 	'D': "DblNegBool",
 	'M': "DeMorganBool",
@@ -45,7 +45,9 @@ var filterMidFlags map[rune]string = map[rune]string{
 	'b': "ExactBitwiseBreakout",
 	'I': "EqInclusion",
 	'E': "EqExclusion",
+	'x': "EqExtensible",
 	'd': "BitwiseDecomposition",
+	'T': "ReplaceTautologies",
 }
 
 var baseDNMidFlags map[rune]string = map[rune]string{
@@ -70,9 +72,9 @@ var attrListMidFlags map[rune]string = map[rune]string{
 	'R': "ReorderList",
 }
 
-func SetupFilterMidMap(configFile string) {
+func SetupMiddlewaresMap(configFile string) {
 	filterMidMap = map[string]filtermid.FilterMiddleware{
-		"Timestamp":            filtermid.RandTimestampSuffixFilterObf(true, true, 10),
+		"TimestampGarbage":     filtermid.RandTimestampSuffixFilterObf(true, true, 10),
 		"Spacing":              filtermid.RandSpacingFilterObf(4),
 		"AddBool":              filtermid.RandAddBoolFilterObf(4, 0.5),
 		"DblNegBool":           filtermid.RandDblNegBoolFilterObf(2, 0.5),
@@ -90,7 +92,9 @@ func SetupFilterMidMap(configFile string) {
 		"ExactBitwiseBreakout": filtermid.ExactBitwiseBreakoutFilterObf(),
 		"EqInclusion":          filtermid.EqualityByInclusionFilterObf(),
 		"EqExclusion":          filtermid.EqualityByExclusionFilterObf(),
+		"EqExtensible":         filtermid.EqualityToExtensibleFilterObf(false),
 		"BitwiseDecomposition": filtermid.BitwiseDecomposeFilterObf(32, false),
+		"ReplaceTautologies":   filtermid.ReplaceTautologiesFilterObf(),
 	}
 
 	attrListMidMap = map[string]attrlistmid.AttrListMiddleware{

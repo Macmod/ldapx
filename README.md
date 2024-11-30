@@ -185,6 +185,75 @@ AND Filter with 2 sub-filters:
 Changed Query: (&(2.005.4.03=john)(2.005.04.004=doe))
 ```
 
+## Developing Middlewares
+
+To develop a new middleware, you can create a new function inside the appropriate package (`filter`/`basedn`/`attrlist`) with the following structures, respectively:
+
+### Filter
+```go
+  func YourFilterMiddleware(args) func(parser.Filter) parser.Filter
+```
+
+### BaseDN
+```go
+  func YourBaseDNMiddleware(args) func(string) string
+```
+
+### Attributes List
+```go
+  func YourAttrListMiddleware(args) func([]string) []string
+```
+
+Then to actually have ldapx use your middleware:
+(1) Associate it with a letter and a name in `config.go` in either the `filterMidFlags`, `attrListMidFlags`, or `baseDNMidFlags` maps.
+(2) Change SetupMiddlewaresMap in `config.go` to include the call to your middleware
+
+A helper function named `LeafApplierFilterMiddleware` is provided to make it easier to write filter middlewares that only apply to leaf nodes of the filter. The relevant types and functions you might need are defined in the `parser` package.
+
+For example, the code below is the code for the `EqExtensible` middleware in `filter.go`. This middleware changes EqualityMatches into ExtensibleMatches with an empty MatchingRule - for example, `(cn=John)` becomes `(cn::=John)`:
+
+```go
+func EqExtensibleFilterObf(dn bool) func(parser.Filter) parser.Filter {
+  // For every leaf in the filter...
+	return LeafApplierFilterMiddleware(func(filter parser.Filter) parser.Filter {
+		switch f := filter.(type) {
+    // If the leaf is an EqualityMatch
+		case *parser.FilterEqualityMatch:
+      // Replace it with an ExtensibleMatch with an empty MatchingRule
+      // optionally adding a DNAttributes (Active Directory ignores DNAttributes)
+			return &parser.FilterExtensibleMatch{
+				MatchingRule:  "",
+				AttributeDesc: f.AttributeDesc,
+				MatchValue:    f.AssertionValue,
+				DNAttributes:  dn,
+			}
+		}
+
+		return filter
+	})
+}
+```
+
+Then it's registered as follows in `config.go`:
+```go
+
+...
+var filterMidFlags map[rune]string = map[rune]string{
+  ...
+	'x': "EqExtensible",
+  ...
+}
+
+...
+
+// In SetupMiddlewaresMap:
+filterMidMap = map[string]filtermid.FilterMiddleware{
+  ...
+  "EqExtensible":         filtermid.EqualityToExtensibleFilterObf(false),
+  ...
+}
+```
+
 ## Contributing
 
 Contributions are welcome by [opening an issue](https://github.com/Macmod/ldapx/issues/new) or by [submitting a pull request](https://github.com/Macmod/ldapx/pulls).

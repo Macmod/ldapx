@@ -393,7 +393,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	SetupFilterMidMap("")
+	SetupMiddlewaresMap("")
 
 	// Registering middlewares
 	updateFilterChain(filterChain)
