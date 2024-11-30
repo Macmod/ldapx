@@ -240,14 +240,14 @@ Then it's registered as follows in `config.go`:
 ```go
 var filterMidFlags map[rune]string = map[rune]string{
   ...
-	'x': "EqExtensible",
+  'x': "EqExtensible",
   ...
 }
 
 // In SetupMiddlewaresMap:
 filterMidMap = map[string]filtermid.FilterMiddleware{
   ...
-  "EqExtensible":         filtermid.EqualityToExtensibleFilterObf(false),
+  "EqExtensible": filtermid.EqualityToExtensibleFilterObf(false),
   ...
 }
 ```
