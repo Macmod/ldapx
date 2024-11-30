@@ -212,26 +212,26 @@ Then to actually have ldapx use your middleware:
 
 A helper function named `LeafApplierFilterMiddleware` is provided to make it easier to write filter middlewares that only apply to leaf nodes of the filter. The relevant types and functions you might need are defined in the `parser` package.
 
-For example, the code below is the code for the `EqExtensible` middleware in `filter.go`. This middleware changes EqualityMatches into ExtensibleMatches with an empty MatchingRule - for example, `(cn=John)` becomes `(cn::=John)`:
+For example, the code below is the code for the `EqExtensible` middleware in `obfuscation.go`. This middleware changes EqualityMatches into ExtensibleMatches with an empty MatchingRule - for example, `(cn=John)` becomes `(cn::=John)`:
 
 ```go
 func EqExtensibleFilterObf(dn bool) func(parser.Filter) parser.Filter {
   // For every leaf in the filter...
   return LeafApplierFilterMiddleware(func(filter parser.Filter) parser.Filter {
-  	switch f := filter.(type) {
+    switch f := filter.(type) {
     // If the leaf is an EqualityMatch
-  	case *parser.FilterEqualityMatch:
+    case *parser.FilterEqualityMatch:
       // Replace it with an ExtensibleMatch with an empty MatchingRule
       // optionally adding a DNAttributes (Active Directory ignores DNAttributes)
-  		return &parser.FilterExtensibleMatch{
-  			MatchingRule:  "",
-  			AttributeDesc: f.AttributeDesc,
-  			MatchValue:    f.AssertionValue,
-  			DNAttributes:  dn,
-  		}
-  	}
+      return &parser.FilterExtensibleMatch{
+        MatchingRule:  "",
+        AttributeDesc: f.AttributeDesc,
+        MatchValue:    f.AssertionValue,
+        DNAttributes:  dn,
+      }
+    }
 
-  	return filter
+    return filter
   })
 }
 ```
