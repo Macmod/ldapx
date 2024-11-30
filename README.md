@@ -205,7 +205,9 @@ To develop a new middleware, you can create a new function inside the appropriat
 ```
 
 Then to actually have ldapx use your middleware:
+
 (1) Associate it with a letter and a name in `config.go` in either the `filterMidFlags`, `attrListMidFlags`, or `baseDNMidFlags` maps.
+
 (2) Change SetupMiddlewaresMap in `config.go` to include the call to your middleware
 
 A helper function named `LeafApplierFilterMiddleware` is provided to make it easier to write filter middlewares that only apply to leaf nodes of the filter. The relevant types and functions you might need are defined in the `parser` package.
@@ -215,36 +217,32 @@ For example, the code below is the code for the `EqExtensible` middleware in `fi
 ```go
 func EqExtensibleFilterObf(dn bool) func(parser.Filter) parser.Filter {
   // For every leaf in the filter...
-	return LeafApplierFilterMiddleware(func(filter parser.Filter) parser.Filter {
-		switch f := filter.(type) {
+  return LeafApplierFilterMiddleware(func(filter parser.Filter) parser.Filter {
+  	switch f := filter.(type) {
     // If the leaf is an EqualityMatch
-		case *parser.FilterEqualityMatch:
+  	case *parser.FilterEqualityMatch:
       // Replace it with an ExtensibleMatch with an empty MatchingRule
       // optionally adding a DNAttributes (Active Directory ignores DNAttributes)
-			return &parser.FilterExtensibleMatch{
-				MatchingRule:  "",
-				AttributeDesc: f.AttributeDesc,
-				MatchValue:    f.AssertionValue,
-				DNAttributes:  dn,
-			}
-		}
+  		return &parser.FilterExtensibleMatch{
+  			MatchingRule:  "",
+  			AttributeDesc: f.AttributeDesc,
+  			MatchValue:    f.AssertionValue,
+  			DNAttributes:  dn,
+  		}
+  	}
 
-		return filter
-	})
+  	return filter
+  })
 }
 ```
 
 Then it's registered as follows in `config.go`:
 ```go
-
-...
 var filterMidFlags map[rune]string = map[rune]string{
   ...
 	'x': "EqExtensible",
   ...
 }
-
-...
 
 // In SetupMiddlewaresMap:
 filterMidMap = map[string]filtermid.FilterMiddleware{
