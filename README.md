@@ -212,7 +212,7 @@ Then to actually have ldapx use your middleware:
 
 A helper function named `LeafApplierFilterMiddleware` is provided to make it easier to write filter middlewares that only apply to leaf nodes of the filter. The relevant types and functions you might need are defined in the `parser` package.
 
-For example, the code below is the code for the `EqExtensible` middleware in `obfuscation.go`. This middleware changes EqualityMatches into ExtensibleMatches with an empty MatchingRule - for example, `(cn=John)` becomes `(cn::=John)`:
+For example, the code below is the code for the `EqExtensible` middleware in `obfuscation.go`. This middleware changes EqualityMatches into ExtensibleMatches with an empty MatchingRule - for example, `(cn=John)` becomes either `(cn::=John)` or `(cn:dn:=John)`:
 
 ```go
 func EqExtensibleFilterObf(dn bool) func(parser.Filter) parser.Filter {
