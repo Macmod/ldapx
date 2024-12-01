@@ -88,7 +88,17 @@ func DoubleQuotesBaseDNObf() func(string) string {
 		for i, part := range parts {
 			kv := strings.SplitN(part, "=", 2)
 			if len(kv) == 2 {
-				parts[i] = kv[0] + "=\"" + kv[1] + "\""
+				value := kv[1]
+				if strings.ContainsAny(value, "\\") {
+					continue
+				}
+
+				if i == len(parts)-1 && strings.HasSuffix(value, " ") {
+					trimmedValue := strings.TrimRight(value, " ")
+					parts[i] = kv[0] + "=\"" + trimmedValue + "\"" + strings.Repeat(" ", len(value)-len(trimmedValue))
+				} else {
+					parts[i] = kv[0] + "=\"" + value + "\""
+				}
 			}
 		}
 		return strings.Join(parts, ",")
@@ -103,7 +113,15 @@ func RandHexValueBaseDNObf(prob float32) func(string) string {
 			kv := strings.SplitN(part, "=", 2)
 			if len(kv) == 2 {
 				var builder strings.Builder
-				for _, c := range kv[1] {
+				value := kv[1]
+				startQuote := value[0] == '"'
+				endQuote := value[len(value)-1] == '"'
+				if startQuote || endQuote {
+					builder.WriteString(value)
+					continue
+				}
+
+				for _, c := range value {
 					if rand.Float32() < prob {
 						builder.WriteString(fmt.Sprintf("\\%02x", c))
 					} else {
