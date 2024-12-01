@@ -78,6 +78,12 @@ func completer(in prompt.Document) []prompt.Suggest {
 	}
 }
 
+func shutdownProgram() {
+	fmt.Println("Bye!")
+	close(shutdownChan)
+	os.Exit(0)
+}
+
 func executor(in string) {
 	in = strings.TrimSpace(in)
 	blocks := strings.Split(in, " ")
@@ -89,9 +95,7 @@ func executor(in string) {
 
 	switch blocks[0] {
 	case "exit":
-		fmt.Println("Bye!")
-		close(shutdownChan)
-		os.Exit(0)
+		shutdownProgram()
 	case "clear":
 		if len(blocks) < 2 {
 			updateFilterChain("")
@@ -134,22 +138,17 @@ func executor(in string) {
 		fmt.Printf("Unknown command: '%s'\n", blocks[0])
 	}
 }
+
 func RunShell() {
 	p := prompt.New(
 		executor,
 		completer,
 		prompt.OptionPrefix("ldapx> "),
 		prompt.OptionTitle("ldapx"),
-		prompt.OptionAddKeyBind(prompt.KeyBind{
-			Key: prompt.ControlD,
-			Fn: func(b *prompt.Buffer) {
-				fmt.Println("Bye!")
-				close(shutdownChan)
-				os.Exit(0)
-			},
-		}),
 	)
 	p.Run()
+
+	shutdownProgram()
 }
 
 func handleClearCommand(param string) {
