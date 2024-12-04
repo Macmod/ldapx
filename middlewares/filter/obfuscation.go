@@ -705,7 +705,7 @@ func RandCaseFilterObf(prob float32) func(f parser.Filter) parser.Filter {
 				v.AttributeDesc, v.AssertionValue = obfuscate(v.AttributeDesc, v.AssertionValue, prob)
 				return v
 			case *parser.FilterPresent:
-				v.AttributeDesc, _ = obfuscate(v.AttributeDesc, "", prob)
+				v.AttributeDesc, _ = obfuscate(v.AttributeDesc, "S-", prob)
 				return v
 			case *parser.FilterExtensibleMatch:
 				v.AttributeDesc, v.MatchValue = obfuscate(v.AttributeDesc, v.MatchValue, prob)

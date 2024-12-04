@@ -86,7 +86,7 @@ The tool provides several middlewares "ready for use" for inline LDAP filter tra
 | `D` | DblNegBool | Obfuscation | Adds double negations | `(cn=john)` | `(!(!(cn=john)))` | Max depth configurable |
 | `M` | DeMorganBool | Obfuscation | Applies De Morgan's laws | `(!(\|(a=1)(b=2)))` | `(&(!(a=1))(!(b=2)))` | Probability based |
 | `O` | OIDAttribute | Obfuscation | Converts attrs to OIDs | `(cn=john)` | `(2.5.4.3=john)` | Uses standard LDAP OIDs |
-| `C` | Case | Obfuscation | Randomizes character case | `(cn=John)` | `(cN=jOhN)` | Probability based |
+| `C` | Case | Obfuscation | Randomizes character case | `(cn=John)` | `(cN=jOhN)` | Doesn't apply to binary SID values |
 | `X` | HexValue | Obfuscation | Hex encodes characters | `(memberOf=CN=Domain Admins,CN=Users)` | `(memberOf=CN=Do\6dai\6e Admins,CN=U\73ers)` | Only applies to DN string attributes |
 | `R` | ReorderBool | Obfuscation | Reorders boolean conditions | `(&(a=1)(b=2))` | `(&(b=2)(a=1))` | Random reordering |
 | `b` | ExactBitwiseBreakout | Obfuscation | Breaks out exact matches into bitwise operations | `(attr=7)` | `(&(attr:1.2.840.113556.1.4.803:=7)(!(attr:1.2.840.113556.1.4.804:=4294967288)))` | For numeric attributes |
