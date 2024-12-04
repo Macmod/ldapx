@@ -110,8 +110,8 @@ The tool provides several middlewares "ready for use" for inline LDAP filter tra
 | `S` | OIDSpacing | Obfuscation | Adds random spaces in the attributes if they are in OID syntax | `2.5.4.3,sn` | `2.5.4.3   ,sn` | |
 | `D` | Duplicate | Obfuscation | Duplicates attributes | `cn` | `cn,cn,cn` | Max duplicates configurable |
 | `W` | AddWildcard | Obfuscation | Adds a wildcard attribute to the list | `cn,name` | `cn,name,*` |  |
-| `w` | ReplaceWithWildcard | Obfuscation | Replaces the list with a wildcard | `cn,sn` | `*` | Replaces all attributes |
-| `E` | ReplaceWithEmpty | Obfuscation | Empties the attributes list | `cn,sn` | | |
+| `w` | ReplaceWithWildcard | Obfuscation | Replaces the list with a wildcard | `cn,sn` | `*` | Replaces all attributes except operational attributes and "+" |
+| `E` | ReplaceWithEmpty | Obfuscation | Empties the attributes list | `cn,sn` | | Removes all attributes except operational attributes and "+" (in which case it includes a `*`) |
 | `R` | ReorderList | Obfuscation | Randomly reorders attrs | `cn,sn,uid` | `uid,cn,sn` | Random permutation |
 
 ### BaseDN

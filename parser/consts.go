@@ -2974,3 +2974,25 @@ var BitwiseAttrs = []string{
 	"scopeflags", "searchflags", "syncattributes", "systemflags",
 	"trustattributes", "trusttype", "useraccountcontrol",
 }
+
+// Operational attributes in the RootDSE according to MS-ADTS
+var RootDSEOperationalAttrs = []string{
+	"dsschemaattrcount", "dsschemaclasscount", "dsschemaprefixcount", "netlogon", "pendingpropagations",
+	"msds-replallinboundneighbors", "msds-replalloutboundneighbors", "msds-replconnectionfailures",
+	"msds-repllinkfailures", "msds-replpendingops", "msds-replqueuestatistics", "msds-topquotausage",
+	"supportedconfigurablesettings", "supportedextension", "validfsmos", "dsaversionstring", "msds-portldap",
+	"msds-portssl", "msds-principalname", "serviceaccountinfo", "spnregistrationresult", "tokengroups",
+	"usnatrifm", "approximatehighestinternalobjectid", "databaseguid", "schemaindexupdatestate", "dumpldapnotifications",
+	"msds-processlinksoperations", "msds-segmentcacheinfo", "msds-threadstates", "configurablesettingseffective",
+	"ldappolicieseffective", "msds-arenainfo", "msds-anchor", "msds-prefixtable", "msds-supportedrootdseattributes",
+	"msds-supportedrootdsemodifications", "msds-diskusage", "msds-databaseindices", "msds-databaseindiceswithsize",
+	"msds-priorityboost",
+}
+
+// Operational attributes according to Python's ldap3 and RFC4512
+var RFCOperationalAttrs = []string{
+	"createtimestamp", "modifytimestamp", "creatorsname", "modifiersname", "subschemasubentry",
+	"attributetypes", "objectclasses", "matchingrules", "matchingruleuse", "namingcontexts",
+	"altserver", "supportedextension", "supportedcontrol", "supportedsaslmechanisms", "supportedldapversion",
+	"ldapsyntaxes", "ditstructurerules", "nameforms", "ditcontentrules",
+}

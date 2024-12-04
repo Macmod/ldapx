@@ -2,6 +2,7 @@ package attrlist
 
 import (
 	"math/rand"
+	"slices"
 	"strings"
 	"unicode"
 
@@ -157,13 +158,38 @@ func AddWildcardAttrListObf() func([]string) []string {
 
 func ReplaceWithWildcardAttrListObf() func([]string) []string {
 	return func(attrs []string) []string {
-		return []string{"*"}
+		newAttrs := []string{"*"}
+		for _, attr := range attrs {
+			if attr == "+" {
+				newAttrs = append(newAttrs, "+")
+			} else if slices.Contains(parser.RootDSEOperationalAttrs, strings.ToLower(attr)) ||
+				slices.Contains(parser.RFCOperationalAttrs, strings.ToLower(attr)) {
+				newAttrs = append(newAttrs, attr)
+			}
+		}
+
+		return newAttrs
 	}
 }
 
 func ReplaceWithEmptyAttrListObf() func([]string) []string {
 	return func(attrs []string) []string {
-		return []string{}
+		newAttrs := []string{}
+
+		for _, attr := range attrs {
+			if attr == "+" {
+				newAttrs = append(newAttrs, "+")
+			} else if slices.Contains(parser.RootDSEOperationalAttrs, strings.ToLower(attr)) ||
+				slices.Contains(parser.RFCOperationalAttrs, strings.ToLower(attr)) {
+				newAttrs = append(newAttrs, attr)
+			}
+		}
+
+		if len(newAttrs) > 0 {
+			newAttrs = append([]string{"*"}, newAttrs...)
+		}
+
+		return newAttrs
 	}
 }
 
