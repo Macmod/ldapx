@@ -658,14 +658,28 @@ func RandBoolReorderFilterObf() func(f parser.Filter) parser.Filter {
 	Casing Obfuscation Middlewares
 */
 
-// TODO: Avoid attribute types that have specific formats and may break?
 func RandCaseFilterObf(prob float32) func(f parser.Filter) parser.Filter {
+	obfuscate := func(attr string, val string, prob float32) (string, string) {
+		tokenType, err := parser.GetAttributeTokenFormat(attr)
+		if err != nil {
+			return attr, val
+		}
+
+		if tokenType == parser.TokenSID && !strings.HasPrefix(val, "S-") {
+			return attr, val
+		}
+
+		obfAttr := randomizeEachChar(attr, prob)
+		obfVal := randomizeEachChar(val, prob)
+
+		return obfAttr, obfVal
+	}
+
 	return LeafApplierFilterMiddleware(
 		func(f parser.Filter) parser.Filter {
 			switch v := f.(type) {
 			case *parser.FilterEqualityMatch:
-				v.AttributeDesc = randomizeEachChar(v.AttributeDesc, prob)
-				v.AssertionValue = randomizeEachChar(v.AssertionValue, prob)
+				v.AttributeDesc, v.AssertionValue = obfuscate(v.AttributeDesc, v.AssertionValue, prob)
 				return v
 			case *parser.FilterSubstring:
 				v.AttributeDesc = randomizeEachChar(v.AttributeDesc, prob)
@@ -682,23 +696,19 @@ func RandCaseFilterObf(prob float32) func(f parser.Filter) parser.Filter {
 				}
 				return v
 			case *parser.FilterGreaterOrEqual:
-				v.AttributeDesc = randomizeEachChar(v.AttributeDesc, prob)
-				v.AssertionValue = randomizeEachChar(v.AssertionValue, prob)
+				v.AttributeDesc, v.AssertionValue = obfuscate(v.AttributeDesc, v.AssertionValue, prob)
 				return v
 			case *parser.FilterLessOrEqual:
-				v.AttributeDesc = randomizeEachChar(v.AttributeDesc, prob)
-				v.AssertionValue = randomizeEachChar(v.AssertionValue, prob)
+				v.AttributeDesc, v.AssertionValue = obfuscate(v.AttributeDesc, v.AssertionValue, prob)
 				return v
 			case *parser.FilterApproxMatch:
-				v.AttributeDesc = randomizeEachChar(v.AttributeDesc, prob)
-				v.AssertionValue = randomizeEachChar(v.AssertionValue, prob)
+				v.AttributeDesc, v.AssertionValue = obfuscate(v.AttributeDesc, v.AssertionValue, prob)
 				return v
 			case *parser.FilterPresent:
-				v.AttributeDesc = randomizeEachChar(v.AttributeDesc, prob)
+				v.AttributeDesc, _ = obfuscate(v.AttributeDesc, "", prob)
 				return v
 			case *parser.FilterExtensibleMatch:
-				v.AttributeDesc = randomizeEachChar(v.AttributeDesc, prob)
-				v.MatchValue = randomizeEachChar(v.MatchValue, prob)
+				v.AttributeDesc, v.MatchValue = obfuscate(v.AttributeDesc, v.MatchValue, prob)
 				return v
 			}
 			return f
