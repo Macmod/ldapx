@@ -122,18 +122,6 @@ func PrependZerosToNumber(input string, maxZeros int) string {
 	return zerosStr + input
 }
 
-func PrependZerosToOID(oid string, maxZeros int) string {
-	parts := strings.Split(oid, ".")
-	var result []string
-
-	for _, part := range parts {
-		numZeros := rand.Intn(maxZeros + 1)
-		result = append(result, PrependZerosToNumber(part, len(part)+numZeros))
-	}
-
-	return strings.Join(result, ".")
-}
-
 func AddRandSpacing(s string, maxSpaces int) string {
 	var result strings.Builder
 	var numSpaces int
