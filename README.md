@@ -49,26 +49,7 @@ $ ldapx -target 192.168.117.2:389 -f OGRD -a OW -b OZ
 You can also use the builting shell to change your middlewares on the fly (`set` command) or simulate LDAP queries (`test` command):
 
 ```bash
-ldapx> help
-Available commands:
-  set <parameter> <value>    Set a configuration parameter
-  clear [<parameter>]        Clear a configuration parameter or all
-  show [<parameter>]         Show a configuration parameter or all
-  help [<parameter>]         Show this help message or parameter-specific help
-  exit                       Exit the program
-  test <query>               Simulate an LDAP query through the middlewares without sending it
-  stats                      Show packet statistics
 
-Parameters:
-  filter       - Filter middleware chain
-  basedn       - BaseDN middleware chain
-  attrlist     - Attributes list middleware chain
-  testbasedn   - BaseDN to use for the `test` command
-  testattrlist - Attributes list to use for the `test` command (separated by commas)
-  stats        - Packet statistics
-  option       - Middleware options
-
-Use 'help <parameter>' for detailed information about specific parameters
 ```
 
 ![Demo2](https://github.com/Macmod/ldapx/blob/main/images/demo2.png)
@@ -123,6 +104,7 @@ The tool provides several middlewares "ready for use" for inline LDAP filter tra
 | `G` | GarbageNonExisting | Obfuscation | Adds fake attributes | `cn,sn` | `cn,sn,x-123` | Garbage is chosen randomly from an alphabet |
 | `g` | GarbageExisting | Obfuscation | Adds real attributes | `cn` | `cn,sn,mail` | Garbage is chosen from real attributes |
 | `w` | AddWildcard | Obfuscation | Adds a wildcard attribute to the list | `cn,name` | `cn,name,*` |  |
+| `p` | AddPlus | Obfuscation | Adds a plus sign attribute to the list | `cn,name` | `cn,name,+` | If the list is empty, it also adds a `*` to preserve the semantics |
 | `W` | ReplaceWithWildcard | Obfuscation | Replaces the list with a wildcard | `cn,sn` | `*` | Replaces all attributes except operational attributes and "+" |
 | `E` | ReplaceWithEmpty | Obfuscation | Empties the attributes list | `cn,sn` | | Removes all attributes except operational attributes and "+" (in which case it includes a `*`) |
 | `R` | ReorderList | Obfuscation | Randomly reorders attrs | `cn,sn,uid` | `uid,cn,sn` | Random permutation |

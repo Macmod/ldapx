@@ -42,6 +42,7 @@ var showParamSuggestions = []prompt.Suggest{
 	{Text: "attrlist", Description: "Show attribute list middleware chain"},
 	{Text: "testbasedn", Description: "BaseDN to use for the `test` command"},
 	{Text: "testattrlist", Description: "Attributes list to use for the `test` command"},
+	{Text: "target", Description: "Target address to connect upon receiving a connection"},
 	{Text: "option", Description: "Show current middleware options"},
 }
 
@@ -51,6 +52,8 @@ var helpParamSuggestions = []prompt.Suggest{
 	{Text: "attrlist", Description: "Show available attribute list middlewares"},
 	{Text: "testbasedn", Description: "Show testbasedn parameter info"},
 	{Text: "testattrlist", Description: "Show testattrlist parameter info"},
+	{Text: "target", Description: "Show target parameter info"},
+	{Text: "option", Description: "Show option parameter info"},
 }
 
 var testBaseDN = "DC=test,DC=local"
@@ -200,13 +203,15 @@ func handleSetCommand(param string, values []string) {
 	case "target":
 		targetLDAPAddr = value
 		fmt.Printf("Target LDAP server address set to: %s\n", targetLDAPAddr)
-		fmt.Println("Connecting to the new target...")
-		err := reconnectTarget()
-		if err != nil {
-			fmt.Printf("Failed to connect to the new target: %v\n", err)
-		} else {
-			fmt.Println("Successfully connected to the new target.")
-		}
+		/*
+			fmt.Println("Connecting to the new target...")
+			err := reconnectTarget()
+			if err != nil {
+				fmt.Printf("Failed to connect to the new target: %v\n", err)
+			} else {
+				fmt.Println("Successfully connected to the new target.")
+			}
+		*/
 	case "option":
 		if len(values) != 1 {
 			fmt.Println("Usage: set option <key>=<value>")
@@ -244,6 +249,8 @@ func handleShowCommand(param string) {
 		fmt.Println(testBaseDN)
 	case "testattrlist":
 		fmt.Println(testAttrList)
+	case "target":
+		fmt.Println(targetLDAPAddr)
 	case "options", "option":
 		showOptions()
 	}
@@ -297,6 +304,7 @@ func showHelp(args ...string) {
 		fmt.Println("  attrlist     - Attributes list middleware chain")
 		fmt.Println("  testbasedn   - BaseDN to use for the `test` command")
 		fmt.Println("  testattrlist - Attributes list to use for the `test` command (separated by commas)")
+		fmt.Println("  target       - Target address to connect upon receiving a connection")
 		fmt.Println("  stats        - Packet statistics")
 		fmt.Println("  option       - Middleware options")
 		fmt.Println("\nUse 'help <parameter>' for detailed information about specific parameters")
@@ -324,6 +332,12 @@ func showHelp(args ...string) {
 		fmt.Println("testbasedn - BaseDN to use for the `test` command")
 	case "testattrlist":
 		fmt.Println("testattrlist - Attributes list to use for the `test` command (separated by commas)")
+	case "target":
+		fmt.Println("target - Target address to connect upon receiving a connection (can only be set or shown)")
+	case "stats":
+		fmt.Println("stats - Packet statistics (cannot be set, only shown or cleared)")
+	case "option":
+		fmt.Println("option - Middleware options that can be set / shown / cleared (KEY=VALUE)")
 	default:
 		fmt.Printf("Unknown parameter: %s\n", args[0])
 	}
@@ -331,7 +345,8 @@ func showHelp(args ...string) {
 }
 func showGlobalConfig() {
 	fmt.Printf("[Global settings]\n")
-	fmt.Printf("  Debug: %v\n", debug)
+	fmt.Printf("  Forward Verbosity: %d\n", verbFwd)
+	fmt.Printf("  Reverse Verbosity: %d\n", verbRev)
 	fmt.Printf("  Listen address: %s\n", proxyLDAPAddr)
 	fmt.Printf("  Target address: %s\n", targetLDAPAddr)
 	fmt.Printf("  Target LDAPS: %v\n", ldaps)

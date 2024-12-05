@@ -51,7 +51,6 @@ var DefaultOptionsKeys = []string{
 	"FiltGarbageMaxElems",
 	"FiltGarbageMaxSize",
 	"FiltGarbageCharset",
-	"FiltOIDAttributeMaxElems",
 	"FiltCaseProb",
 	"FiltHexValueProb",
 	"FiltEqExtensibleAppendDN",

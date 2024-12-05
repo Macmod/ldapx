@@ -144,6 +144,22 @@ func AddWildcardAttrListObf() func([]string) []string {
 	}
 }
 
+func AddPlusAttrListObf() func([]string) []string {
+	return func(attrs []string) []string {
+		result := make([]string, len(attrs))
+		copy(result, attrs)
+
+		if len(attrs) == 0 {
+			// If there are no attributes in the list, we must add a wildcard to the list
+			// alongside the "+" to preserve the semantics of the query
+			result = append(result, "*")
+		}
+
+		result = append(result, "+")
+		return result
+	}
+}
+
 func ReplaceWithWildcardAttrListObf() func([]string) []string {
 	return func(attrs []string) []string {
 		newAttrs := []string{"*"}

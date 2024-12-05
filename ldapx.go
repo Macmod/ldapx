@@ -54,7 +54,8 @@ var globalStats Stats
 
 var (
 	shutdownChan = make(chan struct{})
-	debug        bool
+	verbFwd      uint
+	verbRev      uint
 	ldaps        bool
 	noShell      bool
 
@@ -113,7 +114,8 @@ func prettyList(list []string) string {
 func init() {
 	flag.StringVar(&proxyLDAPAddr, "listen", ":389", "Address & port to listen on for incoming LDAP connections")
 	flag.StringVar(&targetLDAPAddr, "target", "", "Target LDAP server address")
-	flag.BoolVar(&debug, "debug", false, "Enable debug output")
+	flag.UintVar(&verbFwd, "vf", 1, "Set the verbosity level for forward LDAP traffic (requests)")
+	flag.UintVar(&verbRev, "vr", 0, "Set the verbosity level for reverse LDAP traffic (responses)")
 	flag.BoolVar(&ldaps, "ldaps", false, "Connect to target over LDAPS (ignoring cert. validation)")
 	flag.BoolVar(&noShell, "no-shell", false, "Don't show the ldapx shell")
 	flag.StringVar(&filterChain, "f", "", "Chain of search filter middlewares")

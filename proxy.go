@@ -24,7 +24,6 @@ func startProxyLoop() {
 	for {
 		select {
 		case <-shutdownChan:
-			listener.Close()
 			return
 		default:
 			conn, err := listener.Accept()
@@ -136,6 +135,13 @@ func handleLDAPConnection(conn net.Conn) {
 				return
 			}
 
+			fmt.Println("\n" + strings.Repeat("─", 55))
+
+			if verbFwd > 1 {
+				logger.Printf("[DEBUG] Packet Dump (Received From Client)")
+				ber.PrintPacket(packet)
+			}
+
 			globalStats.Lock()
 			globalStats.Forward.PacketsReceived++
 			globalStats.Forward.BytesReceived += uint64(len(packet.Bytes()))
@@ -149,9 +155,11 @@ func handleLDAPConnection(conn net.Conn) {
 				applicationText = fmt.Sprintf("Unknown Application '%d'", application)
 			}
 
-			if application == parser.ApplicationSearchRequest {
-				fmt.Println("\n" + strings.Repeat("─", 55))
+			if verbFwd > 0 {
+				logger.Printf("[C->T] [%d - %s]\n", reqMessageID, applicationText)
+			}
 
+			if application == parser.ApplicationSearchRequest {
 				if tracking {
 					// Handle possible cookie corruption by tracking the original corresponding request
 					if len(packet.Children) > 2 {
@@ -246,12 +254,11 @@ func handleLDAPConnection(conn net.Conn) {
 				packet = CopyBerPacket(packet)
 			}
 
-			ber.PrintPacket(packet)
-
 			sendPacketForward(packet)
 
-			if debug {
-				logger.Printf("[C->T] [%d - %s]\n", reqMessageID, applicationText)
+			if verbFwd > 1 {
+				logger.Printf("[DEBUG] Packet Dump (Sent To Target)")
+				ber.PrintPacket(packet)
 			}
 		}
 	}()
@@ -284,8 +291,13 @@ func handleLDAPConnection(conn net.Conn) {
 
 				sendPacketReverse(responsePacket)
 
-				if debug {
+				if verbRev > 0 {
 					logger.Printf("[C<-T] [%d - %s] (%d bytes)\n", respMessageID, applicationText, len(responsePacket.Bytes()))
+
+					if verbRev > 1 {
+						logger.Printf("[DEBUG] Packet Dump (Received From Target)")
+						ber.PrintPacket(responsePacket)
+					}
 				}
 			}
 		}

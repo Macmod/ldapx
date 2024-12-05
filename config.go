@@ -68,6 +68,7 @@ var attrListMidFlags map[rune]string = map[rune]string{
 	'g': "GarbageExisting",
 	'W': "ReplaceWithWildcard",
 	'w': "AddWildcard",
+	'p': "AddPlus",
 	'E': "ReplaceWithEmpty",
 	'R': "ReorderList",
 }
@@ -113,6 +114,7 @@ func SetupMiddlewaresMap() {
 		"GarbageExisting":     attrlistmid.GarbageExistingAttrListObf(optInt("AttrsGarbageExistingMaxElems")),
 		"ReplaceWithWildcard": attrlistmid.ReplaceWithWildcardAttrListObf(),
 		"AddWildcard":         attrlistmid.AddWildcardAttrListObf(),
+		"AddPlus":             attrlistmid.AddPlusAttrListObf(),
 		"ReplaceWithEmpty":    attrlistmid.ReplaceWithEmptyAttrListObf(),
 		"ReorderList":         attrlistmid.ReorderListAttrListObf(),
 	}
