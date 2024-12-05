@@ -46,3 +46,14 @@ func RandomlyChangeCaseString(s string, prob float64) string {
 	}
 	return builder.String()
 }
+
+func RandomlyPrependZerosOID(oid string, maxZeros int) string {
+	oidParts := strings.Split(oid, ".")
+	for j, num := range oidParts {
+		if strings.ToLower(oidParts[j]) != "oid" {
+			zeros := strings.Repeat("0", 1+rand.Intn(maxZeros))
+			oidParts[j] = zeros + num
+		}
+	}
+	return strings.Join(oidParts, ".")
+}

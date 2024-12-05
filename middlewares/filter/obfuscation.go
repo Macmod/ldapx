@@ -1,7 +1,6 @@
 package filter
 
 import (
-	"fmt"
 	"math/rand"
 	"slices"
 	"strconv"
@@ -24,17 +23,29 @@ import (
 	AttributeName Obfuscation Middlewares
 */
 
-func OIDAttributeFilterObf(maxZeros int, includePrefix bool) func(f parser.Filter) parser.Filter {
+func OIDAttributeFilterObf(maxZeros int, maxSpaces int, includePrefix bool) func(f parser.Filter) parser.Filter {
 	obfuscate := func(attr string) string {
+		attrName := attr
 		oid, err := MapToOID(attr)
 		if err == nil {
-			mapped := PrependZerosToOID(oid, maxZeros)
-			if includePrefix {
-				mapped = fmt.Sprintf("oID.%s", mapped)
-			}
-			return mapped
+			attrName = oid
 		}
-		return attr
+
+		if parser.IsOID(attrName) {
+			if maxSpaces > 0 {
+				attrName += strings.Repeat(" ", 1+rand.Intn(maxSpaces))
+			}
+
+			if maxZeros > 0 {
+				attrName = helpers.RandomlyPrependZerosOID(attrName, maxZeros)
+			}
+
+			if !strings.HasPrefix(strings.ToLower(attrName), "oid.") {
+				attrName = "oID." + attrName
+			}
+		}
+
+		return attrName
 	}
 
 	return LeafApplierFilterMiddleware(
@@ -641,10 +652,7 @@ func RandBoolReorderFilterObf() func(f parser.Filter) parser.Filter {
 
 func RandCaseFilterObf(prob float64) func(f parser.Filter) parser.Filter {
 	obfuscate := func(attr string, val string, prob float64) (string, string) {
-		tokenType, err := parser.GetAttributeTokenFormat(attr)
-		if err != nil {
-			return attr, val
-		}
+		tokenType, _ := parser.GetAttributeTokenFormat(attr)
 
 		if tokenType == parser.TokenSID && !strings.HasPrefix(val, "S-") {
 			return attr, val
@@ -921,7 +929,7 @@ func RandSpacingFilterObf(maxSpaces int) func(f parser.Filter) parser.Filter {
 	})
 }
 
-func RandAddWildcardFilterObf(prob float64) func(parser.Filter) parser.Filter {
+func RandSubstringSplitFilterObf(prob float64) func(parser.Filter) parser.Filter {
 	return LeafApplierFilterMiddleware(func(filter parser.Filter) parser.Filter {
 		switch f := filter.(type) {
 		case *parser.FilterEqualityMatch:

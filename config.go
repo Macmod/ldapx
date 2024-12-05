@@ -23,100 +23,96 @@ var ANRSet = []string{
 }
 
 var (
+	baseDNMidMap   map[string]basednmid.BaseDNMiddleware
 	filterMidMap   map[string]filtermid.FilterMiddleware
 	attrListMidMap map[string]attrlistmid.AttrListMiddleware
-	baseDNMidMap   map[string]basednmid.BaseDNMiddleware
 )
 
-var filterMidFlags map[rune]string = map[rune]string{
+var baseDNMidFlags map[rune]string = map[rune]string{
+	'O': "OIDAttribute",
+	'C': "Case",
+	'X': "HexValue",
 	'S': "Spacing",
-	't': "TimestampGarbage",
+	'Q': "DoubleQuotes",
+}
+
+var filterMidFlags map[rune]string = map[rune]string{
+	'O': "OIDAttribute",
+	'C': "Case",
+	'X': "HexValue",
+	'S': "Spacing",
 	'T': "ReplaceTautologies",
+	't': "TimestampGarbage",
 	'B': "AddBool",
 	'D': "DblNegBool",
 	'M': "DeMorganBool",
-	'N': "NamesToANR",
-	'n': "ANRGarbageSubstring",
-	'A': "EqApproxMatch",
-	'W': "AddWildcard",
-	'Z': "PrependZeros",
-	'G': "Garbage",
-	'O': "OIDAttribute",
-	'C': "Case",
-	'X': "HexValue",
 	'R': "ReorderBool",
 	'b': "ExactBitwiseBreakout",
+	'd': "BitwiseDecomposition",
 	'I': "EqInclusion",
 	'E': "EqExclusion",
+	'G': "Garbage",
+	'A': "EqApproxMatch",
 	'x': "EqExtensible",
-	'd': "BitwiseDecomposition",
-}
-
-var baseDNMidFlags map[rune]string = map[rune]string{
-	'C': "Case",
-	'O': "OIDAttribute",
-	'Z': "OIDPrependZeros",
-	'S': "Spacing",
-	'Q': "DoubleQuotes",
-	'X': "HexValue",
+	'Z': "PrependZeros",
+	's': "SubstringSplit",
+	'N': "NamesToANR",
+	'n': "ANRGarbageSubstring",
 }
 
 var attrListMidFlags map[rune]string = map[rune]string{
-	'C': "Case",
 	'O': "OIDAttribute",
-	'S': "OIDSpacing",
+	'C': "Case",
 	'D': "Duplicate",
-	'g': "GarbageExisting",
 	'G': "GarbageNonExisting",
-	'W': "AddWildcard",
-	'w': "ReplaceWithWildcard",
+	'g': "GarbageExisting",
+	'W': "ReplaceWithWildcard",
+	'w': "AddWildcard",
 	'E': "ReplaceWithEmpty",
 	'R': "ReorderList",
 }
 
 func SetupMiddlewaresMap() {
 	baseDNMidMap = map[string]basednmid.BaseDNMiddleware{
-		"Case":            basednmid.RandCaseBaseDNObf(optFloat("BDNCaseProb")),
-		"HexValue":        basednmid.RandHexValueBaseDNObf(optFloat("BDNHexValueProb")),
-		"OIDAttribute":    basednmid.OIDAttributeBaseDNObf(),
-		"Spacing":         basednmid.RandSpacingBaseDNObf(optInt("BDNSpacingMaxElems")),
-		"DoubleQuotes":    basednmid.DoubleQuotesBaseDNObf(),
-		"OIDPrependZeros": basednmid.OIDPrependZerosBaseDNObf(optInt("BDNOIDPrependZerosMaxElems")),
+		"OIDAttribute": basednmid.OIDAttributeBaseDNObf(optInt("BDNOIDAttributeMaxSpaces"), optInt("AttrsOIDAttributeMaxZeros"), optBool("AttrsOIDAttributePrefix")),
+		"Case":         basednmid.RandCaseBaseDNObf(optFloat("BDNCaseProb")),
+		"HexValue":     basednmid.RandHexValueBaseDNObf(optFloat("BDNHexValueProb")),
+		"Spacing":      basednmid.RandSpacingBaseDNObf(optInt("BDNSpacingMaxElems")),
+		"DoubleQuotes": basednmid.DoubleQuotesBaseDNObf(),
 	}
 
 	filterMidMap = map[string]filtermid.FilterMiddleware{
+		"OIDAttribute":         filtermid.OIDAttributeFilterObf(optInt("FiltOIDAttributeMaxSpaces"), optInt("FiltOIDAttributeMaxZeros"), optBool("FiltOIDAttributePrefix")),
+		"Case":                 filtermid.RandCaseFilterObf(optFloat("FiltCaseProb")),
+		"HexValue":             filtermid.RandHexValueFilterObf(optFloat("FiltHexValueProb")),
 		"Spacing":              filtermid.RandSpacingFilterObf(optInt("FiltSpacingMaxSpaces")),
-		"TimestampGarbage":     filtermid.RandTimestampSuffixFilterObf(optInt("FiltTimestampGarbageMaxChars"), optStr("FiltGarbageCharset")),
 		"ReplaceTautologies":   filtermid.ReplaceTautologiesFilterObf(),
+		"TimestampGarbage":     filtermid.RandTimestampSuffixFilterObf(optInt("FiltTimestampGarbageMaxChars"), optStr("FiltGarbageCharset")),
 		"AddBool":              filtermid.RandAddBoolFilterObf(optInt("FiltAddBoolMaxDepth"), optFloat("FiltDeMorganBoolProb")),
 		"DblNegBool":           filtermid.RandDblNegBoolFilterObf(optInt("FiltDblNegBoolMaxDepth"), optFloat("FiltDeMorganBoolProb")),
 		"DeMorganBool":         filtermid.DeMorganBoolFilterObf(),
-		"NamesToANR":           filtermid.ANRAttributeFilterObf(ANRSet),
-		"ANRGarbageSubstring":  filtermid.ANRSubstringGarbageFilterObf(optInt("FiltANRSubstringMaxElems"), optStr("FiltGarbageCharset")),
-		"EqApproxMatch":        filtermid.ApproxMatchFilterObf(),
-		"AddWildcard":          filtermid.RandAddWildcardFilterObf(optFloat("FiltAddWildcardProb")),
-		"PrependZeros":         filtermid.RandPrependZerosFilterObf(optInt("FiltPrependZerosMaxElems")),
-		"Garbage":              filtermid.RandGarbageFilterObf(optInt("FiltGarbageMaxElems"), optInt("FiltGarbageMaxSize"), optStr("FiltGarbageCharset")),
-		"OIDAttribute":         filtermid.OIDAttributeFilterObf(optInt("FiltOIDAttributeMaxElems"), optBool("FiltOIDAttributePrependOID")),
-		"Case":                 filtermid.RandCaseFilterObf(optFloat("FiltCaseProb")),
-		"HexValue":             filtermid.RandHexValueFilterObf(optFloat("FiltHexValueProb")),
 		"ReorderBool":          filtermid.RandBoolReorderFilterObf(),
 		"ExactBitwiseBreakout": filtermid.ExactBitwiseBreakoutFilterObf(),
+		"BitwiseDecomposition": filtermid.BitwiseDecomposeFilterObf(optInt("FiltBitwiseDecompositionMaxBits")),
 		"EqInclusion":          filtermid.EqualityByInclusionFilterObf(),
 		"EqExclusion":          filtermid.EqualityByExclusionFilterObf(),
+		"Garbage":              filtermid.RandGarbageFilterObf(optInt("FiltGarbageMaxElems"), optInt("FiltGarbageMaxSize"), optStr("FiltGarbageCharset")),
+		"EqApproxMatch":        filtermid.ApproxMatchFilterObf(),
 		"EqExtensible":         filtermid.EqualityToExtensibleFilterObf(optBool("FiltEqExtensibleAppendDN")),
-		"BitwiseDecomposition": filtermid.BitwiseDecomposeFilterObf(optInt("FiltBitwiseDecompositionMaxBits")),
+		"PrependZeros":         filtermid.RandPrependZerosFilterObf(optInt("FiltPrependZerosMaxElems")),
+		"SubstringSplit":       filtermid.RandSubstringSplitFilterObf(optFloat("FiltSubstringSplitProb")),
+		"NamesToANR":           filtermid.ANRAttributeFilterObf(ANRSet),
+		"ANRGarbageSubstring":  filtermid.ANRSubstringGarbageFilterObf(optInt("FiltANRSubstringMaxElems"), optStr("FiltGarbageCharset")),
 	}
 
 	attrListMidMap = map[string]attrlistmid.AttrListMiddleware{
+		"OIDAttribute":        attrlistmid.OIDAttributeAttrListObf(optInt("AttrsOIDAttributeMaxSpaces"), optInt("AttrsOIDAttributeMaxZeros"), optBool("AttrsOIDAttributePrefix")),
 		"Case":                attrlistmid.RandCaseAttrListObf(optFloat("FiltCaseProb")),
-		"OIDAttribute":        attrlistmid.OIDAttributeAttrListObf(),
-		"OIDSpacing":          attrlistmid.RandOIDSpacingAttrListObf(optInt("AttrsOIDSpacingMaxElems")),
 		"Duplicate":           attrlistmid.DuplicateAttrListObf(optFloat("AttrsDuplicateProb")),
-		"GarbageExisting":     attrlistmid.GarbageExistingAttrListObf(optInt("AttrsGarbageExistingMaxElems")),
 		"GarbageNonExisting":  attrlistmid.GarbageNonExistingAttrListObf(optInt("AttrsGarbageNonExistingMaxElems"), optInt("AttrsGarbageNonExistingMaxSize"), optStr("FiltGarbageCharset")),
-		"AddWildcard":         attrlistmid.AddWildcardAttrListObf(),
+		"GarbageExisting":     attrlistmid.GarbageExistingAttrListObf(optInt("AttrsGarbageExistingMaxElems")),
 		"ReplaceWithWildcard": attrlistmid.ReplaceWithWildcardAttrListObf(),
+		"AddWildcard":         attrlistmid.AddWildcardAttrListObf(),
 		"ReplaceWithEmpty":    attrlistmid.ReplaceWithEmptyAttrListObf(),
 		"ReorderList":         attrlistmid.ReorderListAttrListObf(),
 	}

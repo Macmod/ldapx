@@ -25,15 +25,32 @@ func RandCaseBaseDNObf(prob float64) func(string) string {
 }
 
 // OIDAttributeBaseDNObf converts attribute names in BaseDN to their OID form
-func OIDAttributeBaseDNObf() func(string) string {
+func OIDAttributeBaseDNObf(maxSpaces int, maxZeros int, includePrefix bool) func(string) string {
 	return func(dn string) string {
 		parts := strings.Split(dn, ",")
 		for i, part := range parts {
 			kv := strings.SplitN(part, "=", 2)
 			if len(kv) == 2 {
-				if oid, exists := parser.OidsMap[strings.ToLower(kv[0])]; exists {
-					parts[i] = oid + "=" + kv[1]
+				attrName := kv[0]
+				if oid, exists := parser.OidsMap[strings.ToLower(attrName)]; exists {
+					attrName = oid
 				}
+
+				if parser.IsOID(attrName) {
+					if maxSpaces > 0 {
+						attrName += strings.Repeat(" ", 1+rand.Intn(maxSpaces))
+					}
+
+					if maxZeros > 0 {
+						attrName = helpers.RandomlyPrependZerosOID(attrName, maxZeros)
+					}
+
+					if !strings.HasPrefix(strings.ToLower(attrName), "oid.") {
+						attrName = "oID." + attrName
+					}
+				}
+
+				parts[i] = attrName + "=" + kv[1]
 			}
 		}
 		return strings.Join(parts, ",")
@@ -62,7 +79,7 @@ func OIDPrependZerosBaseDNObf(maxZeros int) func(string) string {
 // RandSpacingBaseDNObf adds random spacing to BaseDN in either the beginning or end
 func RandSpacingBaseDNObf(maxSpaces int) func(string) string {
 	return func(dn string) string {
-		if dn == "" {
+		if dn == "" || maxSpaces <= 0 {
 			return dn
 		}
 

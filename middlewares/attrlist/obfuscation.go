@@ -31,7 +31,7 @@ func RandCaseAttrListObf(prob float64) func([]string) []string {
 }
 
 // OIDAttributeAttrListObf converts attributes to their OID form
-func OIDAttributeAttrListObf() func([]string) []string {
+func OIDAttributeAttrListObf(maxSpaces int, maxZeros int, includePrefix bool) func([]string) []string {
 	return func(attrs []string) []string {
 		result := make([]string, len(attrs))
 		for i, attr := range attrs {
@@ -40,21 +40,19 @@ func OIDAttributeAttrListObf() func([]string) []string {
 			} else {
 				result[i] = attr
 			}
-		}
-		return result
-	}
-}
 
-// RandOIDSpacingAttrListObf adds random spacing to the end of attributes in OID syntax
-func RandOIDSpacingAttrListObf(maxSpaces int) func([]string) []string {
-	return func(attrs []string) []string {
-		result := make([]string, len(attrs))
+			if parser.IsOID(result[i]) {
+				if maxSpaces > 0 {
+					result[i] += strings.Repeat(" ", 1+rand.Intn(maxSpaces))
+				}
 
-		for i, attr := range attrs {
-			if parser.IsOID(attr) {
-				result[i] = attr + strings.Repeat(" ", 1+rand.Intn(maxSpaces))
-			} else {
-				result[i] = attr
+				if maxZeros > 0 {
+					result[i] = helpers.RandomlyPrependZerosOID(result[i], maxZeros)
+				}
+
+				if !strings.HasPrefix(strings.ToLower(result[i]), "oid.") {
+					result[i] = "oID." + result[i]
+				}
 			}
 		}
 		return result
