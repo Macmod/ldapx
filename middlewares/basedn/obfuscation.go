@@ -115,16 +115,22 @@ func RandHexValueBaseDNObf(prob float64) func(string) string {
 		for i, part := range parts {
 			kv := strings.SplitN(part, "=", 2)
 			if len(kv) == 2 {
-				var builder strings.Builder
 				value := kv[1]
 				startQuote := value[0] == '"'
 				endQuote := value[len(value)-1] == '"'
 				if startQuote || endQuote {
-					builder.WriteString(value)
 					continue
 				}
 
-				kv[1] = helpers.RandomlyHexEncodeString(value, prob)
+				spaces := ""
+				if strings.HasSuffix(value, " ") {
+					valueWithoutSpaces := strings.TrimRight(value, " ")
+					spaces = strings.Repeat(" ", len(value)-len(valueWithoutSpaces))
+					value = valueWithoutSpaces
+				}
+
+				kv[1] = helpers.RandomlyHexEncodeString(value, prob) + spaces
+
 				parts[i] = kv[0] + "=" + kv[1]
 			}
 		}

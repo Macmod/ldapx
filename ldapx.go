@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"crypto/sha256"
 	"crypto/tls"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -74,8 +75,45 @@ var (
 	tracking       bool
 
 	// Middleware-specific options
-	options = make(map[string]string)
+	options MapFlag
 )
+
+type MapFlag struct {
+	sync.RWMutex
+	m map[string]string
+}
+
+func (mf *MapFlag) String() string {
+	mf.RLock()
+	defer mf.RUnlock()
+	return fmt.Sprintf("%v", mf.m)
+}
+
+func (mf *MapFlag) Set(value string) error {
+	mf.Lock()
+	defer mf.Unlock()
+	parts := strings.SplitN(value, "=", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid option format: %s", value)
+	}
+	if mf.m == nil {
+		mf.m = make(map[string]string)
+	}
+	mf.m[parts[0]] = parts[1]
+	return nil
+}
+
+func (mf *MapFlag) Get(key string) (string, bool) {
+	mf.RLock()
+	defer mf.RUnlock()
+	value, ok := mf.m[key]
+	return value, ok
+}
+
+func prettyList(list []string) string {
+	str, _ := json.Marshal(list)
+	return string(str)
+}
 
 func init() {
 	flag.StringVar(&proxyLDAPAddr, "listen", ":389", "Address & port to listen on for incoming LDAP connections")
@@ -93,21 +131,6 @@ func init() {
 
 	globalStats.Forward.CountsByType = make(map[int]uint64)
 	globalStats.Reverse.CountsByType = make(map[int]uint64)
-}
-
-type MapFlag map[string]string
-
-func (m *MapFlag) String() string {
-	return fmt.Sprintf("%v", *m)
-}
-
-func (m *MapFlag) Set(value string) error {
-	parts := strings.SplitN(value, "=", 2)
-	if len(parts) != 2 {
-		return fmt.Errorf("invalid option format: %s", value)
-	}
-	(*m)[parts[0]] = parts[1]
-	return nil
 }
 
 func reconnectTarget() error {
@@ -280,7 +303,7 @@ func handleLDAPConnection(conn net.Conn) {
 					yellow.Printf("[WARNING] %s\n", err)
 				}
 
-				blue.Printf("Intercepted Request\n    BaseDN: %s\n    Filter: %s\n    Attributes: %v\n", baseDN, oldFilterStr, attrs)
+				blue.Printf("Intercepted Request\n    BaseDN: '%s'\n    Filter: %s\n    Attributes: %s\n", baseDN, oldFilterStr, prettyList(attrs))
 
 				newFilter, newBaseDN, newAttrs := TransformSearchRequest(
 					filter, baseDN, attrs, fc, ac, bc,
@@ -310,7 +333,7 @@ func handleLDAPConnection(conn net.Conn) {
 				}
 
 				if updatedFlag {
-					green.Printf("Changed Request\n    BaseDN: %s\n    Filter: %s\n    Attributes: %v\n", newBaseDN, newFilterStr, newAttrs)
+					green.Printf("Changed Request\n    BaseDN: '%s'\n    Filter: %s\n    Attributes: %s\n", newBaseDN, newFilterStr, prettyList(newAttrs))
 				} else {
 					blue.Printf("Nothing changed in the request\n")
 				}

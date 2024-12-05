@@ -90,7 +90,7 @@ func SetupMiddlewaresMap() {
 		"ReplaceTautologies":   filtermid.ReplaceTautologiesFilterObf(),
 		"AddBool":              filtermid.RandAddBoolFilterObf(optInt("FiltAddBoolMaxDepth"), optFloat("FiltDeMorganBoolProb")),
 		"DblNegBool":           filtermid.RandDblNegBoolFilterObf(optInt("FiltDblNegBoolMaxDepth"), optFloat("FiltDeMorganBoolProb")),
-		"DeMorganBool":         filtermid.RandDeMorganBoolFilterObf(optFloat("FiltDeMorganBoolProb")),
+		"DeMorganBool":         filtermid.DeMorganBoolFilterObf(),
 		"NamesToANR":           filtermid.ANRAttributeFilterObf(ANRSet),
 		"ANRGarbageSubstring":  filtermid.ANRSubstringGarbageFilterObf(optInt("FiltANRSubstringMaxElems"), optStr("FiltGarbageCharset")),
 		"EqApproxMatch":        filtermid.ApproxMatchFilterObf(),
@@ -123,14 +123,14 @@ func SetupMiddlewaresMap() {
 }
 
 func optStr(key string) string {
-	if value, ok := options[key]; ok {
+	if value, ok := options.Get(key); ok {
 		return value
 	}
 	return middlewares.DefaultOptions[key]
 }
 
 func optInt(key string) int {
-	if value, ok := options[key]; ok {
+	if value, ok := options.Get(key); ok {
 		i, err := strconv.Atoi(value)
 		if err == nil {
 			return i
@@ -142,7 +142,7 @@ func optInt(key string) int {
 }
 
 func optFloat(key string) float64 {
-	if value, ok := options[key]; ok {
+	if value, ok := options.Get(key); ok {
 		i, err := strconv.ParseFloat(value, 64)
 		if err == nil {
 			return i
@@ -154,7 +154,7 @@ func optFloat(key string) float64 {
 }
 
 func optBool(key string) bool {
-	if value, ok := options[key]; ok {
+	if value, ok := options.Get(key); ok {
 		return strings.ToLower(value) == "true"
 	}
 	return strings.ToLower(middlewares.DefaultOptions[key]) == "true"

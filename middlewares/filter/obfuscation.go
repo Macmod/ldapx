@@ -558,53 +558,35 @@ func RandDblNegBoolFilterObf(maxDepth int, prob float64) func(f parser.Filter) p
 	})
 }
 
-func RandDeMorganBoolFilterObf(prob float64) func(f parser.Filter) parser.Filter {
-	return func(filter parser.Filter) parser.Filter {
+func DeMorganBoolFilterObf() func(f parser.Filter) parser.Filter {
+	var applyDeMorgan func(f parser.Filter) parser.Filter
+	applyDeMorgan = func(filter parser.Filter) parser.Filter {
 		switch f := filter.(type) {
-		// TODO: Review
 		case *parser.FilterAnd:
-			// Apply DeMorgan with prob X
-			if rand.Float64() < prob {
-				// Convert AND to OR using DeMorgan: !(a && b) = !a || !b
-				notFilters := make([]parser.Filter, len(f.Filters))
-				for i, subFilter := range f.Filters {
-					notFilters[i] = &parser.FilterNot{Filter: RandDeMorganBoolFilterObf(prob)(subFilter)}
-				}
-				return &parser.FilterNot{Filter: &parser.FilterOr{Filters: notFilters}}
-			}
-
-			// Just recurse on children
-			newFilters := make([]parser.Filter, len(f.Filters))
+			// Convert AND to OR using DeMorgan: a & b = !((!a) | (!b))
+			notFilters := make([]parser.Filter, len(f.Filters))
 			for i, subFilter := range f.Filters {
-				newFilters[i] = RandDeMorganBoolFilterObf(prob)(subFilter)
+				notFilters[i] = &parser.FilterNot{Filter: applyDeMorgan(subFilter)}
 			}
-			return &parser.FilterAnd{Filters: newFilters}
+			return &parser.FilterNot{Filter: &parser.FilterOr{Filters: notFilters}}
 
 		case *parser.FilterOr:
-			// Apply DeMorgan with prob X
-			if rand.Float64() < prob {
-				// Convert OR to AND using DeMorgan: !(a || b) = !a && !b
-				notFilters := make([]parser.Filter, len(f.Filters))
-				for i, subFilter := range f.Filters {
-					notFilters[i] = &parser.FilterNot{Filter: RandDeMorganBoolFilterObf(prob)(subFilter)}
-				}
-				return &parser.FilterNot{Filter: &parser.FilterAnd{Filters: notFilters}}
-			}
-
-			// Just recurse on children
-			newFilters := make([]parser.Filter, len(f.Filters))
+			// Convert OR to AND using DeMorgan: a | b = !((!a) & (!b))
+			notFilters := make([]parser.Filter, len(f.Filters))
 			for i, subFilter := range f.Filters {
-				newFilters[i] = RandDeMorganBoolFilterObf(prob)(subFilter)
+				notFilters[i] = &parser.FilterNot{Filter: applyDeMorgan(subFilter)}
 			}
-			return &parser.FilterOr{Filters: newFilters}
+			return &parser.FilterNot{Filter: &parser.FilterAnd{Filters: notFilters}}
 
 		case *parser.FilterNot:
-			return &parser.FilterNot{Filter: RandDeMorganBoolFilterObf(prob)(f.Filter)}
+			return &parser.FilterNot{Filter: applyDeMorgan(f.Filter)}
 
 		default:
 			return filter
 		}
 	}
+
+	return applyDeMorgan
 }
 
 func RandBoolReorderFilterObf() func(f parser.Filter) parser.Filter {

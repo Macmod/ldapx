@@ -52,7 +52,7 @@ func RandOIDSpacingAttrListObf(maxSpaces int) func([]string) []string {
 
 		for i, attr := range attrs {
 			if parser.IsOID(attr) {
-				result[i] = attr + strings.Repeat(" ", rand.Intn(maxSpaces))
+				result[i] = attr + strings.Repeat(" ", 1+rand.Intn(maxSpaces))
 			} else {
 				result[i] = attr
 			}
@@ -75,6 +75,12 @@ func DuplicateAttrListObf(prob float64) func([]string) []string {
 			for i := 0; i < duplicates; i++ {
 				result = append(result, attr)
 			}
+		}
+
+		// Ensure at least one attribute is duplicated
+		if len(attrs) > 0 && len(result) == len(attrs) {
+			idx := rand.Intn(len(attrs))
+			result = append(result, attrs[idx])
 		}
 
 		return result

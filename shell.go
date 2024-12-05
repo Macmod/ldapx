@@ -41,7 +41,7 @@ var showParamSuggestions = []prompt.Suggest{
 	{Text: "basedn", Description: "Show basedn middleware chain"},
 	{Text: "attrlist", Description: "Show attribute list middleware chain"},
 	{Text: "testbasedn", Description: "BaseDN to use for the `test` command"},
-	{Text: "testattrlist", Description: "Attribute list to use for the `test` command"},
+	{Text: "testattrlist", Description: "Attributes list to use for the `test` command"},
 	{Text: "option", Description: "Show current middleware options"},
 }
 
@@ -212,16 +212,11 @@ func handleSetCommand(param string, values []string) {
 			fmt.Println("Usage: set option <key>=<value>")
 			return
 		}
-		parts := strings.SplitN(values[0], "=", 2)
-		if len(parts) != 2 {
-			fmt.Println("Invalid option format. Usage: set option <key>=<value>")
-			return
-		}
-		options[parts[0]] = parts[1]
+		options.Set(values[0])
 
 		SetupMiddlewaresMap()
 
-		fmt.Printf("Option %s set to %s\n", parts[0], parts[1])
+		fmt.Printf("Option set: %s\n", values[0])
 	default:
 		fmt.Printf("Unknown parameter: %s\n", param)
 	}
@@ -258,7 +253,7 @@ func showOptions() {
 	fmt.Println("[Middleware Options]")
 	for _, key := range middlewares.DefaultOptionsKeys {
 		defaultValue := middlewares.DefaultOptions[key]
-		if value, ok := options[key]; ok {
+		if value, ok := options.Get(key); ok {
 			fmt.Printf("  %s = %s (default = %s)\n", key, value, defaultValue)
 		} else {
 			fmt.Printf("  %s = %s\n", key, defaultValue)
@@ -299,10 +294,11 @@ func showHelp(args ...string) {
 		fmt.Println("\nParameters:")
 		fmt.Println("  filter       - Filter middleware chain")
 		fmt.Println("  basedn       - BaseDN middleware chain")
-		fmt.Println("  attrlist     - Attribute list middleware chain")
+		fmt.Println("  attrlist     - Attributes list middleware chain")
 		fmt.Println("  testbasedn   - BaseDN to use for the `test` command")
-		fmt.Println("  testattrlist - Attribute list to use for the `test` command (separated by commas)")
+		fmt.Println("  testattrlist - Attributes list to use for the `test` command (separated by commas)")
 		fmt.Println("  stats        - Packet statistics")
+		fmt.Println("  option       - Middleware options")
 		fmt.Println("\nUse 'help <parameter>' for detailed information about specific parameters")
 		fmt.Println("")
 		return
@@ -320,14 +316,14 @@ func showHelp(args ...string) {
 			fmt.Printf("  %c - %s\n", flag, name)
 		}
 	case "attrlist":
-		fmt.Println("Attribute list middleware chain:")
+		fmt.Println("Attributes list middleware chain:")
 		for flag, name := range attrListMidFlags {
 			fmt.Printf("  %c - %s\n", flag, name)
 		}
 	case "testbasedn":
 		fmt.Println("testbasedn - BaseDN to use for the `test` command")
 	case "testattrlist":
-		fmt.Println("testattrlist - Attribute list to use for the `test` command (separated by commas)")
+		fmt.Println("testattrlist - Attributes list to use for the `test` command (separated by commas)")
 	default:
 		fmt.Printf("Unknown parameter: %s\n", args[0])
 	}

@@ -66,6 +66,7 @@ Parameters:
   testbasedn   - BaseDN to use for the `test` command
   testattrlist - Attribute list to use for the `test` command (separated by commas)
   stats        - Packet statistics
+  option       - Middleware options
 
 Use 'help <parameter>' for detailed information about specific parameters
 ```
@@ -85,7 +86,7 @@ The tool provides several middlewares "ready for use" for inline LDAP filter tra
 | `T` | ReplaceTautologies | Obfuscation | Replaces basic tautologies into random tautologies | `(objectClass=*)` | `(\|(packageflags:1.2.840.113556.1.4.803:=0)(!(packageflags=*)))` | |
 | `B` | AddBool | Obfuscation | Adds random boolean conditions | `(cn=john)` | `(&(cn=john)(\|(a=1)(a=2)))` | Max depth configurable |
 | `D` | DblNegBool | Obfuscation | Adds double negations | `(cn=john)` | `(!(!(cn=john)))` | Max depth configurable |
-| `M` | DeMorganBool | Obfuscation | Applies De Morgan's laws | `(!(\|(a=1)(b=2)))` | `(&(!(a=1))(!(b=2)))` | Probability based |
+| `M` | DeMorganBool | Obfuscation | Applies De Morgan's laws | `(&(a=*)(b=*))` | `(!(\|(!(a=\*))(!(b=\*))))` | |
 | `O` | OIDAttribute | Obfuscation | Converts attrs to OIDs | `(cn=john)` | `(2.5.4.3=john)` | Uses standard LDAP OIDs |
 | `C` | Case | Obfuscation | Randomizes character case | `(cn=John)` | `(cN=jOhN)` | Doesn't apply to binary SID values |
 | `X` | HexValue | Obfuscation | Hex encodes characters | `(memberOf=CN=Domain Admins,CN=Users)` | `(memberOf=CN=Do\6dai\6e Admins,CN=U\73ers)` | Only applies to DN string attributes |
