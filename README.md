@@ -19,20 +19,21 @@ Or just download one of the [Releases](https://github.com/Macmod/ldapx/releases)
 ## Usage
 
 ```bash
-$ ldapx -target LDAPSERVER:389 [-f MIDDLEWARECHAIN] [-a MIDDLEWARECHAIN] [-b MIDDLEWARECHAIN] [-listen LOCALADDR:PORT]
+$ ldapx -target LDAPSERVER:389 [-f MIDDLEWARECHAIN] [-a MIDDLEWARECHAIN] [-b MIDDLEWARECHAIN] [-listen LOCALADDR:PORT] [-o MIDDLEWAREOPTION=VALUE] [...]
 ```
 
 Where:
 * `-f` will apply Filter middlewares to all search requests
 * `-a` will apply AttrList middlewares to all search requests
 * `-b` will apply BaseDN middlewares to all search requests
+* `-vf` specifies the verbosity level for forward packets (requests)
+* `-vr` specifies the verbosity level for reverse packets (responses)
+* `-o` can be specified multiple times and is used to specify options for the middlewares
 
-`-debug` can also be provided to make it show verbose logs.
+If `-ldaps` is specified, then the connection to the target will use LDAPS. This can come in handy if you must use a tool that doesn't support LDAPS. Use `-no-shell` if you don't want to interact with the shell to modify the settings while the program is running.
 
 Each middleware is specified by a single-letter key (detailed below), and can be specified multiple times.
 For each type of middleware, the middlewares in the chain will be applied *in the order that they are specified* in the command.
-
-If `-ldaps` is specified, then the connection to the target will use LDAPS. This can come in handy if you must use a tool that doesn't support LDAPS. Use `-no-shell` if you don't want to interact with the shell to modify the settings while the program is running.
 
 ## Examples
 
@@ -47,10 +48,6 @@ $ ldapx -target 192.168.117.2:389 -f OGRD -a OW -b OZ
 ### Using the shell
 
 You can also use the builting shell to change your middlewares on the fly (`set` command) or simulate LDAP queries (`test` command):
-
-```bash
-
-```
 
 ![Demo2](https://github.com/Macmod/ldapx/blob/main/images/demo2.png)
 

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/Macmod/ldapx/middlewares"
@@ -18,7 +19,6 @@ var suggestions = []prompt.Suggest{
 	{Text: "clear", Description: "Clear a configuration parameter"},
 	{Text: "test", Description: "Test an LDAP query through the middlewares"},
 	{Text: "version", Description: "Show version information"},
-	{Text: "stats", Description: "Show statistics"},
 }
 
 var setParamSuggestions = []prompt.Suggest{
@@ -27,6 +27,8 @@ var setParamSuggestions = []prompt.Suggest{
 	{Text: "attrlist", Description: "Set attribute list middleware chain"},
 	{Text: "target", Description: "Set target LDAP server address and reconnect"},
 	{Text: "option", Description: "Set a middleware option"},
+	{Text: "verbfwd", Description: "Set forward verbosity level"},
+	{Text: "verbrev", Description: "Set reverse verbosity level"},
 }
 
 var clearParamSuggestions = []prompt.Suggest{
@@ -44,6 +46,9 @@ var showParamSuggestions = []prompt.Suggest{
 	{Text: "testattrlist", Description: "Attributes list to use for the `test` command"},
 	{Text: "target", Description: "Target address to connect upon receiving a connection"},
 	{Text: "option", Description: "Show current middleware options"},
+	{Text: "stats", Description: "Show packet statistics"},
+	{Text: "verbfwd", Description: "Show forward verbosity level"},
+	{Text: "verbrev", Description: "Show reverse verbosity level"},
 }
 
 var helpParamSuggestions = []prompt.Suggest{
@@ -54,6 +59,9 @@ var helpParamSuggestions = []prompt.Suggest{
 	{Text: "testattrlist", Description: "Show testattrlist parameter info"},
 	{Text: "target", Description: "Show target parameter info"},
 	{Text: "option", Description: "Show option parameter info"},
+	{Text: "stats", Description: "Show stats parameter info"},
+	{Text: "verbfwd", Description: "Show forward verbosity parameter info"},
+	{Text: "verbrev", Description: "Show reverse verbosity parameter info"},
 }
 
 var testBaseDN = "DC=test,DC=local"
@@ -107,7 +115,7 @@ func executor(in string) {
 			updateFilterChain("")
 			updateBaseDNChain("")
 			updateAttrListChain("")
-			clearStats()
+			clearStatistics()
 			fmt.Printf("All parameters cleared.\n")
 			return
 		}
@@ -138,8 +146,6 @@ func executor(in string) {
 		handleTestCommand(strings.Join(blocks[1:], " "))
 	case "version":
 		fmt.Printf("ldapx %s\n", version)
-	case "stats":
-		handleStatsCommand()
 	default:
 		fmt.Printf("Unknown command: '%s'\n", blocks[0])
 	}
@@ -169,7 +175,7 @@ func handleClearCommand(param string) {
 		updateAttrListChain("")
 		fmt.Printf("Middleware chain AttrList cleared.\n")
 	case "stats":
-		clearStats()
+		clearStatistics()
 		fmt.Println("Statistics cleared.")
 	default:
 		fmt.Printf("Unknown parameter: %s\n", param)
@@ -222,6 +228,30 @@ func handleSetCommand(param string, values []string) {
 		SetupMiddlewaresMap()
 
 		fmt.Printf("Option set: %s\n", values[0])
+	case "verbfwd":
+		if len(values) != 1 {
+			fmt.Println("Usage: set verbfwd <level>")
+			return
+		}
+		level, err := strconv.ParseUint(values[0], 10, 64)
+		if err != nil {
+			fmt.Printf("Invalid verbosity level: %s\n", values[0])
+			return
+		}
+		verbFwd = uint(level)
+		fmt.Printf("Forward verbosity level set to: %d\n", verbFwd)
+	case "verbrev":
+		if len(values) != 1 {
+			fmt.Println("Usage: set verbrev <level>")
+			return
+		}
+		level, err := strconv.ParseUint(values[0], 10, 64)
+		if err != nil {
+			fmt.Printf("Invalid verbosity level: %s\n", values[0])
+			return
+		}
+		verbRev = uint(level)
+		fmt.Printf("Reverse verbosity level set to: %d\n", verbRev)
 	default:
 		fmt.Printf("Unknown parameter: %s\n", param)
 	}
@@ -253,6 +283,12 @@ func handleShowCommand(param string) {
 		fmt.Println(targetLDAPAddr)
 	case "options", "option":
 		showOptions()
+	case "stats":
+		showStatistics()
+	case "verbfwd":
+		fmt.Printf("Forward verbosity level: %d\n", verbFwd)
+	case "verbrev":
+		fmt.Printf("Reverse verbosity level: %d\n", verbRev)
 	}
 }
 
@@ -297,7 +333,6 @@ func showHelp(args ...string) {
 		fmt.Println("  help [<parameter>]         Show this help message or parameter-specific help")
 		fmt.Println("  exit                       Exit the program")
 		fmt.Println("  test <query>               Simulate an LDAP query through the middlewares without sending it")
-		fmt.Println("  stats                      Show packet statistics")
 		fmt.Println("\nParameters:")
 		fmt.Println("  filter       - Filter middleware chain")
 		fmt.Println("  basedn       - BaseDN middleware chain")
@@ -307,6 +342,8 @@ func showHelp(args ...string) {
 		fmt.Println("  target       - Target address to connect upon receiving a connection")
 		fmt.Println("  stats        - Packet statistics")
 		fmt.Println("  option       - Middleware options")
+		fmt.Println("  verbfwd      - Forward verbosity level")
+		fmt.Println("  verbrev      - Reverse verbosity level")
 		fmt.Println("\nUse 'help <parameter>' for detailed information about specific parameters")
 		fmt.Println("")
 		return
@@ -338,6 +375,16 @@ func showHelp(args ...string) {
 		fmt.Println("stats - Packet statistics (cannot be set, only shown or cleared)")
 	case "option":
 		fmt.Println("option - Middleware options that can be set / shown / cleared (KEY=VALUE)")
+	case "verbfwd":
+		fmt.Println("verbfwd - Forward verbosity level (0-3)")
+		fmt.Println("  0: No verbosity")
+		fmt.Println("  1: Show metadata for all requests")
+		fmt.Println("  2: Show packet dumps for all requests")
+	case "verbrev":
+		fmt.Println("verbrev - Reverse verbosity level (0-3)")
+		fmt.Println("  0: No verbosity")
+		fmt.Println("  1: Show metadata for all responses")
+		fmt.Println("  2: Show packet dump for all responses")
 	default:
 		fmt.Printf("Unknown parameter: %s\n", args[0])
 	}
@@ -399,7 +446,7 @@ func handleTestCommand(query string) {
 	green.Printf("  Filter: %v\n", newParsed)
 }
 
-func handleStatsCommand() {
+func showStatistics() {
 	fmt.Println("[Client -> Target]")
 	fmt.Printf("  Packets Received: %d\n", globalStats.Forward.PacketsReceived)
 	fmt.Printf("  Packets Sent: %d\n", globalStats.Forward.PacketsSent)
@@ -429,7 +476,7 @@ func handleStatsCommand() {
 	}
 }
 
-func clearStats() {
+func clearStatistics() {
 	globalStats = Stats{
 		Forward: struct {
 			PacketsReceived uint64
