@@ -62,9 +62,9 @@ Available commands:
 Parameters:
   filter       - Filter middleware chain
   basedn       - BaseDN middleware chain
-  attrlist     - Attribute list middleware chain
+  attrlist     - Attributes list middleware chain
   testbasedn   - BaseDN to use for the `test` command
-  testattrlist - Attribute list to use for the `test` command (separated by commas)
+  testattrlist - Attributes list to use for the `test` command (separated by commas)
   stats        - Packet statistics
   option       - Middleware options
 
