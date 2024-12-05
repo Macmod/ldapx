@@ -163,7 +163,6 @@ func MapToOID(attrName string) (string, error) {
 	return oid, nil
 }
 
-// TODO: Review both methods' logic of randomness
 func AddANRSpacing(value string, maxSpaces int) string {
 	spacesFst := strings.Repeat(" ", 1+rand.Intn(maxSpaces))
 	spacesEqSign := strings.Repeat(" ", 1+rand.Intn(maxSpaces))
@@ -177,9 +176,10 @@ func AddANRSpacing(value string, maxSpaces int) string {
 		}
 	}
 
-	if rand.Float64() < 0.5 {
+	randVal := rand.Intn(3)
+	if randVal == 0 {
 		return spacesFst + value
-	} else if rand.Float64() < 0.5 {
+	} else if randVal == 1 {
 		return value + spacesLst
 	} else {
 		return spacesFst + value + spacesLst
