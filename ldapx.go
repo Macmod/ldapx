@@ -71,8 +71,10 @@ var (
 	filterChain    string
 	attrChain      string
 	baseChain      string
+	tracking       bool
 
-	tracking bool
+	// Middleware-specific options
+	options = make(map[string]string)
 )
 
 func init() {
@@ -85,10 +87,27 @@ func init() {
 	flag.StringVar(&attrChain, "a", "", "Chain of attribute list middlewares")
 	flag.StringVar(&baseChain, "b", "", "Chain of baseDN middlewares")
 	flag.BoolVar(&tracking, "T", true, "Applies a tracking algorithm to avoid issues where complex middlewares + paged searches break LDAP cookies (may be memory intensive)")
+
 	flag.Bool("version", false, "Show version information")
+	flag.Var((*MapFlag)(&options), "o", "Configuration options (key=value)")
 
 	globalStats.Forward.CountsByType = make(map[int]uint64)
 	globalStats.Reverse.CountsByType = make(map[int]uint64)
+}
+
+type MapFlag map[string]string
+
+func (m *MapFlag) String() string {
+	return fmt.Sprintf("%v", *m)
+}
+
+func (m *MapFlag) Set(value string) error {
+	parts := strings.SplitN(value, "=", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid option format: %s", value)
+	}
+	(*m)[parts[0]] = parts[1]
+	return nil
 }
 
 func reconnectTarget() error {
@@ -393,7 +412,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	SetupMiddlewaresMap("")
+	SetupMiddlewaresMap()
 
 	// Registering middlewares
 	updateFilterChain(filterChain)

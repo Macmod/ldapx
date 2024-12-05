@@ -6,8 +6,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"unicode"
 
+	"github.com/Macmod/ldapx/middlewares/helpers"
 	"github.com/Macmod/ldapx/parser"
 )
 
@@ -94,22 +94,19 @@ func ANRAttributeFilterObf(anrSet []string) func(f parser.Filter) parser.Filter 
 	Garbage Obfuscation Middlewares
 */
 
-func ANRSubstringGarbageFilterObf(minGarbage int, maxGarbage int, garbageCharset string) func(f parser.Filter) parser.Filter {
+func ANRSubstringGarbageFilterObf(maxChars int, garbageCharset string) func(f parser.Filter) parser.Filter {
 	return LeafApplierFilterMiddleware(
 		func(f parser.Filter) parser.Filter {
 			if em, ok := f.(*parser.FilterEqualityMatch); ok {
 				if em.AttributeDesc == "aNR" {
-					numGarbage := minGarbage + rand.Intn(maxGarbage-minGarbage+1)
-					garbage := make([]byte, numGarbage)
-					for i := range garbage {
-						garbage[i] = garbageCharset[rand.Intn(len(garbageCharset))]
-					}
+					numGarbage := 1 + rand.Intn(maxChars)
+					garbage := helpers.GenerateGarbageString(numGarbage, garbageCharset)
 
 					return &parser.FilterSubstring{
 						AttributeDesc: "aNR",
 						Substrings: []parser.SubstringFilter{
 							{Initial: em.AssertionValue},
-							{Final: string(garbage)},
+							{Final: garbage},
 						},
 					}
 				}
@@ -121,7 +118,7 @@ func ANRSubstringGarbageFilterObf(minGarbage int, maxGarbage int, garbageCharset
 
 func GenerateGarbageFilter(attr string, garbageSize int, chars string) parser.Filter {
 	garbageFixed := func() string {
-		return GenerateGarbageString(garbageSize, chars)
+		return helpers.GenerateGarbageString(garbageSize, chars)
 	}
 
 	equalityGarbageGenerator := func() parser.Filter {
@@ -185,7 +182,7 @@ func GenerateGarbageFilter(attr string, garbageSize int, chars string) parser.Fi
 				substrings = append(substrings, parser.SubstringFilter{Any: garbageFixed()})
 			}
 
-			if rand.Float32() < 0.5 {
+			if rand.Float64() < 0.5 {
 				substrings = append(substrings, parser.SubstringFilter{Final: garbageFixed()})
 			}
 		}
@@ -251,8 +248,10 @@ func GenerateGarbageFilter(attr string, garbageSize int, chars string) parser.Fi
 	return garbageGenerators[rand.Intn(len(garbageGenerators))]()
 }
 
-func RandGarbageFilterObf(numGarbage int, garbageSize int, charset string) func(parser.Filter) parser.Filter {
+func RandGarbageFilterObf(maxGarbage int, garbageSize int, charset string) func(parser.Filter) parser.Filter {
 	return LeafApplierFilterMiddleware(func(filter parser.Filter) parser.Filter {
+		numGarbage := 1 + rand.Intn(maxGarbage)
+
 		garbageFilters := make([]parser.Filter, numGarbage+1)
 		garbageFilters[0] = filter
 		for i := 1; i <= numGarbage; i++ {
@@ -409,7 +408,7 @@ func ExactBitwiseBreakoutFilterObf() func(parser.Filter) parser.Filter {
 	})
 }
 
-func BitwiseDecomposeFilterObf(maxBits int, invert bool) func(parser.Filter) parser.Filter {
+func BitwiseDecomposeFilterObf(maxBits int) func(parser.Filter) parser.Filter {
 	return LeafApplierFilterMiddleware(func(filter parser.Filter) parser.Filter {
 		if f, ok := filter.(*parser.FilterExtensibleMatch); ok {
 			if val, err := strconv.ParseUint(f.MatchValue, 10, 32); err == nil {
@@ -514,13 +513,13 @@ func BitwiseExpandPossibleFilterObf() func(parser.Filter) parser.Filter {
 	Boolean Obfuscation Middlewares
 */
 
-func RandAddBoolFilterObf(maxDepth int, prob float32) func(f parser.Filter) parser.Filter {
+func RandAddBoolFilterObf(maxDepth int, prob float64) func(f parser.Filter) parser.Filter {
 	return func(f parser.Filter) parser.Filter {
 		depth := rand.Intn(maxDepth) + 1
 		result := f
 
 		for i := 0; i < depth; i++ {
-			if rand.Float32() < prob {
+			if rand.Float64() < prob {
 				if rand.Intn(2) == 0 {
 					// Wrap in AND
 					result = &parser.FilterAnd{
@@ -539,13 +538,13 @@ func RandAddBoolFilterObf(maxDepth int, prob float32) func(f parser.Filter) pars
 	}
 }
 
-func RandDblNegBoolFilterObf(maxDepth int, prob float32) func(f parser.Filter) parser.Filter {
+func RandDblNegBoolFilterObf(maxDepth int, prob float64) func(f parser.Filter) parser.Filter {
 	return LeafApplierFilterMiddleware(func(f parser.Filter) parser.Filter {
 		depth := rand.Intn(maxDepth) + 1
 		result := f
 
 		for i := 0; i < depth; i++ {
-			if rand.Float32() < prob {
+			if rand.Float64() < prob {
 				// Wrap in NOTs
 				result = &parser.FilterNot{
 					Filter: &parser.FilterNot{
@@ -559,13 +558,13 @@ func RandDblNegBoolFilterObf(maxDepth int, prob float32) func(f parser.Filter) p
 	})
 }
 
-func RandDeMorganBoolFilterObf(prob float32) func(f parser.Filter) parser.Filter {
+func RandDeMorganBoolFilterObf(prob float64) func(f parser.Filter) parser.Filter {
 	return func(filter parser.Filter) parser.Filter {
 		switch f := filter.(type) {
 		// TODO: Review
 		case *parser.FilterAnd:
 			// Apply DeMorgan with prob X
-			if rand.Float32() < prob {
+			if rand.Float64() < prob {
 				// Convert AND to OR using DeMorgan: !(a && b) = !a || !b
 				notFilters := make([]parser.Filter, len(f.Filters))
 				for i, subFilter := range f.Filters {
@@ -583,7 +582,7 @@ func RandDeMorganBoolFilterObf(prob float32) func(f parser.Filter) parser.Filter
 
 		case *parser.FilterOr:
 			// Apply DeMorgan with prob X
-			if rand.Float32() < prob {
+			if rand.Float64() < prob {
 				// Convert OR to AND using DeMorgan: !(a || b) = !a && !b
 				notFilters := make([]parser.Filter, len(f.Filters))
 				for i, subFilter := range f.Filters {
@@ -658,8 +657,8 @@ func RandBoolReorderFilterObf() func(f parser.Filter) parser.Filter {
 	Casing Obfuscation Middlewares
 */
 
-func RandCaseFilterObf(prob float32) func(f parser.Filter) parser.Filter {
-	obfuscate := func(attr string, val string, prob float32) (string, string) {
+func RandCaseFilterObf(prob float64) func(f parser.Filter) parser.Filter {
+	obfuscate := func(attr string, val string, prob float64) (string, string) {
 		tokenType, err := parser.GetAttributeTokenFormat(attr)
 		if err != nil {
 			return attr, val
@@ -669,8 +668,8 @@ func RandCaseFilterObf(prob float32) func(f parser.Filter) parser.Filter {
 			return attr, val
 		}
 
-		obfAttr := randomizeEachChar(attr, prob)
-		obfVal := randomizeEachChar(val, prob)
+		obfAttr := helpers.RandomlyChangeCaseString(attr, prob)
+		obfVal := helpers.RandomlyChangeCaseString(val, prob)
 
 		return obfAttr, obfVal
 	}
@@ -682,16 +681,16 @@ func RandCaseFilterObf(prob float32) func(f parser.Filter) parser.Filter {
 				v.AttributeDesc, v.AssertionValue = obfuscate(v.AttributeDesc, v.AssertionValue, prob)
 				return v
 			case *parser.FilterSubstring:
-				v.AttributeDesc = randomizeEachChar(v.AttributeDesc, prob)
+				v.AttributeDesc = helpers.RandomlyChangeCaseString(v.AttributeDesc, prob)
 				for i := range v.Substrings {
 					if v.Substrings[i].Initial != "" {
-						v.Substrings[i].Initial = randomizeEachChar(v.Substrings[i].Initial, prob)
+						v.Substrings[i].Initial = helpers.RandomlyChangeCaseString(v.Substrings[i].Initial, prob)
 					}
 					if v.Substrings[i].Any != "" {
-						v.Substrings[i].Any = randomizeEachChar(v.Substrings[i].Any, prob)
+						v.Substrings[i].Any = helpers.RandomlyChangeCaseString(v.Substrings[i].Any, prob)
 					}
 					if v.Substrings[i].Final != "" {
-						v.Substrings[i].Final = randomizeEachChar(v.Substrings[i].Final, prob)
+						v.Substrings[i].Final = helpers.RandomlyChangeCaseString(v.Substrings[i].Final, prob)
 					}
 				}
 				return v
@@ -716,18 +715,6 @@ func RandCaseFilterObf(prob float32) func(f parser.Filter) parser.Filter {
 	)
 }
 
-func randomizeEachChar(s string, prob float32) string {
-	result := make([]rune, len(s))
-	for i, char := range s {
-		if rand.Float32() < prob {
-			result[i] = unicode.ToUpper(char)
-		} else {
-			result[i] = unicode.ToLower(char)
-		}
-	}
-	return string(result)
-}
-
 /*
 	Value Obfuscation Middlewares
 */
@@ -748,7 +735,7 @@ func ApproxMatchFilterObf() FilterMiddleware {
 	)
 }
 
-func RandHexValueFilterObf(prob float32) func(parser.Filter) parser.Filter {
+func RandHexValueFilterObf(prob float64) func(parser.Filter) parser.Filter {
 	applyHexEncoding := func(attr string, value string) string {
 		tokenFormat, err := parser.GetAttributeTokenFormat(attr)
 		if err == nil && tokenFormat == parser.TokenDNString {
@@ -782,9 +769,9 @@ func RandHexValueFilterObf(prob float32) func(parser.Filter) parser.Filter {
 }
 
 // TODO: Simplify (are ExtensibleMatches possible for timestamp attributes?)
-func RandTimestampSuffixFilterObf(prepend bool, append bool, maxChars int) func(parser.Filter) parser.Filter {
+func RandTimestampSuffixFilterObf(maxChars int, charset string) func(parser.Filter) parser.Filter {
 	replaceTimestampFixed := func(value string) string {
-		return ReplaceTimestamp(value, prepend, append, maxChars)
+		return ReplaceTimestamp(value, maxChars, charset)
 	}
 
 	applier := LeafApplierFilterMiddleware(
@@ -952,11 +939,11 @@ func RandSpacingFilterObf(maxSpaces int) func(f parser.Filter) parser.Filter {
 	})
 }
 
-func RandAddWildcardFilterObf(prob float32) func(parser.Filter) parser.Filter {
+func RandAddWildcardFilterObf(prob float64) func(parser.Filter) parser.Filter {
 	return LeafApplierFilterMiddleware(func(filter parser.Filter) parser.Filter {
 		switch f := filter.(type) {
 		case *parser.FilterEqualityMatch:
-			if rand.Float32() < prob {
+			if rand.Float64() < prob {
 				// Only apply to string attributes
 				tokenType, err := parser.GetAttributeTokenFormat(f.AttributeDesc)
 				if err == nil && tokenType == parser.TokenStringUnicode {
@@ -975,7 +962,7 @@ func RandAddWildcardFilterObf(prob float32) func(parser.Filter) parser.Filter {
 			return f
 
 		case *parser.FilterSubstring:
-			if rand.Float32() < prob && len(f.Substrings) > 0 {
+			if rand.Float64() < prob && len(f.Substrings) > 0 {
 				// Pick a random substring and split it
 				subIdx := rand.Intn(len(f.Substrings))
 				sub := f.Substrings[subIdx]

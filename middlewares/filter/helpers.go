@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Macmod/ldapx/middlewares/helpers"
 	"github.com/Macmod/ldapx/parser"
 )
 
@@ -51,57 +52,20 @@ func SplitSlice[T any](slice []T, idx int) ([]T, []T) {
 	return before, after
 }
 
-func GenerateGarbageString(n int, chars string) string {
-	result := make([]byte, n)
-	for i := range result {
-		result[i] = chars[rand.Intn(len(chars))]
-	}
-	return string(result)
-}
-
-func HexEncodeChar(c rune) string {
-	return fmt.Sprintf("\\%02x", c)
-}
-
-func RandomlyHexEncodeString(s string, prob float32) string {
-	var result strings.Builder
-	for _, c := range s {
-		if rand.Float32() < prob {
-			result.WriteString(HexEncodeChar(c))
-		} else {
-			result.WriteRune(c)
-		}
-	}
-
-	return result.String()
-}
-
-func RandomlyHexEncodeDNString(dnString string, prob float32) string {
+func RandomlyHexEncodeDNString(dnString string, prob float64) string {
 	parts := strings.Split(dnString, ",")
 	for i, part := range parts {
 		kv := strings.SplitN(part, "=", 2)
 		if len(kv) == 2 {
 			value := kv[1]
-			encodedValue := RandomlyHexEncodeString(value, prob)
+			encodedValue := helpers.RandomlyHexEncodeString(value, prob)
 			parts[i] = kv[0] + "=" + encodedValue
 		}
 	}
 	return strings.Join(parts, ",")
 }
 
-func GetSomeRandChars(maxChars int) []rune {
-	numChars := rand.Intn(maxChars)
-	randomChars := make([]rune, numChars)
-
-	for i := range randomChars {
-		// ASCII printable characters range: 33-126
-		randomChars[i] = rune(rand.Intn(94) + 33)
-	}
-
-	return randomChars
-}
-
-func ReplaceTimestamp(value string, prepend bool, append bool, maxChars int) string {
+func ReplaceTimestamp(value string, maxChars int, charset string) string {
 	re := regexp.MustCompile(`^([0-9]{14})([.,].*)Z(.*)`)
 	return re.ReplaceAllStringFunc(value, func(match string) string {
 		parts := re.FindStringSubmatch(match)
@@ -109,12 +73,16 @@ func ReplaceTimestamp(value string, prepend bool, append bool, maxChars int) str
 			var prependStr string
 			var appendStr string
 
-			if prepend {
-				prependStr = string(GetSomeRandChars(maxChars))
-			}
-
-			if append {
-				appendStr = string(GetSomeRandChars(maxChars))
+			randStr1 := helpers.GenerateGarbageString(maxChars, charset)
+			randStr2 := helpers.GenerateGarbageString(maxChars, charset)
+			randVal := rand.Intn(3)
+			if randVal == 0 {
+				prependStr = randStr1
+			} else if randVal == 1 {
+				appendStr = randStr2
+			} else {
+				prependStr = randStr1
+				appendStr = randStr2
 			}
 
 			return fmt.Sprintf("%s%s%sZ%s%s", parts[1], parts[2], prependStr, appendStr, parts[3])
@@ -204,14 +172,14 @@ func AddANRSpacing(value string, maxSpaces int) string {
 		// If there's an equal sign prefix, we must consider adding spaces right after it too
 		idx := strings.Index(value, "=")
 
-		if idx != -1 && idx+1 < len(value) && rand.Float32() < 0.5 {
+		if idx != -1 && idx+1 < len(value) && rand.Float64() < 0.5 {
 			value = value[:idx+1] + spacesEqSign + value[idx+1:]
 		}
 	}
 
-	if rand.Float32() < 0.5 {
+	if rand.Float64() < 0.5 {
 		return spacesFst + value
-	} else if rand.Float32() < 0.5 {
+	} else if rand.Float64() < 0.5 {
 		return value + spacesLst
 	} else {
 		return spacesFst + value + spacesLst

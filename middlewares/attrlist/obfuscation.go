@@ -4,8 +4,8 @@ import (
 	"math/rand"
 	"slices"
 	"strings"
-	"unicode"
 
+	"github.com/Macmod/ldapx/middlewares/helpers"
 	"github.com/Macmod/ldapx/parser"
 )
 
@@ -19,24 +19,12 @@ import (
 */
 
 // RandCaseAttrListObf randomly changes case of attribute names
-func RandCaseAttrListObf(prob float32) func([]string) []string {
+func RandCaseAttrListObf(prob float64) func([]string) []string {
 	return func(attrs []string) []string {
 		result := make([]string, len(attrs))
 
 		for i, attr := range attrs {
-			var builder strings.Builder
-			for _, c := range attr {
-				if rand.Float32() < prob {
-					if unicode.IsUpper(c) {
-						builder.WriteString(strings.ToLower(string(c)))
-					} else {
-						builder.WriteString(strings.ToUpper(string(c)))
-					}
-				} else {
-					builder.WriteRune(c)
-				}
-			}
-			result[i] = builder.String()
+			result[i] = helpers.RandomlyChangeCaseString(attr, prob)
 		}
 		return result
 	}
@@ -74,13 +62,13 @@ func RandOIDSpacingAttrListObf(maxSpaces int) func([]string) []string {
 }
 
 // DuplicateAttrListObf duplicates random attributes
-func DuplicateAttrListObf(minDups int, prob float64) func([]string) []string {
+func DuplicateAttrListObf(prob float64) func([]string) []string {
 	return func(attrs []string) []string {
 		result := make([]string, 0)
 
 		for _, attr := range attrs {
-			duplicates := minDups
-			for rand.Float64() < prob {
+			duplicates := 1
+			if rand.Float64() < prob {
 				duplicates++
 			}
 
@@ -133,11 +121,7 @@ func GarbageNonExistingAttrListObf(maxGarbage int, garbageSize int, garbageChars
 			var garbage string
 			exists := true
 			for exists {
-				garbageBytes := make([]byte, garbageSize)
-				for j := 0; j < garbageSize; j++ {
-					garbageBytes[j] = garbageCharset[rand.Intn(len(garbageCharset))]
-				}
-				garbage = string(garbageBytes)
+				garbage = helpers.GenerateGarbageString(garbageSize, garbageCharset)
 				_, exists = parser.OidsMap[strings.ToLower(garbage)]
 			}
 			result = append(result, garbage)

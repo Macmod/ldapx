@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Macmod/ldapx/middlewares"
 	"github.com/Macmod/ldapx/parser"
 	"github.com/c-bata/go-prompt"
 )
@@ -25,6 +26,7 @@ var setParamSuggestions = []prompt.Suggest{
 	{Text: "basedn", Description: "Set basedn middleware chain"},
 	{Text: "attrlist", Description: "Set attribute list middleware chain"},
 	{Text: "target", Description: "Set target LDAP server address and reconnect"},
+	{Text: "option", Description: "Set a middleware option"},
 }
 
 var clearParamSuggestions = []prompt.Suggest{
@@ -40,6 +42,7 @@ var showParamSuggestions = []prompt.Suggest{
 	{Text: "attrlist", Description: "Show attribute list middleware chain"},
 	{Text: "testbasedn", Description: "BaseDN to use for the `test` command"},
 	{Text: "testattrlist", Description: "Attribute list to use for the `test` command"},
+	{Text: "option", Description: "Show current middleware options"},
 }
 
 var helpParamSuggestions = []prompt.Suggest{
@@ -204,6 +207,21 @@ func handleSetCommand(param string, values []string) {
 		} else {
 			fmt.Println("Successfully connected to the new target.")
 		}
+	case "option":
+		if len(values) != 1 {
+			fmt.Println("Usage: set option <key>=<value>")
+			return
+		}
+		parts := strings.SplitN(values[0], "=", 2)
+		if len(parts) != 2 {
+			fmt.Println("Invalid option format. Usage: set option <key>=<value>")
+			return
+		}
+		options[parts[0]] = parts[1]
+
+		SetupMiddlewaresMap()
+
+		fmt.Printf("Option %s set to %s\n", parts[0], parts[1])
 	default:
 		fmt.Printf("Unknown parameter: %s\n", param)
 	}
@@ -231,7 +249,22 @@ func handleShowCommand(param string) {
 		fmt.Println(testBaseDN)
 	case "testattrlist":
 		fmt.Println(testAttrList)
+	case "options", "option":
+		showOptions()
 	}
+}
+
+func showOptions() {
+	fmt.Println("[Middleware Options]")
+	for _, key := range middlewares.DefaultOptionsKeys {
+		defaultValue := middlewares.DefaultOptions[key]
+		if value, ok := options[key]; ok {
+			fmt.Printf("  %s = %s (default = %s)\n", key, value, defaultValue)
+		} else {
+			fmt.Printf("  %s = %s\n", key, defaultValue)
+		}
+	}
+	fmt.Println("")
 }
 
 func showChainConfig(name string, chain string, flags map[rune]string) {

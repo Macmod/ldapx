@@ -1,10 +1,10 @@
 package basedn
 
 import (
-	"fmt"
 	"math/rand"
 	"strings"
 
+	"github.com/Macmod/ldapx/middlewares/helpers"
 	"github.com/Macmod/ldapx/parser"
 )
 
@@ -18,17 +18,9 @@ import (
 */
 
 // RandCaseBaseDNObf randomly changes case of BaseDN components
-func RandCaseBaseDNObf(prob float32) func(string) string {
+func RandCaseBaseDNObf(prob float64) func(string) string {
 	return func(dn string) string {
-		var builder strings.Builder
-		for _, c := range dn {
-			if rand.Float32() < prob {
-				builder.WriteString(strings.ToUpper(string(c)))
-			} else {
-				builder.WriteString(strings.ToLower(string(c)))
-			}
-		}
-		return builder.String()
+		return helpers.RandomlyChangeCaseString(dn, prob)
 	}
 }
 
@@ -49,7 +41,7 @@ func OIDAttributeBaseDNObf() func(string) string {
 }
 
 // Prepends zeros to attribute OIDs in BaseDN
-func OIDPrependZerosBaseDNObf(minZeros int, maxZeros int) func(string) string {
+func OIDPrependZerosBaseDNObf(maxZeros int) func(string) string {
 	return func(dn string) string {
 		parts := strings.Split(dn, ",")
 		for i, part := range parts {
@@ -57,7 +49,7 @@ func OIDPrependZerosBaseDNObf(minZeros int, maxZeros int) func(string) string {
 			if len(kv) == 2 && parser.IsOID(kv[0]) {
 				oidParts := strings.Split(kv[0], ".")
 				for j, num := range oidParts {
-					zeros := strings.Repeat("0", minZeros+rand.Intn(maxZeros-minZeros+1))
+					zeros := strings.Repeat("0", 1+rand.Intn(maxZeros))
 					oidParts[j] = zeros + num
 				}
 				parts[i] = strings.Join(oidParts, ".") + "=" + kv[1]
@@ -68,16 +60,27 @@ func OIDPrependZerosBaseDNObf(minZeros int, maxZeros int) func(string) string {
 }
 
 // RandSpacingBaseDNObf adds random spacing to BaseDN in either the beginning or end
-func RandSpacingBaseDNObf(minSpaces int, maxSpaces int, probEnd float32) func(string) string {
+func RandSpacingBaseDNObf(maxSpaces int) func(string) string {
 	return func(dn string) string {
 		if dn == "" {
 			return dn
 		}
-		spaces := strings.Repeat(" ", minSpaces+rand.Intn(maxSpaces-minSpaces+1))
-		if rand.Float32() < probEnd {
-			return dn + spaces
+
+		var newDN string
+
+		spaces1 := strings.Repeat(" ", 1+rand.Intn(maxSpaces))
+		spaces2 := strings.Repeat(" ", 1+rand.Intn(maxSpaces))
+
+		randVal := rand.Intn(3)
+		if randVal == 0 {
+			newDN = dn + spaces1
+		} else if randVal == 1 {
+			newDN = spaces1 + dn
+		} else {
+			newDN = spaces1 + dn + spaces2
 		}
-		return spaces + dn
+
+		return newDN
 	}
 }
 
@@ -106,7 +109,7 @@ func DoubleQuotesBaseDNObf() func(string) string {
 }
 
 // RandHexValueBaseDNObf randomly hex encodes characters in BaseDN
-func RandHexValueBaseDNObf(prob float32) func(string) string {
+func RandHexValueBaseDNObf(prob float64) func(string) string {
 	return func(dn string) string {
 		parts := strings.Split(dn, ",")
 		for i, part := range parts {
@@ -121,14 +124,7 @@ func RandHexValueBaseDNObf(prob float32) func(string) string {
 					continue
 				}
 
-				for _, c := range value {
-					if rand.Float32() < prob {
-						builder.WriteString(fmt.Sprintf("\\%02x", c))
-					} else {
-						builder.WriteRune(c)
-					}
-				}
-				kv[1] = builder.String()
+				kv[1] = helpers.RandomlyHexEncodeString(value, prob)
 				parts[i] = kv[0] + "=" + kv[1]
 			}
 		}

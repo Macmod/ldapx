@@ -1,12 +1,14 @@
 package main
 
 import (
+	"strconv"
+	"strings"
+
+	"github.com/Macmod/ldapx/middlewares"
 	attrlistmid "github.com/Macmod/ldapx/middlewares/attrlist"
 	basednmid "github.com/Macmod/ldapx/middlewares/basedn"
 	filtermid "github.com/Macmod/ldapx/middlewares/filter"
 )
-
-const GarbageCharset = "abcdefghijklmnopqrsutwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 // Taken from:
 // https://learn.microsoft.com/en-us/windows/win32/adschema/attributes-anr
@@ -29,6 +31,7 @@ var (
 var filterMidFlags map[rune]string = map[rune]string{
 	'S': "Spacing",
 	't': "TimestampGarbage",
+	'T': "ReplaceTautologies",
 	'B': "AddBool",
 	'D': "DblNegBool",
 	'M': "DeMorganBool",
@@ -47,7 +50,6 @@ var filterMidFlags map[rune]string = map[rune]string{
 	'E': "EqExclusion",
 	'x': "EqExtensible",
 	'd': "BitwiseDecomposition",
-	'T': "ReplaceTautologies",
 }
 
 var baseDNMidFlags map[rune]string = map[rune]string{
@@ -72,50 +74,88 @@ var attrListMidFlags map[rune]string = map[rune]string{
 	'R': "ReorderList",
 }
 
-func SetupMiddlewaresMap(configFile string) {
+func SetupMiddlewaresMap() {
+	baseDNMidMap = map[string]basednmid.BaseDNMiddleware{
+		"Case":            basednmid.RandCaseBaseDNObf(optFloat("BDNCaseProb")),
+		"HexValue":        basednmid.RandHexValueBaseDNObf(optFloat("BDNHexValueProb")),
+		"OIDAttribute":    basednmid.OIDAttributeBaseDNObf(),
+		"Spacing":         basednmid.RandSpacingBaseDNObf(optInt("BDNSpacingMaxElems")),
+		"DoubleQuotes":    basednmid.DoubleQuotesBaseDNObf(),
+		"OIDPrependZeros": basednmid.OIDPrependZerosBaseDNObf(optInt("BDNOIDPrependZerosMaxElems")),
+	}
+
 	filterMidMap = map[string]filtermid.FilterMiddleware{
-		"TimestampGarbage":     filtermid.RandTimestampSuffixFilterObf(true, true, 10),
-		"Spacing":              filtermid.RandSpacingFilterObf(4),
-		"AddBool":              filtermid.RandAddBoolFilterObf(4, 0.5),
-		"DblNegBool":           filtermid.RandDblNegBoolFilterObf(2, 0.5),
-		"DeMorganBool":         filtermid.RandDeMorganBoolFilterObf(0.5),
+		"Spacing":              filtermid.RandSpacingFilterObf(optInt("FiltSpacingMaxSpaces")),
+		"TimestampGarbage":     filtermid.RandTimestampSuffixFilterObf(optInt("FiltTimestampGarbageMaxChars"), optStr("FiltGarbageCharset")),
+		"ReplaceTautologies":   filtermid.ReplaceTautologiesFilterObf(),
+		"AddBool":              filtermid.RandAddBoolFilterObf(optInt("FiltAddBoolMaxDepth"), optFloat("FiltDeMorganBoolProb")),
+		"DblNegBool":           filtermid.RandDblNegBoolFilterObf(optInt("FiltDblNegBoolMaxDepth"), optFloat("FiltDeMorganBoolProb")),
+		"DeMorganBool":         filtermid.RandDeMorganBoolFilterObf(optFloat("FiltDeMorganBoolProb")),
 		"NamesToANR":           filtermid.ANRAttributeFilterObf(ANRSet),
-		"ANRGarbageSubstring":  filtermid.ANRSubstringGarbageFilterObf(1, 6, GarbageCharset),
+		"ANRGarbageSubstring":  filtermid.ANRSubstringGarbageFilterObf(optInt("FiltANRSubstringMaxElems"), optStr("FiltGarbageCharset")),
 		"EqApproxMatch":        filtermid.ApproxMatchFilterObf(),
-		"AddWildcard":          filtermid.RandAddWildcardFilterObf(1),
-		"PrependZeros":         filtermid.RandPrependZerosFilterObf(2),
-		"Garbage":              filtermid.RandGarbageFilterObf(2, 8, GarbageCharset),
-		"OIDAttribute":         filtermid.OIDAttributeFilterObf(3, true),
-		"Case":                 filtermid.RandCaseFilterObf(0.6),
-		"HexValue":             filtermid.RandHexValueFilterObf(0.2),
+		"AddWildcard":          filtermid.RandAddWildcardFilterObf(optFloat("FiltAddWildcardProb")),
+		"PrependZeros":         filtermid.RandPrependZerosFilterObf(optInt("FiltPrependZerosMaxElems")),
+		"Garbage":              filtermid.RandGarbageFilterObf(optInt("FiltGarbageMaxElems"), optInt("FiltGarbageMaxSize"), optStr("FiltGarbageCharset")),
+		"OIDAttribute":         filtermid.OIDAttributeFilterObf(optInt("FiltOIDAttributeMaxElems"), optBool("FiltOIDAttributePrependOID")),
+		"Case":                 filtermid.RandCaseFilterObf(optFloat("FiltCaseProb")),
+		"HexValue":             filtermid.RandHexValueFilterObf(optFloat("FiltHexValueProb")),
 		"ReorderBool":          filtermid.RandBoolReorderFilterObf(),
 		"ExactBitwiseBreakout": filtermid.ExactBitwiseBreakoutFilterObf(),
 		"EqInclusion":          filtermid.EqualityByInclusionFilterObf(),
 		"EqExclusion":          filtermid.EqualityByExclusionFilterObf(),
-		"EqExtensible":         filtermid.EqualityToExtensibleFilterObf(false),
-		"BitwiseDecomposition": filtermid.BitwiseDecomposeFilterObf(32, false),
-		"ReplaceTautologies":   filtermid.ReplaceTautologiesFilterObf(),
+		"EqExtensible":         filtermid.EqualityToExtensibleFilterObf(optBool("FiltEqExtensibleAppendDN")),
+		"BitwiseDecomposition": filtermid.BitwiseDecomposeFilterObf(optInt("FiltBitwiseDecompositionMaxBits")),
 	}
 
 	attrListMidMap = map[string]attrlistmid.AttrListMiddleware{
-		"Case":                attrlistmid.RandCaseAttrListObf(0.6),
+		"Case":                attrlistmid.RandCaseAttrListObf(optFloat("FiltCaseProb")),
 		"OIDAttribute":        attrlistmid.OIDAttributeAttrListObf(),
-		"OIDSpacing":          attrlistmid.RandOIDSpacingAttrListObf(5),
-		"Duplicate":           attrlistmid.DuplicateAttrListObf(1, 3),
-		"GarbageExisting":     attrlistmid.GarbageExistingAttrListObf(5),
-		"GarbageNonExisting":  attrlistmid.GarbageNonExistingAttrListObf(4, 8, GarbageCharset),
+		"OIDSpacing":          attrlistmid.RandOIDSpacingAttrListObf(optInt("AttrsOIDSpacingMaxElems")),
+		"Duplicate":           attrlistmid.DuplicateAttrListObf(optFloat("AttrsDuplicateProb")),
+		"GarbageExisting":     attrlistmid.GarbageExistingAttrListObf(optInt("AttrsGarbageExistingMaxElems")),
+		"GarbageNonExisting":  attrlistmid.GarbageNonExistingAttrListObf(optInt("AttrsGarbageNonExistingMaxElems"), optInt("AttrsGarbageNonExistingMaxSize"), optStr("FiltGarbageCharset")),
 		"AddWildcard":         attrlistmid.AddWildcardAttrListObf(),
 		"ReplaceWithWildcard": attrlistmid.ReplaceWithWildcardAttrListObf(),
 		"ReplaceWithEmpty":    attrlistmid.ReplaceWithEmptyAttrListObf(),
 		"ReorderList":         attrlistmid.ReorderListAttrListObf(),
 	}
+}
 
-	baseDNMidMap = map[string]basednmid.BaseDNMiddleware{
-		"Case":            basednmid.RandCaseBaseDNObf(0.6),
-		"HexValue":        basednmid.RandHexValueBaseDNObf(0.2),
-		"OIDAttribute":    basednmid.OIDAttributeBaseDNObf(),
-		"Spacing":         basednmid.RandSpacingBaseDNObf(1, 4, 0.5),
-		"DoubleQuotes":    basednmid.DoubleQuotesBaseDNObf(),
-		"OIDPrependZeros": basednmid.OIDPrependZerosBaseDNObf(1, 4),
+func optStr(key string) string {
+	if value, ok := options[key]; ok {
+		return value
 	}
+	return middlewares.DefaultOptions[key]
+}
+
+func optInt(key string) int {
+	if value, ok := options[key]; ok {
+		i, err := strconv.Atoi(value)
+		if err == nil {
+			return i
+		}
+	}
+
+	result, _ := strconv.Atoi(middlewares.DefaultOptions[key])
+	return result
+}
+
+func optFloat(key string) float64 {
+	if value, ok := options[key]; ok {
+		i, err := strconv.ParseFloat(value, 64)
+		if err == nil {
+			return i
+		}
+	}
+
+	result, _ := strconv.ParseFloat(middlewares.DefaultOptions[key], 64)
+	return result
+}
+
+func optBool(key string) bool {
+	if value, ok := options[key]; ok {
+		return strings.ToLower(value) == "true"
+	}
+	return strings.ToLower(middlewares.DefaultOptions[key]) == "true"
 }

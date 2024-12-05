@@ -81,7 +81,8 @@ The tool provides several middlewares "ready for use" for inline LDAP filter tra
 | Key | Name | Purpose | Description | Input  | Output | Details |
 |-----|------|---------|-------------|--------|--------|---------|
 | `S` | Spacing | Obfuscation | Adds random spaces between characters | `(memberOf=CN=lol,DC=draco)` | `(memberOf=  CN  =lol, DC =   draco)` | Only applies to DN string attributes, aNR attributes' prefix/suffix & SID attributes |
-| `T` | Timestamp | Obfuscation | Adds random chars to timestamp values | `(time=20230812.123Z)` | `(time=20230812.123aBcZdeF)` | |
+| `t` | TimestampGarbage | Obfuscation | Adds random chars to timestamp values | `(time=20230812.123Z)` | `(time=20230812.123aBcZdeF)` | |
+| `T` | ReplaceTautologies | Obfuscation | Replaces basic tautologies into random tautologies | `(objectClass=*)` | `(\|(packageflags:1.2.840.113556.1.4.803:=0)(!(packageflags=*)))` | |
 | `B` | AddBool | Obfuscation | Adds random boolean conditions | `(cn=john)` | `(&(cn=john)(\|(a=1)(a=2)))` | Max depth configurable |
 | `D` | DblNegBool | Obfuscation | Adds double negations | `(cn=john)` | `(!(!(cn=john)))` | Max depth configurable |
 | `M` | DeMorganBool | Obfuscation | Applies De Morgan's laws | `(!(\|(a=1)(b=2)))` | `(&(!(a=1))(!(b=2)))` | Probability based |
@@ -121,7 +122,7 @@ The tool provides several middlewares "ready for use" for inline LDAP filter tra
 | `C` | Case | Obfuscation | Randomizes DN case | `CN=lol,DC=draco,DC=local` | `cN=lOl,dC=dRaCo,Dc=loCaL` | Probability based |
 | `O` | OIDAttribute | Obfuscation | Converts DN attrs to OIDs | `cn=Admin` | `2.5.4.3=Admin` | Uses standard LDAP OIDs |
 | `Z` | OIDPrependZeros | Obfuscation | Prepends zeros to OID components | `2.5.4.3=admin` | `002.0005.04.03=admin` | Only applies if there are OID components (for instance, by applying O before) |
-| `S` | Spacing | Obfuscation | Adds random spaces in the BaseDN | `DC=draco` | `DC=draco     ` | Min/max spaces/probEnd configurable |
+| `S` | Spacing | Obfuscation | Adds random spaces in the BaseDN (in the beginning and/or end) | `DC=draco` | `DC=draco     ` | |
 | `Q` | DoubleQuotes | Obfuscation | Adds quotes to values | `cn=Admin` | `cn="Admin"` |  |
 | `X` | HexValue | Obfuscation | Hex encodes characters in the values | `cn=john` | `cn=\6a\6fmin` | Probability based | 
 
