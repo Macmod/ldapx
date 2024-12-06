@@ -11,7 +11,7 @@ type FilterMiddleware func(parser.Filter) parser.Filter
 
 type FilterMiddlewareDefinition struct {
 	Name string
-	Func FilterMiddleware
+	Func func() FilterMiddleware
 }
 
 type FilterMiddlewareChain struct {
@@ -28,7 +28,7 @@ func (c *FilterMiddlewareChain) Execute(f parser.Filter, verbose bool) parser.Fi
 		if verbose {
 			log.Printf("[+] Applying middleware on Filter: %s\n", middleware.Name)
 		}
-		current = middleware.Func(current)
+		current = middleware.Func()(current)
 	}
 	return current
 }

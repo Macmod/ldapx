@@ -7,7 +7,7 @@ type BaseDNMiddleware func(string) string
 
 type BaseDNMiddlewareDefinition struct {
 	Name string
-	Func BaseDNMiddleware
+	Func func() BaseDNMiddleware
 }
 
 type BaseDNMiddlewareChain struct {
@@ -24,7 +24,7 @@ func (c *BaseDNMiddlewareChain) Execute(baseDN string, verbose bool) string {
 		if verbose {
 			log.Printf("[+] Applying middleware on BaseDN: %s\n", middleware.Name)
 		}
-		current = middleware.Func(current)
+		current = middleware.Func()(current)
 	}
 	return current
 }

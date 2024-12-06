@@ -143,7 +143,7 @@ func updateFilterChain(chain string) {
 		if middlewareName, exists := filterMidFlags[rune(c)]; exists {
 			fc.Add(filtermid.FilterMiddlewareDefinition{
 				Name: middlewareName,
-				Func: filterMidMap[middlewareName],
+				Func: func() filtermid.FilterMiddleware { return filterMidMap[middlewareName] },
 			})
 		}
 	}
@@ -156,7 +156,7 @@ func updateBaseDNChain(chain string) {
 		if middlewareName, exists := baseDNMidFlags[rune(c)]; exists {
 			bc.Add(basednmid.BaseDNMiddlewareDefinition{
 				Name: middlewareName,
-				Func: baseDNMidMap[middlewareName],
+				Func: func() basednmid.BaseDNMiddleware { return baseDNMidMap[middlewareName] },
 			})
 		}
 	}
@@ -169,7 +169,7 @@ func updateAttrListChain(chain string) {
 		if middlewareName, exists := attrListMidFlags[rune(c)]; exists {
 			ac.Add(attrlistmid.AttrListMiddlewareDefinition{
 				Name: middlewareName,
-				Func: attrListMidMap[middlewareName],
+				Func: func() attrlistmid.AttrListMiddleware { return attrListMidMap[middlewareName] },
 			})
 		}
 	}

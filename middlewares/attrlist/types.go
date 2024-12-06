@@ -7,7 +7,7 @@ type AttrListMiddleware func([]string) []string
 
 type AttrListMiddlewareDefinition struct {
 	Name string
-	Func AttrListMiddleware
+	Func func() AttrListMiddleware
 }
 
 type AttrListMiddlewareChain struct {
@@ -24,7 +24,7 @@ func (c *AttrListMiddlewareChain) Execute(attrs []string, verbose bool) []string
 		if verbose {
 			log.Printf("[+] Applying middleware on AttrList: %s\n", middleware.Name)
 		}
-		current = middleware.Func(current)
+		current = middleware.Func()(current)
 	}
 	return current
 }
