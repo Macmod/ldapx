@@ -709,7 +709,7 @@ func RandCaseFilterObf(prob float64) func(f parser.Filter) parser.Filter {
 	Value Obfuscation Middlewares
 */
 
-func ApproxMatchFilterObf() FilterMiddleware {
+func EqualityToApproxMatchFilterObf() FilterMiddleware {
 	return LeafApplierFilterMiddleware(
 		func(filter parser.Filter) parser.Filter {
 			switch f := filter.(type) {
@@ -759,9 +759,9 @@ func RandHexValueFilterObf(prob float64) func(parser.Filter) parser.Filter {
 }
 
 // TODO: Simplify (are ExtensibleMatches possible for timestamp attributes?)
-func RandTimestampSuffixFilterObf(maxChars int, charset string) func(parser.Filter) parser.Filter {
+func RandTimestampSuffixFilterObf(maxChars int, charset string, useComma bool) func(parser.Filter) parser.Filter {
 	replaceTimestampFixed := func(value string) string {
-		return ReplaceTimestamp(value, maxChars, charset)
+		return ReplaceTimestamp(value, maxChars, charset, useComma)
 	}
 
 	applier := LeafApplierFilterMiddleware(

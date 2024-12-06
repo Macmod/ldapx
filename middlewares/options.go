@@ -8,6 +8,7 @@ var DefaultOptions = map[string]string{
 	"BDNOIDAttributeIncludePrefix": "true",
 
 	"FiltSpacingMaxSpaces":            "4",
+	"FiltTimestampGarbageUseComma":    "false",
 	"FiltTimestampGarbageMaxChars":    "6",
 	"FiltAddBoolMaxDepth":             "4",
 	"FiltDblNegBoolMaxDepth":          "1",
@@ -43,6 +44,7 @@ var DefaultOptionsKeys = []string{
 
 	"FiltSpacingMaxSpaces",
 	"FiltTimestampGarbageMaxChars",
+	"FiltTimestampGarbageUseComma",
 	"FiltAddBoolMaxDepth",
 	"FiltDblNegBoolMaxDepth",
 	"FiltANRSubstringMaxElems",

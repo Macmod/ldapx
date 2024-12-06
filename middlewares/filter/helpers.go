@@ -65,11 +65,11 @@ func RandomlyHexEncodeDNString(dnString string, prob float64) string {
 	return strings.Join(parts, ",")
 }
 
-func ReplaceTimestamp(value string, maxChars int, charset string) string {
-	re := regexp.MustCompile(`^([0-9]{14})([.,].*)Z(.*)`)
+func ReplaceTimestamp(value string, maxChars int, charset string, useComma bool) string {
+	re := regexp.MustCompile(`^([0-9]{14})[.,](.*)(Z|[+-].{4})(.*)`)
 	return re.ReplaceAllStringFunc(value, func(match string) string {
 		parts := re.FindStringSubmatch(match)
-		if len(parts) == 4 {
+		if len(parts) == 5 {
 			var prependStr string
 			var appendStr string
 
@@ -85,7 +85,12 @@ func ReplaceTimestamp(value string, maxChars int, charset string) string {
 				appendStr = randStr2
 			}
 
-			return fmt.Sprintf("%s%s%sZ%s%s", parts[1], parts[2], prependStr, appendStr, parts[3])
+			sep := "."
+			if useComma {
+				sep = ","
+			}
+
+			return fmt.Sprintf("%s%s%s%s%s%s%s", parts[1], sep, parts[2], prependStr, parts[3], appendStr, parts[4])
 		}
 		return match
 	})
