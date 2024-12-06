@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/tls"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"log"
 	"net"
@@ -15,6 +14,7 @@ import (
 	basednmid "github.com/Macmod/ldapx/middlewares/basedn"
 	filtermid "github.com/Macmod/ldapx/middlewares/filter"
 	"github.com/fatih/color"
+	"github.com/spf13/pflag"
 )
 
 type Stats struct {
@@ -54,29 +54,30 @@ var globalStats Stats
 
 var (
 	shutdownChan = make(chan struct{})
-	verbFwd      uint
-	verbRev      uint
-	ldaps        bool
-	noShell      bool
-
-	fc *filtermid.FilterMiddlewareChain
-	ac *attrlistmid.AttrListMiddlewareChain
-	bc *basednmid.BaseDNMiddlewareChain
+	fc           *filtermid.FilterMiddlewareChain
+	ac           *attrlistmid.AttrListMiddlewareChain
+	bc           *basednmid.BaseDNMiddlewareChain
 
 	proxyLDAPAddr  string
 	targetLDAPAddr string
+	verbFwd        uint
+	verbRev        uint
+	ldaps          bool
+	noShell        bool
 	filterChain    string
 	attrChain      string
 	baseChain      string
 	tracking       bool
-
-	// Middleware-specific options
-	options MapFlag
+	options        MapFlag
 )
 
 type MapFlag struct {
 	sync.RWMutex
 	m map[string]string
+}
+
+func (mf *MapFlag) Type() string {
+	return "map[string]string"
 }
 
 func (mf *MapFlag) String() string {
@@ -112,19 +113,24 @@ func prettyList(list []string) string {
 }
 
 func init() {
-	flag.StringVar(&proxyLDAPAddr, "listen", ":389", "Address & port to listen on for incoming LDAP connections")
-	flag.StringVar(&targetLDAPAddr, "target", "", "Target LDAP server address")
-	flag.UintVar(&verbFwd, "vf", 1, "Set the verbosity level for forward LDAP traffic (requests)")
-	flag.UintVar(&verbRev, "vr", 0, "Set the verbosity level for reverse LDAP traffic (responses)")
-	flag.BoolVar(&ldaps, "ldaps", false, "Connect to target over LDAPS (ignoring cert. validation)")
-	flag.BoolVar(&noShell, "no-shell", false, "Don't show the ldapx shell")
-	flag.StringVar(&filterChain, "f", "", "Chain of search filter middlewares")
-	flag.StringVar(&attrChain, "a", "", "Chain of attribute list middlewares")
-	flag.StringVar(&baseChain, "b", "", "Chain of baseDN middlewares")
-	flag.BoolVar(&tracking, "T", true, "Applies a tracking algorithm to avoid issues where complex middlewares + paged searches break LDAP cookies (may be memory intensive)")
+	pflag.StringVarP(&proxyLDAPAddr, "listen", "l", ":389", "Address & port to listen on for incoming LDAP connections")
+	pflag.StringVarP(&targetLDAPAddr, "target", "t", "", "Target LDAP server address")
+	pflag.UintVarP(&verbFwd, "vf", "F", 1, "Set the verbosity level for forward LDAP traffic (requests)")
+	pflag.UintVarP(&verbRev, "vr", "R", 0, "Set the verbosity level for reverse LDAP traffic (responses)")
+	pflag.BoolVarP(&ldaps, "ldaps", "S", false, "Connect to target over LDAPS (ignoring cert. validation)")
+	pflag.BoolVarP(&noShell, "no-shell", "N", false, "Don't show the ldapx shell")
+	pflag.StringVarP(&filterChain, "filter", "f", "", "Chain of search filter middlewares")
+	pflag.StringVarP(&attrChain, "attrlist", "a", "", "Chain of attribute list middlewares")
+	pflag.StringVarP(&baseChain, "basedn", "b", "", "Chain of baseDN middlewares")
+	pflag.BoolVarP(&tracking, "tracking", "T", true, "Applies a tracking algorithm to avoid issues where complex middlewares + paged searches break LDAP cookies (may be memory intensive)")
+	pflag.BoolP("version", "v", false, "Show version information")
+	pflag.VarP(&options, "option", "o", "Configuration options (key=value)")
 
-	flag.Bool("version", false, "Show version information")
-	flag.Var((*MapFlag)(&options), "o", "Configuration options (key=value)")
+	pflag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: %s [OPTIONS]\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "\nOptions:\n")
+		pflag.PrintDefaults()
+	}
 
 	globalStats.Forward.CountsByType = make(map[int]uint64)
 	globalStats.Reverse.CountsByType = make(map[int]uint64)
@@ -170,9 +176,9 @@ func updateAttrListChain(chain string) {
 }
 
 func main() {
-	flag.Parse()
+	pflag.Parse()
 
-	if flag.Lookup("version").Value.(flag.Getter).Get().(bool) {
+	if pflag.Lookup("version").Changed {
 		fmt.Printf("ldapx %s\n", version)
 		os.Exit(0)
 	}

@@ -6,6 +6,7 @@ require (
 	github.com/c-bata/go-prompt v0.2.6
 	github.com/fatih/color v1.18.0
 	github.com/go-asn1-ber/asn1-ber v1.5.5
+	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.10.0
 )
 

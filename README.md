@@ -19,21 +19,23 @@ Or just download one of the [Releases](https://github.com/Macmod/ldapx/releases)
 ## Usage
 
 ```bash
-$ ldapx -target LDAPSERVER:389 [-f MIDDLEWARECHAIN] [-a MIDDLEWARECHAIN] [-b MIDDLEWARECHAIN] [-listen LOCALADDR:PORT] [-o MIDDLEWAREOPTION=VALUE] [...]
+$ ldapx -t LDAPSERVER:389 [-f MIDDLEWARECHAIN] [-a MIDDLEWARECHAIN] [-b MIDDLEWARECHAIN] [-l LOCALADDR:LOCALPORT] [-o MIDDLEWAREOPTION=VALUE] [...]
 ```
 
 Where:
 * `-f` will apply Filter middlewares to all search requests
 * `-a` will apply AttrList middlewares to all search requests
 * `-b` will apply BaseDN middlewares to all search requests
-* `-vf` specifies the verbosity level for forward packets (requests)
-* `-vr` specifies the verbosity level for reverse packets (responses)
 * `-o` can be specified multiple times and is used to specify options for the middlewares
+* `-F` specifies the verbosity level for forward packets (requests)
+* `-R` specifies the verbosity level for reverse packets (responses)
 
 If `-ldaps` is specified, then the connection to the target will use LDAPS. This can come in handy if you must use a tool that doesn't support LDAPS. Use `-no-shell` if you don't want to interact with the shell to modify the settings while the program is running.
 
 Each middleware is specified by a single-letter key (detailed below), and can be specified multiple times.
 For each type of middleware, the middlewares in the chain will be applied *in the order that they are specified* in the command.
+
+For more options check the `--help`.
 
 ## Examples
 
