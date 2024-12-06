@@ -42,7 +42,7 @@ For more options check the `--help`.
 ### Applying multiple middlewares in filters, attributes list and baseDN
 
 ```bash
-$ ldapx -target 192.168.117.2:389 -f OGRD -a OW -b OZ
+$ ldapx -t 192.168.117.2:389 -f OGDR -a Owp -b OX
 ```
 
 ![Demo1](https://github.com/Macmod/ldapx/blob/main/images/demo1.png)
