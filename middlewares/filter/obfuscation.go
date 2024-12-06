@@ -23,7 +23,7 @@ import (
 	AttributeName Obfuscation Middlewares
 */
 
-func OIDAttributeFilterObf(maxZeros int, maxSpaces int, includePrefix bool) func(f parser.Filter) parser.Filter {
+func OIDAttributeFilterObf(maxSpaces int, maxZeros int, includePrefix bool) func(f parser.Filter) parser.Filter {
 	obfuscate := func(attr string) string {
 		attrName := attr
 		oid, err := MapToOID(attr)
