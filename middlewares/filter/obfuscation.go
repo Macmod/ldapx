@@ -193,7 +193,7 @@ func GenerateGarbageFilter(attr string, garbageSize int, chars string) parser.Fi
 				substrings = append(substrings, parser.SubstringFilter{Any: garbageFixed()})
 			}
 
-			if rand.Float64() < 0.5 {
+			if rand.Intn(2) == 0 {
 				substrings = append(substrings, parser.SubstringFilter{Final: garbageFixed()})
 			}
 		}
@@ -939,13 +939,23 @@ func RandSubstringSplitFilterObf(prob float64) func(parser.Filter) parser.Filter
 				if err == nil && tokenType == parser.TokenStringUnicode {
 					chars := []rune(f.AssertionValue)
 					splitPoint := rand.Intn(len(chars) + 1)
+					substrings := []parser.SubstringFilter{}
+
+					if splitPoint > 0 {
+						substrings = append(substrings, parser.SubstringFilter{
+							Initial: string(chars[:splitPoint]),
+						})
+					}
+
+					if splitPoint < len(chars) {
+						substrings = append(substrings, parser.SubstringFilter{
+							Final: string(chars[splitPoint:]),
+						})
+					}
 
 					return &parser.FilterSubstring{
 						AttributeDesc: f.AttributeDesc,
-						Substrings: []parser.SubstringFilter{{
-							Initial: string(chars[:splitPoint]),
-							Final:   string(chars[splitPoint:]),
-						}},
+						Substrings:    substrings,
 					}
 				}
 			}
@@ -962,7 +972,6 @@ func RandSubstringSplitFilterObf(prob float64) func(parser.Filter) parser.Filter
 					sliceBefore, sliceAfter := SplitSlice(f.Substrings, subIdx)
 
 					splitPoint := rand.Intn(len(sub.Initial))
-					//fmt.Printf("Initial split point %d\n", splitPoint)
 					suffix := sub.Initial[splitPoint:]
 					sub.Initial = sub.Initial[:splitPoint]
 
@@ -980,7 +989,6 @@ func RandSubstringSplitFilterObf(prob float64) func(parser.Filter) parser.Filter
 					sliceBefore, sliceAfter := SplitSlice(f.Substrings, subIdx)
 
 					splitPoint := rand.Intn(len(sub.Any)-1) + 1
-					//fmt.Printf("Any split point %d\n", splitPoint)
 					suffix := sub.Any[splitPoint:]
 					sub.Any = sub.Any[:splitPoint]
 
@@ -997,7 +1005,6 @@ func RandSubstringSplitFilterObf(prob float64) func(parser.Filter) parser.Filter
 					sliceBefore, sliceAfter := SplitSlice(f.Substrings, subIdx)
 
 					splitPoint := rand.Intn(len(sub.Final)) + 1
-					//fmt.Printf("Final split point %d\n", splitPoint)
 					prefix := sub.Final[:splitPoint]
 					sub.Final = sub.Final[splitPoint:]
 
