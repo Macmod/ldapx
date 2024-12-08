@@ -1,6 +1,6 @@
 package attrlist
 
-import "log"
+import "github.com/Macmod/ldapx/log"
 
 // AttrListMiddleware is a function that takes a list of attributes and returns a new list
 type AttrListMiddleware func([]string) []string
@@ -22,7 +22,7 @@ func (c *AttrListMiddlewareChain) Execute(attrs []string, verbose bool) []string
 	current := attrs
 	for _, middleware := range c.Middlewares {
 		if verbose {
-			log.Printf("[+] Applying middleware on AttrList: %s\n", middleware.Name)
+			log.Log.Printf("[+] Applying middleware on AttrList: %s\n", middleware.Name)
 		}
 		current = middleware.Func()(current)
 	}

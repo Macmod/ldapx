@@ -465,7 +465,7 @@ func BitwiseDecomposeFilterObf(maxBits int) func(parser.Filter) parser.Filter {
 }
 
 // TODO: Review and implement if it works well
-
+/*
 func BitwiseExpandPossibleFilterObf() func(parser.Filter) parser.Filter {
 	return LeafApplierFilterMiddleware(func(filter parser.Filter) parser.Filter {
 		if f, ok := filter.(*parser.FilterExtensibleMatch); ok {
@@ -519,6 +519,7 @@ func BitwiseExpandPossibleFilterObf() func(parser.Filter) parser.Filter {
 		return filter
 	})
 }
+*/
 
 /*
 	Boolean Obfuscation Middlewares
@@ -758,7 +759,6 @@ func RandHexValueFilterObf(prob float64) func(parser.Filter) parser.Filter {
 	return applier
 }
 
-// TODO: Simplify (are ExtensibleMatches possible for timestamp attributes?)
 func RandTimestampSuffixFilterObf(maxChars int, charset string, useComma bool) func(parser.Filter) parser.Filter {
 	replaceTimestampFixed := func(value string) string {
 		return ReplaceTimestamp(value, maxChars, charset, useComma)

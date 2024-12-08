@@ -5,22 +5,16 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"fmt"
-	"log"
 	"net"
 	"reflect"
 	"strings"
 
+	"github.com/Macmod/ldapx/log"
 	"github.com/Macmod/ldapx/parser"
 	ber "github.com/go-asn1-ber/asn1-ber"
 )
 
-func startProxyLoop() {
-	listener, err := net.Listen("tcp", proxyLDAPAddr)
-	if err != nil {
-		log.Fatalf("Failed to listen on port %s: %v\n", proxyLDAPAddr, err)
-	}
-	defer listener.Close()
-
+func startProxyLoop(listener net.Listener) {
 	for {
 		select {
 		case <-shutdownChan:
@@ -28,7 +22,7 @@ func startProxyLoop() {
 		default:
 			conn, err := listener.Accept()
 			if err != nil {
-				log.Printf("Failed to accept connection: %v\n", err)
+				// log.Log.Printf("[-] Failed to accept connection: %v\n", err)
 				continue
 			}
 			go handleLDAPConnection(conn)
@@ -75,7 +69,7 @@ func handleLDAPConnection(conn net.Conn) {
 
 	if err != nil {
 		fmt.Println("")
-		log.Printf("Failed to connect to target LDAP server: %v\n", err)
+		log.Log.Printf("Failed to connect to target LDAP server: %v\n", err)
 		return
 	}
 	defer targetConn.Close()
@@ -91,7 +85,7 @@ func handleLDAPConnection(conn net.Conn) {
 	sendPacketForward := func(packet *ber.Packet) {
 		if _, err := targetConnWriter.Write(packet.Bytes()); err != nil {
 			fmt.Printf("\n")
-			logger.Printf("[-] Error forwarding LDAP request: %v\n", err)
+			log.Log.Printf("[-] Error forwarding LDAP request: %v\n", err)
 			return
 		}
 		globalStats.Lock()
@@ -101,7 +95,7 @@ func handleLDAPConnection(conn net.Conn) {
 
 		if err := targetConnWriter.Flush(); err != nil {
 			fmt.Printf("\n")
-			logger.Printf("[-] Error flushing LDAP response: %v\n", err)
+			log.Log.Printf("[-] Error flushing LDAP response: %v\n", err)
 			return
 		}
 	}
@@ -109,7 +103,7 @@ func handleLDAPConnection(conn net.Conn) {
 	sendPacketReverse := func(packet *ber.Packet) {
 		responseBytes := packet.Bytes()
 		if _, err := connWriter.Write(responseBytes); err != nil {
-			logger.Printf("[-] Error sending response back to client: %v\n", err)
+			log.Log.Printf("[-] Error sending response back to client: %v\n", err)
 			return
 		}
 		globalStats.Lock()
@@ -131,14 +125,14 @@ func handleLDAPConnection(conn net.Conn) {
 			packet, err := ber.ReadPacket(connReader)
 			if err != nil {
 				fmt.Println("")
-				logger.Printf("[-] Error reading LDAP request: %v\n", err)
+				log.Log.Printf("[-] Error reading LDAP request: %v\n", err)
 				return
 			}
 
 			fmt.Println("\n" + strings.Repeat("─", 55))
 
 			if verbFwd > 1 {
-				logger.Printf("[DEBUG] Packet Dump (Received From Client)")
+				log.Log.Printf("[DEBUG] Packet Dump (Received From Client)")
 				ber.PrintPacket(packet)
 			}
 
@@ -156,26 +150,31 @@ func handleLDAPConnection(conn net.Conn) {
 			}
 
 			if verbFwd > 0 {
-				logger.Printf("[C->T] [%d - %s]\n", reqMessageID, applicationText)
+				log.Log.Printf("[C->T] [%d - %s]\n", reqMessageID, applicationText)
 			}
 
-			if application == parser.ApplicationSearchRequest {
+			switch application {
+			case parser.ApplicationSearchRequest:
 				if tracking {
-					// Handle possible cookie corruption by tracking the original corresponding request
+					// Handle possible cookie desync by tracking the original corresponding request
+					// If the current search request is paged and has a cookie, forward the original request
+					// that generated the paging, including the current paging control
 					if len(packet.Children) > 2 {
 						controls := packet.Children[2].Children
 						for _, control := range controls {
 							if len(control.Children) > 1 && control.Children[0].Value == "1.2.840.113556.1.4.319" {
-								cookie := control.Children[1].Data.Bytes()
+								// RFC2696 - LDAP Control Extension for Simple Paged Results Manipulation
+								searchControlValue := ber.DecodePacket(control.Children[1].Data.Bytes())
+								cookie := searchControlValue.Children[1].Data.Bytes()
 
-								if len(cookie) > 8 {
+								if len(cookie) > 0 {
 									// Hash the search message (packet.Children[1]) to retrieve the correct search packet from the map
 									searchMessage := packet.Children[1].Bytes()
 									searchMessageHash := fmt.Sprintf("%x", sha256.Sum256(searchMessage))
 									searchPacket, ok := searchRequestMap[searchMessageHash]
 
 									if ok {
-										logger.Printf("[+] [Paging] Sarch Request Intercepted (%d)\n", reqMessageID)
+										log.Log.Printf("[+] [Paging] Sarch Request Intercepted (%d)\n", reqMessageID)
 
 										forwardPacket := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
 										forwardPacket.AppendChild(packet.Children[0])
@@ -183,11 +182,11 @@ func handleLDAPConnection(conn net.Conn) {
 										forwardPacket.AppendChild(packet.Children[2])
 
 										sendPacketForward(forwardPacket)
-										logger.Printf("[+] [Paging] Search Request Forwarded (%d)\n", reqMessageID)
+										log.Log.Printf("[+] [Paging] Search Request Forwarded (%d)\n", reqMessageID)
 
 										continue ForwardLoop
 									} else {
-										logger.Printf("[-] Error finding previous packet (tracking algorithm)")
+										log.Log.Printf("[-] Error finding previous packet (tracking algorithm)")
 									}
 								}
 							}
@@ -199,7 +198,7 @@ func handleLDAPConnection(conn net.Conn) {
 					searchRequestMap[searchMessageHash] = packet
 				}
 
-				logger.Printf("[+] Search Request Intercepted (%d)\n", reqMessageID)
+				log.Log.Printf("[+] Search Request Intercepted (%d)\n", reqMessageID)
 				baseDN := packet.Children[1].Children[0].Value.(string)
 				filterData := packet.Children[1].Children[6]
 				attrs := BerChildrenToList(packet.Children[1].Children[7])
@@ -215,10 +214,13 @@ func handleLDAPConnection(conn net.Conn) {
 					yellow.Printf("[WARNING] %s\n", err)
 				}
 
-				blue.Printf("Intercepted Request\n    BaseDN: '%s'\n    Filter: %s\n    Attributes: %s\n", baseDN, oldFilterStr, prettyList(attrs))
+				blue.Printf(
+					"Intercepted Search\n    BaseDN: '%s'\n    Filter: %s\n    Attributes: %s\n",
+					baseDN, oldFilterStr, prettyList(attrs),
+				)
 
 				newFilter, newBaseDN, newAttrs := TransformSearchRequest(
-					filter, baseDN, attrs, fc, ac, bc,
+					filter, baseDN, attrs,
 				)
 
 				newFilterStr, err := parser.FilterToQuery(newFilter)
@@ -245,19 +247,92 @@ func handleLDAPConnection(conn net.Conn) {
 				}
 
 				if updatedFlag {
-					green.Printf("Changed Request\n    BaseDN: '%s'\n    Filter: %s\n    Attributes: %s\n", newBaseDN, newFilterStr, prettyList(newAttrs))
+					green.Printf("Changed Search\n    BaseDN: '%s'\n    Filter: %s\n    Attributes: %s\n", newBaseDN, newFilterStr, prettyList(newAttrs))
 				} else {
 					blue.Printf("Nothing changed in the request\n")
 				}
 
 				// We need to copy it to refresh the internal Data of the parent packet
 				packet = CopyBerPacket(packet)
+
+				sendPacketForward(packet)
+			case parser.ApplicationAddRequest:
+				log.Log.Printf("[+] Add Request Intercepted (%d)\n", reqMessageID)
+
+				if len(packet.Children) > 1 {
+					addPacket := packet.Children[1]
+					targetDN := string(addPacket.Children[0].Data.Bytes())
+					blue.Printf("Intercepted Add\n    TargetDN: '%s'\n", targetDN)
+
+					newTargetDN := TransformAddRequest(targetDN)
+					if newTargetDN != targetDN {
+						green.Printf("Changed Add Request\n    TargetDN: '%s'", newTargetDN)
+
+						newEncodedDN := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, newTargetDN, "")
+						UpdateBerChildLeaf(packet.Children[1], 0, newEncodedDN)
+
+						// TODO: What to do with the attributes list? :)
+
+						// We need to copy it to refresh the internal Data of the parent packet
+						packet = CopyBerPacket(packet)
+					} else {
+						blue.Printf("Nothing changed in the request\n")
+					}
+				} else {
+					red.Printf("Malformed request (missing required fields)\n")
+				}
+
+				sendPacketForward(packet)
+			case parser.ApplicationModifyRequest:
+				log.Log.Printf("[+] Modify Request Intercepted (%d)\n", reqMessageID)
+				if len(packet.Children) > 1 {
+					modPacket := packet.Children[1]
+					targetDN := string(modPacket.Children[0].Data.Bytes())
+					blue.Printf("Intercepted Modify\n    TargetDN: '%s'\n", targetDN)
+					newTargetDN := TransformModifyRequest(targetDN)
+					if newTargetDN != targetDN {
+						green.Printf("Changed Modify Request\n    TargetDN: '%s'", newTargetDN)
+
+						newEncodedDN := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, newTargetDN, "")
+						UpdateBerChildLeaf(packet.Children[1], 0, newEncodedDN)
+
+						// TODO: What to do with the attributes list? :)
+
+						// We need to copy it to refresh the internal Data of the parent packet
+						packet = CopyBerPacket(packet)
+					} else {
+						blue.Printf("Nothing changed in the request\n")
+					}
+				} else {
+					red.Printf("Malformed request (missing required fields)\n")
+				}
+
+				sendPacketForward(packet)
+			case parser.ApplicationDelRequest:
+				log.Log.Printf("[+] Delete Request Intercepted (%d)\n", reqMessageID)
+
+				if len(packet.Children) > 1 {
+					targetDN := string(packet.Children[1].Data.Bytes())
+					blue.Printf("Intercepted Delete\n    TargetDN: '%s'\n", targetDN)
+					newTargetDN := TransformDeleteRequest(targetDN)
+					newEncodedDN := ber.NewString(ber.ClassApplication, ber.TypePrimitive, 0x0A, newTargetDN, "")
+					if newTargetDN != targetDN {
+						green.Printf("Changed Delete\n    TargetDN: '%s'", newTargetDN)
+						UpdateBerChildLeaf(packet, 1, newEncodedDN)
+					} else {
+						blue.Printf("Nothing changed in the request\n")
+					}
+				} else {
+					red.Printf("Malformed request (missing required fields)\n")
+				}
+
+				sendPacketForward(packet)
+			default:
+				sendPacketForward(packet)
 			}
 
-			sendPacketForward(packet)
-
 			if verbFwd > 1 {
-				logger.Printf("[DEBUG] Packet Dump (Sent To Target)")
+				log.Log.Printf("[DEBUG] Packet Dump (Sent To Target)")
 				ber.PrintPacket(packet)
 			}
 		}
@@ -272,7 +347,7 @@ func handleLDAPConnection(conn net.Conn) {
 				responsePacket, err := ber.ReadPacket(targetConnReader)
 				if err != nil {
 					fmt.Println("")
-					logger.Printf("[-] Error reading LDAP response: %v\n", err)
+					log.Log.Printf("[-] Error reading LDAP response: %v\n", err)
 					return
 				}
 
@@ -292,10 +367,10 @@ func handleLDAPConnection(conn net.Conn) {
 				sendPacketReverse(responsePacket)
 
 				if verbRev > 0 {
-					logger.Printf("[C<-T] [%d - %s] (%d bytes)\n", respMessageID, applicationText, len(responsePacket.Bytes()))
+					log.Log.Printf("[C<-T] [%d - %s] (%d bytes)\n", respMessageID, applicationText, len(responsePacket.Bytes()))
 
 					if verbRev > 1 {
-						logger.Printf("[DEBUG] Packet Dump (Received From Target)")
+						log.Log.Printf("[DEBUG] Packet Dump (Received From Target)")
 						ber.PrintPacket(responsePacket)
 					}
 				}

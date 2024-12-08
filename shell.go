@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"os"
+	"sort"
 	"strconv"
 	"strings"
 
+	"github.com/Macmod/ldapx/log"
 	"github.com/Macmod/ldapx/middlewares"
 	"github.com/Macmod/ldapx/parser"
 	"github.com/c-bata/go-prompt"
@@ -25,7 +26,8 @@ var setParamSuggestions = []prompt.Suggest{
 	{Text: "filter", Description: "Set filter middleware chain"},
 	{Text: "basedn", Description: "Set basedn middleware chain"},
 	{Text: "attrlist", Description: "Set attribute list middleware chain"},
-	{Text: "target", Description: "Set target LDAP server address and reconnect"},
+	{Text: "target", Description: "Set target LDAP server address"},
+	{Text: "ldaps", Description: "Set LDAPS connection mode (true/false)"},
 	{Text: "option", Description: "Set a middleware option"},
 	{Text: "verbfwd", Description: "Set forward verbosity level"},
 	{Text: "verbrev", Description: "Set reverse verbosity level"},
@@ -41,10 +43,11 @@ var clearParamSuggestions = []prompt.Suggest{
 var showParamSuggestions = []prompt.Suggest{
 	{Text: "filter", Description: "Show filter middleware chain"},
 	{Text: "basedn", Description: "Show basedn middleware chain"},
-	{Text: "attrlist", Description: "Show attribute list middleware chain"},
-	{Text: "testbasedn", Description: "BaseDN to use for the `test` command"},
-	{Text: "testattrlist", Description: "Attributes list to use for the `test` command"},
-	{Text: "target", Description: "Target address to connect upon receiving a connection"},
+	{Text: "attrlist", Description: "Show attributes list middleware chain"},
+	{Text: "testbasedn", Description: "Show BaseDN to use for the `test` command"},
+	{Text: "testattrlist", Description: "Show attributes list to use for the `test` command"},
+	{Text: "target", Description: "Show target address to connect upon receiving a connection"},
+	{Text: "ldaps", Description: "Show LDAPS connection mode"},
 	{Text: "option", Description: "Show current middleware options"},
 	{Text: "stats", Description: "Show packet statistics"},
 	{Text: "verbfwd", Description: "Show forward verbosity level"},
@@ -58,6 +61,7 @@ var helpParamSuggestions = []prompt.Suggest{
 	{Text: "testbasedn", Description: "Show testbasedn parameter info"},
 	{Text: "testattrlist", Description: "Show testattrlist parameter info"},
 	{Text: "target", Description: "Show target parameter info"},
+	{Text: "ldaps", Description: "Show LDAPS parameter info"},
 	{Text: "option", Description: "Show option parameter info"},
 	{Text: "stats", Description: "Show stats parameter info"},
 	{Text: "verbfwd", Description: "Show forward verbosity parameter info"},
@@ -69,12 +73,9 @@ var testAttrList = []string{"cn", "objectClass", "sAMAccountName"}
 
 func completer(in prompt.Document) []prompt.Suggest {
 	w := in.GetWordBeforeCursor()
-	if w == "" {
-		return []prompt.Suggest{}
-	}
 
 	args := strings.Split(in.TextBeforeCursor(), " ")
-	if len(args) <= 1 {
+	if len(args) == 1 {
 		return prompt.FilterHasPrefix(suggestions, w, true)
 	}
 
@@ -90,12 +91,6 @@ func completer(in prompt.Document) []prompt.Suggest {
 	default:
 		return []prompt.Suggest{}
 	}
-}
-
-func shutdownProgram() {
-	fmt.Println("Bye!")
-	close(shutdownChan)
-	os.Exit(0)
 }
 
 func executor(in string) {
@@ -158,9 +153,8 @@ func RunShell() {
 		prompt.OptionPrefix("ldapx> "),
 		prompt.OptionTitle("ldapx"),
 	)
-	p.Run()
 
-	shutdownProgram()
+	p.Run()
 }
 
 func handleClearCommand(param string) {
@@ -252,8 +246,20 @@ func handleSetCommand(param string, values []string) {
 		}
 		verbRev = uint(level)
 		fmt.Printf("Reverse verbosity level set to: %d\n", verbRev)
+	case "ldaps":
+		if len(values) != 1 {
+			fmt.Println("Usage: set ldaps <true/false>")
+			return
+		}
+		ldapsValue, err := strconv.ParseBool(values[0])
+		if err != nil {
+			fmt.Printf("Invalid boolean value: %s\n", values[0])
+			return
+		}
+		ldaps = ldapsValue
+		fmt.Printf("LDAPS mode set to: %v\n", ldaps)
 	default:
-		fmt.Printf("Unknown parameter: %s\n", param)
+		fmt.Printf("Unknown parameter for 'set': %s\n", param)
 	}
 }
 
@@ -281,6 +287,8 @@ func handleShowCommand(param string) {
 		fmt.Println(testAttrList)
 	case "target":
 		fmt.Println(targetLDAPAddr)
+	case "ldaps":
+		fmt.Printf("LDAPS mode: %v\n", ldaps)
 	case "options", "option":
 		showOptions()
 	case "stats":
@@ -289,6 +297,8 @@ func handleShowCommand(param string) {
 		fmt.Printf("Forward verbosity level: %d\n", verbFwd)
 	case "verbrev":
 		fmt.Printf("Reverse verbosity level: %d\n", verbRev)
+	default:
+		fmt.Printf("Unknown parameter for 'show': '%s'\n", param)
 	}
 }
 
@@ -324,6 +334,19 @@ func showChainConfig(name string, chain string, flags map[rune]string) {
 	fmt.Println("")
 }
 
+func printMiddlewareFlags(midFlags map[rune]string) {
+	var flags []rune
+	for flag := range midFlags {
+		flags = append(flags, flag)
+	}
+	sort.Slice(flags, func(i, j int) bool {
+		return flags[i] < flags[j]
+	})
+	for _, flag := range flags {
+		fmt.Printf("  %c - %s\n", flag, midFlags[flag])
+	}
+}
+
 func showHelp(args ...string) {
 	if len(args) == 0 {
 		fmt.Println("Available commands:")
@@ -340,6 +363,7 @@ func showHelp(args ...string) {
 		fmt.Println("  testbasedn   - BaseDN to use for the `test` command")
 		fmt.Println("  testattrlist - Attributes list to use for the `test` command (separated by commas)")
 		fmt.Println("  target       - Target address to connect upon receiving a connection")
+		fmt.Println("  ldaps        - Enable/disable LDAPS connection mode (true/false)")
 		fmt.Println("  stats        - Packet statistics")
 		fmt.Println("  option       - Middleware options")
 		fmt.Println("  verbfwd      - Forward verbosity level")
@@ -351,26 +375,22 @@ func showHelp(args ...string) {
 
 	switch args[0] {
 	case "filter":
-		fmt.Println("Filter middleware chain:")
-		for flag, name := range filterMidFlags {
-			fmt.Printf("  %c - %s\n", flag, name)
-		}
+		fmt.Println("Possible Filter middlewares:")
+		printMiddlewareFlags(filterMidFlags)
 	case "basedn":
-		fmt.Println("BaseDN middleware chain:")
-		for flag, name := range baseDNMidFlags {
-			fmt.Printf("  %c - %s\n", flag, name)
-		}
+		fmt.Println("Possible BaseDN middlewares:")
+		printMiddlewareFlags(baseDNMidFlags)
 	case "attrlist":
-		fmt.Println("Attributes list middleware chain:")
-		for flag, name := range attrListMidFlags {
-			fmt.Printf("  %c - %s\n", flag, name)
-		}
+		fmt.Println("Possible AttrList middlewares:")
+		printMiddlewareFlags(attrListMidFlags)
 	case "testbasedn":
 		fmt.Println("testbasedn - BaseDN to use for the `test` command")
 	case "testattrlist":
 		fmt.Println("testattrlist - Attributes list to use for the `test` command (separated by commas)")
 	case "target":
 		fmt.Println("target - Target address to connect upon receiving a connection (can only be set or shown)")
+	case "ldaps":
+		fmt.Println("ldaps - Enable/disable LDAPS connection mode (true/false)")
 	case "stats":
 		fmt.Println("stats - Packet statistics (cannot be set, only shown or cleared)")
 	case "option":
@@ -405,8 +425,8 @@ func showGlobalConfig() {
 
 func handleTestCommand(query string) {
 	fmt.Printf("%s\n", strings.Repeat("─", 55))
-	logger.Printf("[+] Simulated LDAP Search\n")
-	logger.Printf("[+] Input: %s\n", query)
+	log.Log.Printf("[+] Simulated LDAP Search\n")
+	log.Log.Printf("[+] Input: %s\n", query)
 
 	filter, err := parser.QueryToFilter(query)
 	if err != nil {
@@ -430,9 +450,6 @@ func handleTestCommand(query string) {
 		filter,
 		testBaseDN,
 		testAttrList,
-		fc,
-		ac,
-		bc,
 	)
 
 	newParsed, err := parser.FilterToQuery(newFilter)

@@ -46,11 +46,11 @@ type Filter interface {
 func GetAttrName(filter Filter) (string, error) {
 	switch f := filter.(type) {
 	case *FilterAnd:
-		return "", fmt.Errorf("AND filters have no attribute name.")
+		return "", fmt.Errorf("AND filters have no attribute name")
 	case *FilterOr:
-		return "", fmt.Errorf("OR filters have no attribute name.")
+		return "", fmt.Errorf("OR filters have no attribute name")
 	case *FilterNot:
-		return "", fmt.Errorf("NOT filters have no attribute name.")
+		return "", fmt.Errorf("NOT filters have no attribute name")
 	case *FilterEqualityMatch:
 		return f.AttributeDesc, nil
 	case *FilterSubstring:
@@ -66,7 +66,7 @@ func GetAttrName(filter Filter) (string, error) {
 	case *FilterExtensibleMatch:
 		return f.AttributeDesc, nil
 	default:
-		return "", fmt.Errorf("Unknown filters have no attribute name.")
+		return "", fmt.Errorf("Unknown filters have no attribute name")
 	}
 }
 
@@ -282,15 +282,17 @@ func PacketToFilter(packet *ber.Packet) (Filter, error) {
 
 		// Check for optional components
 		for _, child := range packet.Children {
+			bytes := child.Data.Bytes()
+
 			switch int(child.Tag) {
 			case 0x1: // MatchingRuleID
-				matchingRule = string(child.Data.Bytes())
+				matchingRule = string(bytes)
 			case 0x2: // AttributeDescription
-				attributeDesc = string(child.Data.Bytes())
+				attributeDesc = string(bytes)
 			case 0x3: // MatchValue
-				matchValue = string(child.Data.Bytes())
+				matchValue = string(bytes)
 			case 0x4: // DNAttributes (True/False)
-				dnAttributes = len(child.Data.Bytes()) > 0 && child.Data.Bytes()[0] == 0xFF
+				dnAttributes = len(bytes) > 0 && bytes[0] == byte(1)
 			}
 		}
 

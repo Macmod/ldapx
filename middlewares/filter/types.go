@@ -1,8 +1,7 @@
 package filter
 
 import (
-	"log"
-
+	"github.com/Macmod/ldapx/log"
 	"github.com/Macmod/ldapx/parser"
 )
 
@@ -26,7 +25,7 @@ func (c *FilterMiddlewareChain) Execute(f parser.Filter, verbose bool) parser.Fi
 	current := f
 	for _, middleware := range c.Middlewares {
 		if verbose {
-			log.Printf("[+] Applying middleware on Filter: %s\n", middleware.Name)
+			log.Log.Printf("[+] Applying middleware on Filter: %s\n", middleware.Name)
 		}
 		current = middleware.Func()(current)
 	}

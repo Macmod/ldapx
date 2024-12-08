@@ -4,12 +4,12 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"strings"
 	"sync"
 
+	"github.com/Macmod/ldapx/log"
 	attrlistmid "github.com/Macmod/ldapx/middlewares/attrlist"
 	basednmid "github.com/Macmod/ldapx/middlewares/basedn"
 	filtermid "github.com/Macmod/ldapx/middlewares/filter"
@@ -36,8 +36,6 @@ type Stats struct {
 }
 
 var version = "v1.0.0"
-
-var logger = log.New(os.Stderr, "", log.LstdFlags)
 
 var green = color.New(color.FgGreen)
 var red = color.New(color.FgRed)
@@ -69,7 +67,16 @@ var (
 	baseChain      string
 	tracking       bool
 	options        MapFlag
+	outputFile     string
+
+	listener net.Listener
 )
+
+func shutdownProgram() {
+	fmt.Println("Bye!")
+	close(shutdownChan)
+	os.Exit(0)
+}
 
 type MapFlag struct {
 	sync.RWMutex
@@ -125,6 +132,7 @@ func init() {
 	pflag.BoolVarP(&tracking, "tracking", "T", true, "Applies a tracking algorithm to avoid issues where complex middlewares + paged searches break LDAP cookies (may be memory intensive)")
 	pflag.BoolP("version", "v", false, "Show version information")
 	pflag.VarP(&options, "option", "o", "Configuration options (key=value)")
+	pflag.StringVarP(&outputFile, "output", "O", "", "Output file to write log messages")
 
 	pflag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: %s [OPTIONS]\n", os.Args[0])
@@ -183,6 +191,8 @@ func main() {
 		os.Exit(0)
 	}
 
+	log.InitLog(outputFile)
+
 	SetupMiddlewaresMap()
 
 	// Registering middlewares
@@ -214,16 +224,29 @@ func main() {
 		}
 	}
 
-	// Start interactive shell in background
-	if !noShell {
-		go RunShell()
+	var err error
+	listener, err = net.Listen("tcp", proxyLDAPAddr)
+	if err != nil {
+		log.Log.Printf("[-] Failed to listen on port %s: %s\n", proxyLDAPAddr, err)
+		shutdownProgram()
 	}
 
-	logger.Printf("[+] LDAP Proxy listening on '%s', forwarding to '%s' (T)\n", proxyLDAPAddr, targetLDAPAddr)
-	logger.Printf("[+] FilterMiddlewares: [%s]", strings.Join(appliedFilterMiddlewares, ","))
-	logger.Printf("[+] AttrListMiddlewares: [%s]", strings.Join(appliedAttrListMiddlewares, ","))
-	logger.Printf("[+] BaseDNMiddlewares: [%s]", strings.Join(appliedBaseDNMiddlewares, ","))
+	log.Log.Printf("[+] LDAP Proxy listening on '%s', forwarding to '%s' (T)\n", proxyLDAPAddr, targetLDAPAddr)
+	log.Log.Printf("[+] FilterMiddlewares: [%s]", strings.Join(appliedFilterMiddlewares, ","))
+	log.Log.Printf("[+] AttrListMiddlewares: [%s]", strings.Join(appliedAttrListMiddlewares, ","))
+	log.Log.Printf("[+] BaseDNMiddlewares: [%s]", strings.Join(appliedBaseDNMiddlewares, ","))
+
+	if outputFile != "" {
+		log.Log.Printf("[+] Logging File: '%s'\n", outputFile)
+	}
 
 	// Main proxy loop
-	startProxyLoop()
+	go startProxyLoop(listener)
+
+	// Start interactive shell in the main goroutine
+	if !noShell {
+		RunShell()
+	} else {
+		<-shutdownChan
+	}
 }
