@@ -25,12 +25,14 @@ func TransformSearchRequest(filter parser.Filter, baseDN string, attrs []string)
 
 func TransformModifyRequest(targetDN string, changes []ChangeRequest) (string, []ChangeRequest) {
 	newTargetDN := bc.Execute(targetDN, true)
+	newChanges := make([]ChangeRequest, len(changes))
 
-	for _, change := range changes {
-		change.Modifications = ec.Execute(change.Modifications, true)
+	for idx := range newChanges {
+		newChanges[idx].OperationId = changes[idx].OperationId
+		newChanges[idx].Modifications = ec.Execute(changes[idx].Modifications, true)
 	}
 
-	return newTargetDN, changes
+	return newTargetDN, newChanges
 }
 
 func TransformAddRequest(targetDN string, entries parser.AttrEntries) (string, parser.AttrEntries) {
@@ -217,7 +219,6 @@ func ProcessModifyRequest(packet *ber.Packet) *ber.Packet {
 		}
 
 		newTargetDN, newChangeRequests := TransformModifyRequest(targetDN, changeRequests)
-		ber.PrintPacket(modPacket)
 
 		updatedFlag := false
 		if newTargetDN != targetDN {
@@ -257,7 +258,7 @@ func ProcessModifyRequest(packet *ber.Packet) *ber.Packet {
 
 		if updatedFlag {
 			green.Printf("Changed Modify Request\n    TargetDN: '%s'\n", newTargetDN)
-			for _, req := range changeRequests {
+			for _, req := range newChangeRequests {
 				req.PrintChanges(green)
 			}
 
