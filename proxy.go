@@ -152,20 +152,30 @@ func handleLDAPConnection(conn net.Conn) {
 
 			switch application {
 			case parser.ApplicationSearchRequest:
-				log.Log.Printf("[+] Search Request Intercepted (%d)\n", reqMessageID)
-				packet = ProcessSearchRequest(packet, searchRequestMap)
+				if interceptSearch {
+					log.Log.Printf("[+] Search Request Intercepted (%d)\n", reqMessageID)
+					packet = ProcessSearchRequest(packet, searchRequestMap)
+				}
 			case parser.ApplicationModifyRequest:
-				log.Log.Printf("[+] Modify Request Intercepted (%d)\n", reqMessageID)
-				packet = ProcessModifyRequest(packet)
+				if interceptModify {
+					log.Log.Printf("[+] Modify Request Intercepted (%d)\n", reqMessageID)
+					packet = ProcessModifyRequest(packet)
+				}
 			case parser.ApplicationAddRequest:
-				log.Log.Printf("[+] Add Request Intercepted (%d)\n", reqMessageID)
-				packet = ProcessAddRequest(packet)
+				if interceptAdd {
+					log.Log.Printf("[+] Add Request Intercepted (%d)\n", reqMessageID)
+					packet = ProcessAddRequest(packet)
+				}
 			case parser.ApplicationDelRequest:
-				log.Log.Printf("[+] Delete Request Intercepted (%d)\n", reqMessageID)
-				packet = ProcessDeleteRequest(packet)
+				if interceptDelete {
+					log.Log.Printf("[+] Delete Request Intercepted (%d)\n", reqMessageID)
+					packet = ProcessDeleteRequest(packet)
+				}
 			case parser.ApplicationModifyDNRequest:
-				log.Log.Printf("[+] ModifyDN Request Intercepted (%d)\n", reqMessageID)
-				packet = ProcessModifyDNRequest(packet)
+				if interceptModifyDN {
+					log.Log.Printf("[+] ModifyDN Request Intercepted (%d)\n", reqMessageID)
+					packet = ProcessModifyDNRequest(packet)
+				}
 			}
 
 			sendPacketForward(packet)

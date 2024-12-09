@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strconv"
@@ -32,6 +33,11 @@ var setParamSuggestions = []prompt.Suggest{
 	{Text: "option", Description: "Set a middleware option"},
 	{Text: "verbfwd", Description: "Set forward verbosity level"},
 	{Text: "verbrev", Description: "Set reverse verbosity level"},
+	{Text: "isearch", Description: "Set search operation interception (true/false)"},
+	{Text: "imodify", Description: "Set modify operation interception (true/false)"},
+	{Text: "iadd", Description: "Set add operation interception (true/false)"},
+	{Text: "idelete", Description: "Set delete operation interception (true/false)"},
+	{Text: "imodifydn", Description: "Set modifydn operation interception (true/false)"},
 }
 
 var clearParamSuggestions = []prompt.Suggest{
@@ -40,6 +46,11 @@ var clearParamSuggestions = []prompt.Suggest{
 	{Text: "attrlist", Description: "Clear attribute list middleware chain"},
 	{Text: "attrentries", Description: "Clear attributes entries middleware chain"},
 	{Text: "stats", Description: "Clear statistics"},
+	{Text: "isearch", Description: "Clear search operation interception"},
+	{Text: "imodify", Description: "Clear modify operation interception"},
+	{Text: "iadd", Description: "Clear add operation interception"},
+	{Text: "idelete", Description: "Clear delete operation interception"},
+	{Text: "imodifydn", Description: "Clear modifydn operation interception"},
 }
 
 var showParamSuggestions = []prompt.Suggest{
@@ -55,6 +66,11 @@ var showParamSuggestions = []prompt.Suggest{
 	{Text: "stats", Description: "Show packet statistics"},
 	{Text: "verbfwd", Description: "Show forward verbosity level"},
 	{Text: "verbrev", Description: "Show reverse verbosity level"},
+	{Text: "isearch", Description: "Show search operation interception status"},
+	{Text: "imodify", Description: "Show modify operation interception status"},
+	{Text: "iadd", Description: "Show add operation interception status"},
+	{Text: "idelete", Description: "Show delete operation interception status"},
+	{Text: "imodifydn", Description: "Show modifydn operation interception status"},
 }
 
 var helpParamSuggestions = []prompt.Suggest{
@@ -71,6 +87,7 @@ var helpParamSuggestions = []prompt.Suggest{
 	{Text: "verbfwd", Description: "Show forward verbosity parameter info"},
 	{Text: "verbrev", Description: "Show reverse verbosity parameter info"},
 }
+
 var testBaseDN = "DC=test,DC=local"
 var testAttrList = []string{"cn", "objectClass", "sAMAccountName"}
 
@@ -182,6 +199,21 @@ func handleClearCommand(param string) {
 	case "stats":
 		clearStatistics()
 		fmt.Println("Statistics cleared.")
+	case "isearch":
+		interceptSearch = false
+		fmt.Printf("Search interception cleared.\n")
+	case "imodify":
+		interceptModify = false
+		fmt.Printf("Modify interception cleared.\n")
+	case "iadd":
+		interceptAdd = false
+		fmt.Printf("Add interception cleared.\n")
+	case "idelete":
+		interceptDelete = false
+		fmt.Printf("Delete interception cleared.\n")
+	case "imodifydn":
+		interceptModifyDN = false
+		fmt.Printf("ModifyDN interception cleared.\n")
 	default:
 		fmt.Printf("Unknown parameter: %s\n", param)
 	}
@@ -273,6 +305,66 @@ func handleSetCommand(param string, values []string) {
 		}
 		ldaps = ldapsValue
 		fmt.Printf("LDAPS mode set to: %v\n", ldaps)
+	case "isearch":
+		if len(values) != 1 {
+			fmt.Println("Usage: set isearch <true/false>")
+			return
+		}
+		val, err := strconv.ParseBool(values[0])
+		if err != nil {
+			fmt.Printf("Invalid boolean value: %s\n", values[0])
+			return
+		}
+		interceptSearch = val
+		fmt.Printf("Search interception set to: %v\n", interceptSearch)
+	case "imodify":
+		if len(values) != 1 {
+			fmt.Println("Usage: set imodify <true/false>")
+			return
+		}
+		val, err := strconv.ParseBool(values[0])
+		if err != nil {
+			fmt.Printf("Invalid boolean value: %s\n", values[0])
+			return
+		}
+		interceptModify = val
+		fmt.Printf("Modify interception set to: %v\n", interceptModify)
+	case "iadd":
+		if len(values) != 1 {
+			fmt.Println("Usage: set iadd <true/false>")
+			return
+		}
+		val, err := strconv.ParseBool(values[0])
+		if err != nil {
+			fmt.Printf("Invalid boolean value: %s\n", values[0])
+			return
+		}
+		interceptAdd = val
+		fmt.Printf("Add interception set to: %v\n", interceptAdd)
+	case "idelete":
+		if len(values) != 1 {
+			fmt.Println("Usage: set idelete <true/false>")
+			return
+		}
+		val, err := strconv.ParseBool(values[0])
+		if err != nil {
+			fmt.Printf("Invalid boolean value: %s\n", values[0])
+			return
+		}
+		interceptDelete = val
+		fmt.Printf("Delete interception set to: %v\n", interceptDelete)
+	case "imodifydn":
+		if len(values) != 1 {
+			fmt.Println("Usage: set imodifydn <true/false>")
+			return
+		}
+		val, err := strconv.ParseBool(values[0])
+		if err != nil {
+			fmt.Printf("Invalid boolean value: %s\n", values[0])
+			return
+		}
+		interceptModifyDN = val
+		fmt.Printf("ModifyDN interception set to: %v\n", interceptModifyDN)
 	default:
 		fmt.Printf("Unknown parameter for 'set': %s\n", param)
 	}
@@ -386,6 +478,11 @@ func showHelp(args ...string) {
 		fmt.Println("  option       - Middleware options")
 		fmt.Println("  verbfwd      - Forward verbosity level")
 		fmt.Println("  verbrev      - Reverse verbosity level")
+		fmt.Println("  isearch      - Search operation interception mode (true/false)")
+		fmt.Println("  imodify      - Modify operation interception mode (true/false)")
+		fmt.Println("  iadd         - Add operation interception mode (true/false)")
+		fmt.Println("  idelete      - Delete operation interception mode (true/false)")
+		fmt.Println("  imodifydn    - ModifyDN operation interception (true/false)")
 		fmt.Println("\nUse 'help <parameter>' for detailed information about specific parameters")
 		fmt.Println("")
 		return
@@ -437,10 +534,17 @@ func showGlobalConfig() {
 	fmt.Printf("  Reverse Verbosity: %d\n", verbRev)
 	fmt.Printf("  Listen address: %s\n", proxyLDAPAddr)
 	fmt.Printf("  Target address: %s\n", targetLDAPAddr)
-	fmt.Printf("  Target LDAPS: %v\n", ldaps)
+	fmt.Printf("  Target LDAPS: %t\n", ldaps)
+	fmt.Printf("\n[Interceptions]\n")
+	fmt.Printf("  Search: %t\n", interceptSearch)
+	fmt.Printf("  Modify: %t\n", interceptModify)
+	fmt.Printf("  Add: %t\n", interceptAdd)
+	fmt.Printf("  Delete: %t\n", interceptDelete)
+	fmt.Printf("  ModifyDN: %t\n", interceptModifyDN)
 	fmt.Printf("\n[Test settings]\n")
-	fmt.Printf("  Test BaseDN: %s\n", testBaseDN)
-	fmt.Printf("  Test Attributes: %v\n", testAttrList)
+	fmt.Printf("  Test BaseDN: '%s'\n", testBaseDN)
+	testAttrs, _ := json.Marshal(testAttrList)
+	fmt.Printf("  Test Attributes: %s\n", testAttrs)
 	fmt.Println("")
 }
 

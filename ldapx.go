@@ -72,7 +72,12 @@ var (
 	options        MapFlag
 	outputFile     string
 
-	listener net.Listener
+	interceptSearch   bool
+	interceptModify   bool
+	interceptAdd      bool
+	interceptDelete   bool
+	interceptModifyDN bool
+	listener          net.Listener
 )
 
 func shutdownProgram() {
@@ -127,7 +132,7 @@ func init() {
 	pflag.StringVarP(&targetLDAPAddr, "target", "t", "", "Target LDAP server address")
 	pflag.UintVarP(&verbFwd, "vf", "F", 1, "Set the verbosity level for forward LDAP traffic (requests)")
 	pflag.UintVarP(&verbRev, "vr", "R", 0, "Set the verbosity level for reverse LDAP traffic (responses)")
-	pflag.BoolVarP(&ldaps, "ldaps", "S", false, "Connect to target over LDAPS (ignoring cert. validation)")
+	pflag.BoolVarP(&ldaps, "ldaps", "s", false, "Connect to target over LDAPS (ignoring cert. validation)")
 	pflag.BoolVarP(&noShell, "no-shell", "N", false, "Don't show the ldapx shell")
 	pflag.StringVarP(&filterChain, "filter", "f", "", "Chain of search filter middlewares")
 	pflag.StringVarP(&attrChain, "attrlist", "a", "", "Chain of attribute list middlewares")
@@ -137,6 +142,11 @@ func init() {
 	pflag.BoolP("version", "v", false, "Show version information")
 	pflag.VarP(&options, "option", "o", "Configuration options (key=value)")
 	pflag.StringVarP(&outputFile, "output", "O", "", "Output file to write log messages")
+	pflag.BoolVarP(&interceptSearch, "search", "S", true, "Intercept LDAP Search operations")
+	pflag.BoolVarP(&interceptModify, "modify", "M", false, "Intercept LDAP Modify operations")
+	pflag.BoolVarP(&interceptAdd, "add", "A", false, "Intercept LDAP Add operations")
+	pflag.BoolVarP(&interceptDelete, "delete", "D", false, "Intercept LDAP Delete operations")
+	pflag.BoolVarP(&interceptModifyDN, "modifydn", "L", false, "Intercept LDAP ModifyDN operations")
 
 	pflag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: %s [OPTIONS]\n", os.Args[0])
@@ -146,8 +156,8 @@ func init() {
 
 	globalStats.Forward.CountsByType = make(map[int]uint64)
 	globalStats.Reverse.CountsByType = make(map[int]uint64)
-}
 
+}
 func updateFilterChain(chain string) {
 	filterChain = chain
 	fc = &filtermid.FilterMiddlewareChain{}

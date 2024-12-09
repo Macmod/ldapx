@@ -31,7 +31,7 @@ Where:
 * `-F` specifies the verbosity level for forward packets (requests)
 * `-R` specifies the verbosity level for reverse packets (responses)
 
-If `-ldaps` is specified, then the connection to the target will use LDAPS. This can come in handy if you must use a tool that doesn't support LDAPS. Use `-no-shell` if you don't want to interact with the shell to modify the settings while the program is running.
+If `--ldaps` / `-s` is specified, then the connection to the target will use LDAPS. This can come in handy if you must use a tool that doesn't support LDAPS. Use `--no-shell` / `-N` if you don't want to interact with the shell to modify the settings while the program is running.
 
 Each middleware is specified by a single-letter key (detailed below), and can be specified multiple times.
 For each type of middleware, the middlewares in the chain will be applied *in the order that they are specified* in the command.
@@ -121,7 +121,9 @@ These middlewares are mostly related to the `Add` and `Modify` operations descri
 
 ## Operations
 
-Although Search is the most common use case for this tool, `ldapx` supports other [LDAP operations](https://ldap.com/ldap-operation-types/) as well, such as Modify, Add, Delete and ModifyDN. Please note that transforming packets involving change operations may lead to undesirable outcomes and *should be done with caution*. The transformations that are available for each operation are implemented in `interceptors.go` and are described below:
+Although Search is the most common use case for this tool, `ldapx` supports other [LDAP operations](https://ldap.com/ldap-operation-types/) as well, such as Modify, Add, Delete and ModifyDN.
+
+Please note that transforming packets involving change operations may lead to undesirable outcomes and *should be done with caution*. Transformations other than `Search` need to be enabled explicitly by specifying `--modify`, `--add`, `--delete` and/or `--modifydn` (`--search` is `true` by default). The code that transforms packets for each operation is implemented in `interceptors.go`, but the overall logic is described below:
 
 ### Search
 
