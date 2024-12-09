@@ -2,8 +2,11 @@ package main
 
 import (
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"reflect"
+
+	"github.com/fatih/color"
 
 	"github.com/Macmod/ldapx/log"
 	"github.com/Macmod/ldapx/parser"
@@ -20,8 +23,14 @@ func TransformSearchRequest(filter parser.Filter, baseDN string, attrs []string)
 	return newFilter, newBaseDN, newAttrs
 }
 
-func TransformModifyRequest(targetDN string) string {
-	return bc.Execute(targetDN, true)
+func TransformModifyRequest(targetDN string, changes []ChangeRequest) (string, []ChangeRequest) {
+	newTargetDN := bc.Execute(targetDN, true)
+
+	for _, change := range changes {
+		change.Modifications = ec.Execute(change.Modifications, true)
+	}
+
+	return newTargetDN, changes
 }
 
 func TransformAddRequest(targetDN string, entries parser.AttrEntries) (string, parser.AttrEntries) {
@@ -147,15 +156,68 @@ func ProcessSearchRequest(packet *ber.Packet, searchRequestMap map[string]*ber.P
 	return packet
 }
 
+type ChangeRequest struct {
+	OperationId   int64
+	Modifications parser.AttrEntries
+}
+
+func (change *ChangeRequest) PrintChanges(color *color.Color) {
+	var operationStr string
+	switch change.OperationId {
+	case 0:
+		operationStr = "Add"
+	case 1:
+		operationStr = "Delete"
+	case 2:
+		operationStr = "Replace"
+	default:
+		operationStr = "Unknown"
+	}
+
+	color.Printf("    Operation: %s (%d)\n", operationStr, change.OperationId)
+
+	for _, attribute := range change.Modifications {
+		valuesStr, _ := json.Marshal(attribute.Values)
+		color.Printf("        '%s': %s\n", attribute.Name, valuesStr)
+	}
+}
+
 // https://ldap.com/ldapv3-wire-protocol-reference-modify/
 func ProcessModifyRequest(packet *ber.Packet) *ber.Packet {
 	if len(packet.Children) > 1 {
 		modPacket := packet.Children[1]
+
+		// Parse packet details
+		// Note to nerds - modify requests are complicated! :-(
 		targetDN := string(modPacket.Children[0].Data.Bytes())
+		changeRequests := make([]ChangeRequest, 0)
+
+		entryChanges := modPacket.Children[1]
+		for _, entryChange := range entryChanges.Children {
+			operationId := entryChange.Children[0].Value.(int64)
+			changeRequest := ChangeRequest{
+				OperationId:   operationId,
+				Modifications: parser.AttrEntries{},
+			}
+
+			change := entryChange.Children[1]
+
+			attrName := change.Children[0].Data.String()
+
+			for _, attrValue := range change.Children[1].Children {
+				changeRequest.Modifications.AddValue(attrName, attrValue.Data.String())
+			}
+
+			changeRequests = append(changeRequests, changeRequest)
+		}
 
 		blue.Printf("Intercepted Modify\n    TargetDN: '%s'\n", targetDN)
+		for _, req := range changeRequests {
+			req.PrintChanges(blue)
+		}
 
-		newTargetDN := TransformModifyRequest(targetDN)
+		newTargetDN, newChangeRequests := TransformModifyRequest(targetDN, changeRequests)
+		ber.PrintPacket(modPacket)
 
 		updatedFlag := false
 		if newTargetDN != targetDN {
@@ -165,10 +227,39 @@ func ProcessModifyRequest(packet *ber.Packet) *ber.Packet {
 			updatedFlag = true
 		}
 
-		// TODO: What to do with the attributes list? :)
+		if !reflect.DeepEqual(newChangeRequests, changeRequests) {
+			// Rebuild changes packet
+			newChangesPacket := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "")
+			for _, change := range newChangeRequests {
+				changeSeq := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "")
+				changeSeq.AppendChild(ber.NewInteger(ber.ClassUniversal, ber.TypePrimitive, ber.TagEnumerated, change.OperationId, ""))
+
+				for _, entry := range change.Modifications {
+					modSeq := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "")
+					modSeq.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, entry.Name, ""))
+
+					valSet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSet, nil, "")
+					for _, val := range entry.Values {
+						valSet.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, val, ""))
+					}
+
+					modSeq.AppendChild(valSet)
+					changeSeq.AppendChild(modSeq)
+				}
+
+				newChangesPacket.AppendChild(changeSeq)
+			}
+
+			UpdateBerChildLeaf(packet.Children[1], 1, newChangesPacket)
+
+			updatedFlag = true
+		}
 
 		if updatedFlag {
 			green.Printf("Changed Modify Request\n    TargetDN: '%s'\n", newTargetDN)
+			for _, req := range changeRequests {
+				req.PrintChanges(green)
+			}
 
 			// We need to copy it to refresh the internal Data of the parent packet
 			return CopyBerPacket(packet)
