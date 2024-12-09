@@ -23,9 +23,10 @@ var suggestions = []prompt.Suggest{
 }
 
 var setParamSuggestions = []prompt.Suggest{
-	{Text: "filter", Description: "Set filter middleware chain"},
 	{Text: "basedn", Description: "Set basedn middleware chain"},
-	{Text: "attrlist", Description: "Set attribute list middleware chain"},
+	{Text: "filter", Description: "Set filter middleware chain"},
+	{Text: "attrlist", Description: "Set attributes list middleware chain"},
+	{Text: "attrentries", Description: "Set attributes entries middleware chain"},
 	{Text: "target", Description: "Set target LDAP server address"},
 	{Text: "ldaps", Description: "Set LDAPS connection mode (true/false)"},
 	{Text: "option", Description: "Set a middleware option"},
@@ -34,16 +35,18 @@ var setParamSuggestions = []prompt.Suggest{
 }
 
 var clearParamSuggestions = []prompt.Suggest{
-	{Text: "filter", Description: "Clear filter middleware chain"},
 	{Text: "basedn", Description: "Clear basedn middleware chain"},
+	{Text: "filter", Description: "Clear filter middleware chain"},
 	{Text: "attrlist", Description: "Clear attribute list middleware chain"},
+	{Text: "attrentries", Description: "Clear attributes entries middleware chain"},
 	{Text: "stats", Description: "Clear statistics"},
 }
 
 var showParamSuggestions = []prompt.Suggest{
-	{Text: "filter", Description: "Show filter middleware chain"},
 	{Text: "basedn", Description: "Show basedn middleware chain"},
+	{Text: "filter", Description: "Show filter middleware chain"},
 	{Text: "attrlist", Description: "Show attributes list middleware chain"},
+	{Text: "attrentries", Description: "Show attributes entries middleware chain"},
 	{Text: "testbasedn", Description: "Show BaseDN to use for the `test` command"},
 	{Text: "testattrlist", Description: "Show attributes list to use for the `test` command"},
 	{Text: "target", Description: "Show target address to connect upon receiving a connection"},
@@ -55,9 +58,10 @@ var showParamSuggestions = []prompt.Suggest{
 }
 
 var helpParamSuggestions = []prompt.Suggest{
-	{Text: "filter", Description: "Show available filter middlewares"},
 	{Text: "basedn", Description: "Show available basedn middlewares"},
-	{Text: "attrlist", Description: "Show available attribute list middlewares"},
+	{Text: "filter", Description: "Show available filter middlewares"},
+	{Text: "attrlist", Description: "Show available attributes list middlewares"},
+	{Text: "attrentries", Description: "Show available attributes entries middlewares"},
 	{Text: "testbasedn", Description: "Show testbasedn parameter info"},
 	{Text: "testattrlist", Description: "Show testattrlist parameter info"},
 	{Text: "target", Description: "Show target parameter info"},
@@ -67,7 +71,6 @@ var helpParamSuggestions = []prompt.Suggest{
 	{Text: "verbfwd", Description: "Show forward verbosity parameter info"},
 	{Text: "verbrev", Description: "Show reverse verbosity parameter info"},
 }
-
 var testBaseDN = "DC=test,DC=local"
 var testAttrList = []string{"cn", "objectClass", "sAMAccountName"}
 
@@ -114,8 +117,9 @@ func executor(in string) {
 			updateFilterChain("")
 			updateBaseDNChain("")
 			updateAttrListChain("")
+			updateAttrEntriesChain("")
 			clearStatistics()
-			fmt.Printf("All parameters cleared.\n")
+			fmt.Printf("Middleware chains and statistics cleared.\n")
 			return
 		}
 		handleClearCommand(blocks[1])
@@ -172,6 +176,9 @@ func handleClearCommand(param string) {
 	case "attrlist":
 		updateAttrListChain("")
 		fmt.Printf("Middleware chain AttrList cleared.\n")
+	case "attrentries":
+		updateAttrEntriesChain("")
+		fmt.Printf("Middleware chain AttrEntries cleared.\n")
 	case "stats":
 		clearStatistics()
 		fmt.Println("Statistics cleared.")
@@ -195,6 +202,10 @@ func handleSetCommand(param string, values []string) {
 		updateAttrListChain(value)
 		fmt.Printf("Middleware chain AttrList updated:\n")
 		showChainConfig("AttrList", attrChain, attrListMidFlags)
+	case "attrentries":
+		updateAttrEntriesChain(value)
+		fmt.Printf("Middleware chain AttrEntries updated:\n")
+		showChainConfig("AttrEntries", entriesChain, attrEntriesMidFlags)
 	case "testbasedn":
 		testBaseDN = value
 		fmt.Printf("Test BaseDN set to: %s\n", testBaseDN)
@@ -203,7 +214,7 @@ func handleSetCommand(param string, values []string) {
 		for i := range testAttrList {
 			testAttrList[i] = strings.TrimSpace(testAttrList[i])
 		}
-		fmt.Printf("Test attribute list set to: %v\n", testAttrList)
+		fmt.Printf("Test attributes list set to: %v\n", testAttrList)
 	case "target":
 		targetLDAPAddr = value
 		fmt.Printf("Target LDAP server address set to: %s\n", targetLDAPAddr)
@@ -273,6 +284,7 @@ func handleShowCommand(param string) {
 		showChainConfig("Filter", filterChain, filterMidFlags)
 		showChainConfig("BaseDN", baseChain, baseDNMidFlags)
 		showChainConfig("AttrList", attrChain, attrListMidFlags)
+		showChainConfig("AttrEntries", entriesChain, attrEntriesMidFlags)
 		return
 	}
 
@@ -285,6 +297,8 @@ func handleShowCommand(param string) {
 		showChainConfig("BaseDN", baseChain, baseDNMidFlags)
 	case "attrlist":
 		showChainConfig("AttrList", attrChain, attrListMidFlags)
+	case "attrentries":
+		showChainConfig("AttrEntries", entriesChain, attrEntriesMidFlags)
 	case "testbasedn":
 		fmt.Println(testBaseDN)
 	case "testattrlist":
@@ -305,7 +319,6 @@ func handleShowCommand(param string) {
 		fmt.Printf("Unknown parameter for 'show': '%s'\n", param)
 	}
 }
-
 func showOptions() {
 	fmt.Println("[Middleware Options]")
 	for _, key := range middlewares.DefaultOptionsKeys {
@@ -361,9 +374,10 @@ func showHelp(args ...string) {
 		fmt.Println("  exit                       Exit the program")
 		fmt.Println("  test <query>               Simulate an LDAP query through the middlewares without sending it")
 		fmt.Println("\nParameters:")
-		fmt.Println("  filter       - Filter middleware chain")
 		fmt.Println("  basedn       - BaseDN middleware chain")
+		fmt.Println("  filter       - Filter middleware chain")
 		fmt.Println("  attrlist     - Attributes list middleware chain")
+		fmt.Println("  attrentries  - AttrEntries middleware chain")
 		fmt.Println("  testbasedn   - BaseDN to use for the `test` command")
 		fmt.Println("  testattrlist - Attributes list to use for the `test` command (separated by commas)")
 		fmt.Println("  target       - Target address to connect upon receiving a connection")
@@ -387,6 +401,9 @@ func showHelp(args ...string) {
 	case "attrlist":
 		fmt.Println("Possible AttrList middlewares:")
 		printMiddlewareFlags(attrListMidFlags)
+	case "attrentries":
+		fmt.Println("Possible AttrEntries middlewares:")
+		printMiddlewareFlags(attrEntriesMidFlags)
 	case "testbasedn":
 		fmt.Println("testbasedn - BaseDN to use for the `test` command")
 	case "testattrlist":
