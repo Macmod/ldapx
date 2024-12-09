@@ -292,7 +292,7 @@ func PacketToFilter(packet *ber.Packet) (Filter, error) {
 			case 0x3: // MatchValue
 				matchValue = string(bytes)
 			case 0x4: // DNAttributes (True/False)
-				dnAttributes = len(bytes) > 0 && bytes[0] == byte(1)
+				dnAttributes = len(bytes) > 0 && bytes[0] != byte(0)
 			}
 		}
 

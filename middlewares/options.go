@@ -27,12 +27,19 @@ var DefaultOptions = map[string]string{
 	"FiltOIDAttributeIncludePrefix":   "true",
 
 	"AttrsDuplicateProb":              "0.7",
+	"AttrsCaseProb":                   "0.7",
+	"AttrsGarbageCharset":             "abcdefghijklmnopqrsutwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
 	"AttrsGarbageExistingMaxElems":    "4",
 	"AttrsGarbageNonExistingMaxElems": "4",
 	"AttrsGarbageNonExistingMaxSize":  "6",
 	"AttrsOIDAttributeMaxSpaces":      "4",
 	"AttrsOIDAttributeMaxZeros":       "4",
 	"AttrsOIDAttributeIncludePrefix":  "true",
+
+	"AttrEntriesCaseProb":              "0.7",
+	"AttrEntriesOIDAttributeMaxSpaces": "4",
+	"AttrEntriesOIDAttributeMaxZeros":  "4",
+	"AttrEntriesOIDAttributePrefix":    "true",
 }
 
 var DefaultOptionsKeys = []string{
@@ -61,7 +68,6 @@ var DefaultOptionsKeys = []string{
 	"FiltOIDAttributeMaxZeros",
 	"FiltOIDAttributeIncludePrefix",
 
-	"AttrsDuplicateProb",
 	"AttrsGarbageExistingMaxElems",
 	"AttrsGarbageNonExistingMaxElems",
 	"AttrsOIDAttributeMaxSpaces",

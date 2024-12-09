@@ -2,11 +2,9 @@ package main
 
 import (
 	"bufio"
-	"crypto/sha256"
 	"crypto/tls"
 	"fmt"
 	"net"
-	"reflect"
 	"strings"
 
 	"github.com/Macmod/ldapx/log"
@@ -120,7 +118,6 @@ func handleLDAPConnection(conn net.Conn) {
 
 		var searchRequestMap = make(map[string]*ber.Packet)
 
-	ForwardLoop:
 		for {
 			packet, err := ber.ReadPacket(connReader)
 			if err != nil {
@@ -155,181 +152,23 @@ func handleLDAPConnection(conn net.Conn) {
 
 			switch application {
 			case parser.ApplicationSearchRequest:
-				if tracking {
-					// Handle possible cookie desync by tracking the original corresponding request
-					// If the current search request is paged and has a cookie, forward the original request
-					// that generated the paging, including the current paging control
-					if len(packet.Children) > 2 {
-						controls := packet.Children[2].Children
-						for _, control := range controls {
-							if len(control.Children) > 1 && control.Children[0].Value == "1.2.840.113556.1.4.319" {
-								// RFC2696 - LDAP Control Extension for Simple Paged Results Manipulation
-								searchControlValue := ber.DecodePacket(control.Children[1].Data.Bytes())
-								cookie := searchControlValue.Children[1].Data.Bytes()
-
-								if len(cookie) > 0 {
-									// Hash the search message (packet.Children[1]) to retrieve the correct search packet from the map
-									searchMessage := packet.Children[1].Bytes()
-									searchMessageHash := fmt.Sprintf("%x", sha256.Sum256(searchMessage))
-									searchPacket, ok := searchRequestMap[searchMessageHash]
-
-									if ok {
-										log.Log.Printf("[+] [Paging] Sarch Request Intercepted (%d)\n", reqMessageID)
-
-										forwardPacket := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
-										forwardPacket.AppendChild(packet.Children[0])
-										forwardPacket.AppendChild(searchPacket.Children[1])
-										forwardPacket.AppendChild(packet.Children[2])
-
-										sendPacketForward(forwardPacket)
-										log.Log.Printf("[+] [Paging] Search Request Forwarded (%d)\n", reqMessageID)
-
-										continue ForwardLoop
-									} else {
-										log.Log.Printf("[-] Error finding previous packet (tracking algorithm)")
-									}
-								}
-							}
-						}
-					}
-
-					searchMessage := packet.Children[1].Bytes()
-					searchMessageHash := fmt.Sprintf("%x", sha256.Sum256(searchMessage))
-					searchRequestMap[searchMessageHash] = packet
-				}
-
 				log.Log.Printf("[+] Search Request Intercepted (%d)\n", reqMessageID)
-				baseDN := packet.Children[1].Children[0].Value.(string)
-				filterData := packet.Children[1].Children[6]
-				attrs := BerChildrenToList(packet.Children[1].Children[7])
-
-				filter, err := parser.PacketToFilter(filterData)
-				if err != nil {
-					red.Printf("[ERROR] %s\n", err)
-					continue
-				}
-
-				oldFilterStr, err := parser.FilterToQuery(filter)
-				if err != nil {
-					yellow.Printf("[WARNING] %s\n", err)
-				}
-
-				blue.Printf(
-					"Intercepted Search\n    BaseDN: '%s'\n    Filter: %s\n    Attributes: %s\n",
-					baseDN, oldFilterStr, prettyList(attrs),
-				)
-
-				newFilter, newBaseDN, newAttrs := TransformSearchRequest(
-					filter, baseDN, attrs,
-				)
-
-				newFilterStr, err := parser.FilterToQuery(newFilter)
-				if err != nil {
-					yellow.Printf("[WARNING] %s\n", err)
-				}
-
-				// Change the fields that need to be changed
-				updatedFlag := false
-				if newBaseDN != baseDN {
-					UpdateBerChildLeaf(packet.Children[1], 0, EncodeBaseDN(newBaseDN))
-					updatedFlag = true
-				}
-
-				// TODO: Compare the Filter structures instead to minimize the risk of bugs
-				if oldFilterStr != newFilterStr {
-					UpdateBerChildLeaf(packet.Children[1], 6, parser.FilterToPacket(newFilter))
-					updatedFlag = true
-				}
-
-				if !reflect.DeepEqual(attrs, newAttrs) {
-					UpdateBerChildLeaf(packet.Children[1], 7, EncodeAttributeList(newAttrs))
-					updatedFlag = true
-				}
-
-				if updatedFlag {
-					green.Printf("Changed Search\n    BaseDN: '%s'\n    Filter: %s\n    Attributes: %s\n", newBaseDN, newFilterStr, prettyList(newAttrs))
-				} else {
-					blue.Printf("Nothing changed in the request\n")
-				}
-
-				// We need to copy it to refresh the internal Data of the parent packet
-				packet = CopyBerPacket(packet)
-
-				sendPacketForward(packet)
-			case parser.ApplicationAddRequest:
-				log.Log.Printf("[+] Add Request Intercepted (%d)\n", reqMessageID)
-
-				if len(packet.Children) > 1 {
-					addPacket := packet.Children[1]
-					targetDN := string(addPacket.Children[0].Data.Bytes())
-					blue.Printf("Intercepted Add\n    TargetDN: '%s'\n", targetDN)
-
-					newTargetDN := TransformAddRequest(targetDN)
-					if newTargetDN != targetDN {
-						green.Printf("Changed Add Request\n    TargetDN: '%s'", newTargetDN)
-
-						newEncodedDN := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, newTargetDN, "")
-						UpdateBerChildLeaf(packet.Children[1], 0, newEncodedDN)
-
-						// TODO: What to do with the attributes list? :)
-
-						// We need to copy it to refresh the internal Data of the parent packet
-						packet = CopyBerPacket(packet)
-					} else {
-						blue.Printf("Nothing changed in the request\n")
-					}
-				} else {
-					red.Printf("Malformed request (missing required fields)\n")
-				}
-
-				sendPacketForward(packet)
+				packet = ProcessSearchRequest(packet, searchRequestMap)
 			case parser.ApplicationModifyRequest:
 				log.Log.Printf("[+] Modify Request Intercepted (%d)\n", reqMessageID)
-				if len(packet.Children) > 1 {
-					modPacket := packet.Children[1]
-					targetDN := string(modPacket.Children[0].Data.Bytes())
-					blue.Printf("Intercepted Modify\n    TargetDN: '%s'\n", targetDN)
-					newTargetDN := TransformModifyRequest(targetDN)
-					if newTargetDN != targetDN {
-						green.Printf("Changed Modify Request\n    TargetDN: '%s'", newTargetDN)
-
-						newEncodedDN := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, newTargetDN, "")
-						UpdateBerChildLeaf(packet.Children[1], 0, newEncodedDN)
-
-						// TODO: What to do with the attributes list? :)
-
-						// We need to copy it to refresh the internal Data of the parent packet
-						packet = CopyBerPacket(packet)
-					} else {
-						blue.Printf("Nothing changed in the request\n")
-					}
-				} else {
-					red.Printf("Malformed request (missing required fields)\n")
-				}
-
-				sendPacketForward(packet)
+				packet = ProcessModifyRequest(packet)
+			case parser.ApplicationAddRequest:
+				log.Log.Printf("[+] Add Request Intercepted (%d)\n", reqMessageID)
+				packet = ProcessAddRequest(packet)
 			case parser.ApplicationDelRequest:
 				log.Log.Printf("[+] Delete Request Intercepted (%d)\n", reqMessageID)
-
-				if len(packet.Children) > 1 {
-					targetDN := string(packet.Children[1].Data.Bytes())
-					blue.Printf("Intercepted Delete\n    TargetDN: '%s'\n", targetDN)
-					newTargetDN := TransformDeleteRequest(targetDN)
-					newEncodedDN := ber.NewString(ber.ClassApplication, ber.TypePrimitive, 0x0A, newTargetDN, "")
-					if newTargetDN != targetDN {
-						green.Printf("Changed Delete\n    TargetDN: '%s'", newTargetDN)
-						UpdateBerChildLeaf(packet, 1, newEncodedDN)
-					} else {
-						blue.Printf("Nothing changed in the request\n")
-					}
-				} else {
-					red.Printf("Malformed request (missing required fields)\n")
-				}
-
-				sendPacketForward(packet)
-			default:
-				sendPacketForward(packet)
+				packet = ProcessDeleteRequest(packet)
+			case parser.ApplicationModifyDNRequest:
+				log.Log.Printf("[+] ModifyDN Request Intercepted (%d)\n", reqMessageID)
+				packet = ProcessModifyDNRequest(packet)
 			}
+
+			sendPacketForward(packet)
 
 			if verbFwd > 1 {
 				log.Log.Printf("[DEBUG] Packet Dump (Sent To Target)")

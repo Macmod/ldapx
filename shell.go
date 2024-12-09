@@ -75,8 +75,12 @@ func completer(in prompt.Document) []prompt.Suggest {
 	w := in.GetWordBeforeCursor()
 
 	args := strings.Split(in.TextBeforeCursor(), " ")
-	if len(args) == 1 {
+	if len(args) == 1 && len(args[0]) > 0 {
 		return prompt.FilterHasPrefix(suggestions, w, true)
+	}
+
+	if len(args) > 2 {
+		return []prompt.Suggest{}
 	}
 
 	switch args[0] {

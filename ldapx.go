@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/Macmod/ldapx/log"
+	attrentriesmid "github.com/Macmod/ldapx/middlewares/attrentries"
 	attrlistmid "github.com/Macmod/ldapx/middlewares/attrlist"
 	basednmid "github.com/Macmod/ldapx/middlewares/basedn"
 	filtermid "github.com/Macmod/ldapx/middlewares/filter"
@@ -55,6 +56,7 @@ var (
 	fc           *filtermid.FilterMiddlewareChain
 	ac           *attrlistmid.AttrListMiddlewareChain
 	bc           *basednmid.BaseDNMiddlewareChain
+	ec           *attrentriesmid.AttrEntriesMiddlewareChain
 
 	proxyLDAPAddr  string
 	targetLDAPAddr string
@@ -65,6 +67,7 @@ var (
 	filterChain    string
 	attrChain      string
 	baseChain      string
+	entriesChain   string
 	tracking       bool
 	options        MapFlag
 	outputFile     string
@@ -129,6 +132,7 @@ func init() {
 	pflag.StringVarP(&filterChain, "filter", "f", "", "Chain of search filter middlewares")
 	pflag.StringVarP(&attrChain, "attrlist", "a", "", "Chain of attribute list middlewares")
 	pflag.StringVarP(&baseChain, "basedn", "b", "", "Chain of baseDN middlewares")
+	pflag.StringVarP(&entriesChain, "attrentries", "e", "", "Chain of attribute entries middlewares")
 	pflag.BoolVarP(&tracking, "tracking", "T", true, "Applies a tracking algorithm to avoid issues where complex middlewares + paged searches break LDAP cookies (may be memory intensive)")
 	pflag.BoolP("version", "v", false, "Show version information")
 	pflag.VarP(&options, "option", "o", "Configuration options (key=value)")
@@ -183,6 +187,19 @@ func updateAttrListChain(chain string) {
 	}
 }
 
+func updateAttrEntriesChain(chain string) {
+	entriesChain = chain
+	ec = &attrentriesmid.AttrEntriesMiddlewareChain{}
+	for _, c := range entriesChain {
+		if middlewareName, exists := attrEntriesMidFlags[rune(c)]; exists {
+			ec.Add(attrentriesmid.AttrEntriesMiddlewareDefinition{
+				Name: middlewareName,
+				Func: func() attrentriesmid.AttrEntriesMiddleware { return attrEntriesMidMap[middlewareName] },
+			})
+		}
+	}
+}
+
 func main() {
 	pflag.Parse()
 
@@ -199,6 +216,15 @@ func main() {
 	updateFilterChain(filterChain)
 	updateBaseDNChain(baseChain)
 	updateAttrListChain(attrChain)
+	updateAttrEntriesChain(entriesChain)
+
+	// BaseDN middlewares
+	appliedBaseDNMiddlewares := []string{}
+	for _, c := range baseChain {
+		if middlewareName, exists := baseDNMidFlags[rune(c)]; exists {
+			appliedBaseDNMiddlewares = append(appliedBaseDNMiddlewares, middlewareName)
+		}
+	}
 
 	// Filter middlewares
 	appliedFilterMiddlewares := []string{}
@@ -216,11 +242,11 @@ func main() {
 		}
 	}
 
-	// BaseDN middlewares
-	appliedBaseDNMiddlewares := []string{}
-	for _, c := range baseChain {
-		if middlewareName, exists := baseDNMidFlags[rune(c)]; exists {
-			appliedBaseDNMiddlewares = append(appliedBaseDNMiddlewares, middlewareName)
+	// AttrList middlewares
+	appliedAttrEntriesMiddlewares := []string{}
+	for _, c := range entriesChain {
+		if middlewareName, exists := attrEntriesMidFlags[rune(c)]; exists {
+			appliedAttrEntriesMiddlewares = append(appliedAttrEntriesMiddlewares, middlewareName)
 		}
 	}
 
@@ -232,9 +258,10 @@ func main() {
 	}
 
 	log.Log.Printf("[+] LDAP Proxy listening on '%s', forwarding to '%s' (T)\n", proxyLDAPAddr, targetLDAPAddr)
+	log.Log.Printf("[+] BaseDNMiddlewares: [%s]", strings.Join(appliedBaseDNMiddlewares, ","))
 	log.Log.Printf("[+] FilterMiddlewares: [%s]", strings.Join(appliedFilterMiddlewares, ","))
 	log.Log.Printf("[+] AttrListMiddlewares: [%s]", strings.Join(appliedAttrListMiddlewares, ","))
-	log.Log.Printf("[+] BaseDNMiddlewares: [%s]", strings.Join(appliedBaseDNMiddlewares, ","))
+	log.Log.Printf("[+] AttrEntriesMiddlewares: [%s]", strings.Join(appliedAttrEntriesMiddlewares, ","))
 
 	if outputFile != "" {
 		log.Log.Printf("[+] Logging File: '%s'\n", outputFile)

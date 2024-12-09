@@ -23,9 +23,10 @@ $ ldapx -t LDAPSERVER:389 [-f MIDDLEWARECHAIN] [-a MIDDLEWARECHAIN] [-b MIDDLEWA
 ```
 
 Where:
-* `-f` will apply Filter middlewares to all search requests
-* `-a` will apply AttrList middlewares to all search requests
-* `-b` will apply BaseDN middlewares to all search requests
+* `-f` will apply Filter middlewares to all applicable requests
+* `-a` will apply AttrList middlewares to all applicable requests
+* `-b` will apply BaseDN middlewares to all applicable requests
+* `-e` will apply AttrEntries middlewares to all applicable requests
 * `-o` can be specified multiple times and is used to specify options for the middlewares
 * `-F` specifies the verbosity level for forward packets (requests)
 * `-R` specifies the verbosity level for reverse packets (responses)
@@ -107,6 +108,54 @@ The tool provides several middlewares "ready for use" for inline LDAP filter tra
 | `W` | ReplaceWithWildcard | Obfuscation | Replaces the list with a wildcard | `cn,sn` | `*` | Replaces all attributes except operational attributes and "+" |
 | `E` | ReplaceWithEmpty | Obfuscation | Empties the attributes list | `cn,sn` | | Removes all attributes except operational attributes and "+" (in which case it includes a `*`) |
 | `R` | ReorderList | Obfuscation | Randomly reorders attrs | `cn,sn,uid` | `uid,cn,sn` | Random permutation |
+
+### Attributes Entries
+
+These middlewares are mostly related to the `Add` and `Modify` operations described in the section below.
+
+| Key | Name | Purpose | Description | Input  | Output | Details |
+|-----|------|---------|-------------|--------|--------|---------|
+| `O` | OIDAttribute | Obfuscation | Converts to OID form | `cn` | `2.5.4.3` | Uses standard LDAP OIDs; can be customized with options |
+| `C` | Case | Obfuscation | Randomizes character case | `cn` | `cN` | |
+| `R` | ReorderList | Obfuscation | Randomly reorders attrs | `cn,sn` | `sn,cn` | Random permutation |
+
+## Operations
+
+Although Search is the most common use case for this tool, `ldapx` supports other [LDAP operations](https://ldap.com/ldap-operation-types/) as well, such as Modify, Add, Delete and ModifyDN. Please note that transforming packets involving change operations may lead to undesirable outcomes and *should be done with caution*. The transformations that are available for each operation are implemented in `interceptors.go` and are described below:
+
+### Search
+
+Applies the specified `BaseDN`, `Filter` and `AttrList` middleware chains to the respective fields. 
+
+### Modify
+
+Applies:
+
+* The specified `BaseDN` middleware chains to the DN of the entry being modified
+
+* The specified `AttrEntries` middleware chains to the attribute entries specified as modifications
+
+### Add
+
+Applies:
+
+* The specified `BaseDN` middleware chains to the DN of the entry being added
+
+* The specified `AttrEntries` middleware chains to the attribute entries of the entry being added
+
+### Delete
+
+Applies the specified `BaseDN` middleware chains to the DN of the entry being deleted.
+
+### ModifyDN
+
+Applies the specified `BaseDN` middleware chains to:
+
+* The DN of the entry being modified
+
+* The new RDN field
+
+* The new parent DN field
 
 ## Library Usage 
 
@@ -241,9 +290,11 @@ Contributions are welcome by [opening an issue](https://github.com/Macmod/ldapx/
 
 ## Acknowledgements
 
-* Almost all obfuscation middlewares are basically implementations of the ideas presented in the [MaLDAPtive](https://www.youtube.com/watch?v=mKRS5Iyy7Qo) research by [Daniel Bohannon](https://x.com/danielhbohannon) & [Sabajete Elezaj](https://x.com/sabi_elezi), which inspired the development of this tool. Kudos to them :)
+* Almost all obfuscation middlewares are basically implementations of the ideas presented in the [MaLDAPtive](https://www.youtube.com/watch?v=mKRS5Iyy7Qo) research by [Daniel Bohannon](https://x.com/danielhbohannon) & [Sabajete Elezaj](https://x.com/sabi_elezi), which inspired the development of this tool and helped me with countless questions. Kudos to them :)
 
 * Some code was adapted from [go-ldap/ldap](https://github.com/go-ldap/ldap) to convert LDAP filters to human-readable queries and to parse packet fields.
+
+* [ldap.com](https://ldap.com/), [MS-ADTS](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/d2435927-0999-4c62-8c6d-13ba31a52e1a), [RFC4510](https://docs.ldap.com/specs/rfc4510.txt), [RFC4515](https://docs.ldap.com/specs/rfc4515.txt), [RFC4512](https://docs.ldap.com/specs/rfc4512.txt), [RFC2696](https://www.ietf.org/rfc/rfc2696.txt) and many other online resources were of great help.
 
 ## Disclaimers 
 
@@ -254,7 +305,7 @@ Contributions are welcome by [opening an issue](https://github.com/Macmod/ldapx/
 ## License
 MIT License
 
-Copyright (c) 2023 Artur Henrique Marzano Gonzaga
+Copyright (c) 2024 Artur Henrique Marzano Gonzaga
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
