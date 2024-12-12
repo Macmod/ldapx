@@ -54,6 +54,35 @@ You can also use the builting shell to change your middlewares on the fly (`set`
 
 ![Demo2](https://github.com/Macmod/ldapx/blob/main/images/demo2.png)
 
+To see packet statistics including how many packets of each LDAP operation passed through the proxy, use the `show stats` command.
+
+```
+ldapx> show stats
+[Client -> Target]
+  Packets Received: 14
+  Packets Sent: 14
+  Bytes Received: 1464
+  Bytes Sent: 1464
+  Counts by Type:
+    Bind Request: 1
+    Search Request: 12
+    Modify Request: 1
+
+[Client <- Target]
+  Packets Received: 149
+  Packets Sent: 149
+  Bytes Received: 177045
+  Bytes Sent: 177045
+  Counts by Type:
+    Bind Response: 1
+    Search Result Entry: 129
+    Search Result Done: 12
+    Search Result Reference: 6
+    Modify Response: 1
+```
+
+You can also show/set other parameters through the shell, such as the target address and verbosity levels. To check all available commands, use the `help` command.
+
 ## Middlewares
 
 The tool provides several middlewares "ready for use" for inline LDAP filter transformation. These middlewares were designed for use in Active Directory environments, but theoretically some of them could work in other LDAP environments.
@@ -119,6 +148,12 @@ These middlewares are mostly related to the `Add` and `Modify` operations descri
 | `C` | Case | Obfuscation | Randomizes character case | `cn` | `cN` | |
 | `R` | ReorderList | Obfuscation | Randomly reorders attrs | `cn,sn` | `sn,cn` | Random permutation |
 
+## Middleware Options
+
+Some middlewares have options that can be used to change the way the middleware works internally. Middleware options can be set via either the command-line by appending `-o KEY=VALUE` switches or by using `set option KEY=VALUE` in the shell.
+
+You can check the available options by using the `show options` / `show option` commands in the shell. If not specified explicitly, the middleware will use default values defined in `middlewares/options.go`.
+
 ## Operations
 
 Although Search is the most common use case for this tool, `ldapx` supports other [LDAP operations](https://ldap.com/ldap-operation-types/) as well, such as Modify, Add, Delete and ModifyDN.
@@ -133,25 +168,25 @@ Applies the specified `BaseDN`, `Filter` and `AttrList` middleware chains to the
 
 Applies:
 
-* The specified `BaseDN` middleware chains to the DN of the entry being modified
+* The specified `BaseDN` middleware chain to the DN of the entry being modified
 
-* The specified `AttrEntries` middleware chains to the attribute entries specified as modifications
+* The specified `AttrEntries` middleware chain to the attribute entries specified as modifications
 
 ### Add
 
 Applies:
 
-* The specified `BaseDN` middleware chains to the DN of the entry being added
+* The specified `BaseDN` middleware chain to the DN of the entry being added
 
-* The specified `AttrEntries` middleware chains to the attribute entries of the entry being added
+* The specified `AttrEntries` middleware chain to the attribute entries of the entry being added
 
 ### Delete
 
-Applies the specified `BaseDN` middleware chains to the DN of the entry being deleted.
+Applies the specified `BaseDN` middleware chain to the DN of the entry being deleted.
 
 ### ModifyDN
 
-Applies the specified `BaseDN` middleware chains to:
+Applies the specified `BaseDN` middleware chain to:
 
 * The DN of the entry being modified
 
