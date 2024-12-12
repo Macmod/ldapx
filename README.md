@@ -275,7 +275,7 @@ To develop a new middleware, you can create a new function inside the appropriat
 
 ### Attributes Entries
 ```go
-  func(entries parser.AttrEntries) parser.AttrEntries 
+  func YourAttrEntriesMiddleware(args) func(parser.AttrEntries) parser.AttrEntries 
 ```
 
 Then to actually have ldapx use your middleware:
