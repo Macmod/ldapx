@@ -326,7 +326,7 @@ filterMidMap = map[string]filtermid.FilterMiddleware{
 }
 ```
 
-To have your middleware use middleware options for the arguments of the function call, use the `optInt` / `optStr` / `optFloat` / `optBool` functions defined from `config.go`.
+To have your middleware use middleware options for the arguments of the function call, use the `optInt` / `optStr` / `optFloat` / `optBool` functions from `config.go`.
 
 ## Contributing
 
