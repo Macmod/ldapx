@@ -256,7 +256,7 @@ Changed Query: (&(2.005.4.03=john)(2.005.04.004=doe))
 
 ## Developing Middlewares
 
-To develop a new middleware, you can create a new function inside the appropriate package (`filter`/`basedn`/`attrlist`) with the following structures, respectively:
+To develop a new middleware, you can create a new function inside the appropriate package (`filter`/`basedn`/`attrlist`/`attrentries`) with the following structures, respectively:
 
 ### Filter
 ```go
@@ -271,6 +271,11 @@ To develop a new middleware, you can create a new function inside the appropriat
 ### Attributes List
 ```go
   func YourAttrListMiddleware(args) func([]string) []string
+```
+
+### Attributes Entries
+```go
+  func(entries parser.AttrEntries) parser.AttrEntries 
 ```
 
 Then to actually have ldapx use your middleware:
@@ -320,6 +325,8 @@ filterMidMap = map[string]filtermid.FilterMiddleware{
   ...
 }
 ```
+
+To have your middleware use middleware options for the arguments of the function call, use the `optInt` / `optStr` / `optFloat` / `optBool` functions defined from `config.go`.
 
 ## Contributing
 
