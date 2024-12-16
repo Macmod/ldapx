@@ -346,6 +346,10 @@ Contributions are welcome by [opening an issue](https://github.com/Macmod/ldapx/
 
 * Some middlewares may break queries, either because of the specific environment where they are ran, combined effects due to the presence of other middlewares in the chain, or implementation bugs. If you found a bug, please open an issue to report it.
 
+## Known Issues
+
+* This tool does not work currently with clients that require encryption via `SASL` mechanisms or `NTLMSSP Negotiate` (such as ADExplorer) - Check [Issue #1](https://github.com/Macmod/ldapx/issues/1) for more information.
+
 ## License
 MIT License
 
