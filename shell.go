@@ -421,7 +421,7 @@ func handleShowCommand(param string) {
 	case "verbrev":
 		fmt.Printf("Reverse verbosity level: %d\n", verbRev)
 	case "socks":
-		fmt.Printf("SOCKS proxy: %s\n", socksServer)
+		fmt.Printf("SOCKS proxy: '%s'\n", socksServer)
 	default:
 		fmt.Printf("Unknown parameter for 'show': '%s'\n", param)
 	}
@@ -553,6 +553,7 @@ func showGlobalConfig() {
 	fmt.Printf("  Listen address: %s\n", proxyLDAPAddr)
 	fmt.Printf("  Target address: %s\n", targetLDAPAddr)
 	fmt.Printf("  Target LDAPS: %t\n", ldaps)
+	fmt.Printf("  SOCKS proxy: '%s'\n", socksServer)
 	fmt.Printf("\n[Interceptions]\n")
 	fmt.Printf("  Search: %t\n", interceptSearch)
 	fmt.Printf("  Modify: %t\n", interceptModify)
