@@ -30,6 +30,7 @@ Where:
 * `-o` can be specified multiple times and is used to specify options for the middlewares
 * `-F` specifies the verbosity level for forward packets (requests)
 * `-R` specifies the verbosity level for reverse packets (responses)
+* `-x` can be used to specify a SOCKS proxy to use for the connection to the target
 
 If `--ldaps` / `-s` is specified, then the connection to the target will use LDAPS. This can come in handy if you must use a tool that doesn't support LDAPS. Use `--no-shell` / `-N` if you don't want to interact with the shell to modify the settings while the program is running.
 

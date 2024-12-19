@@ -36,7 +36,7 @@ type Stats struct {
 	}
 }
 
-var version = "v1.0.0"
+var version = "v1.1.0"
 
 var green = color.New(color.FgGreen)
 var red = color.New(color.FgRed)
@@ -71,6 +71,7 @@ var (
 	tracking       bool
 	options        MapFlag
 	outputFile     string
+	socksServer    string
 
 	interceptSearch   bool
 	interceptModify   bool
@@ -133,6 +134,7 @@ func init() {
 	pflag.UintVarP(&verbFwd, "vf", "F", 1, "Set the verbosity level for forward LDAP traffic (requests)")
 	pflag.UintVarP(&verbRev, "vr", "R", 0, "Set the verbosity level for reverse LDAP traffic (responses)")
 	pflag.BoolVarP(&ldaps, "ldaps", "s", false, "Connect to target over LDAPS (ignoring cert. validation)")
+	pflag.StringVarP(&socksServer, "socks", "x", "", "SOCKS proxy address")
 	pflag.BoolVarP(&noShell, "no-shell", "N", false, "Don't show the ldapx shell")
 	pflag.StringVarP(&filterChain, "filter", "f", "", "Chain of search filter middlewares")
 	pflag.StringVarP(&attrChain, "attrlist", "a", "", "Chain of attribute list middlewares")
@@ -260,6 +262,19 @@ func main() {
 		}
 	}
 
+	// Fix addresses if the port is missing
+	if !strings.Contains(proxyLDAPAddr, ":") {
+		proxyLDAPAddr = fmt.Sprintf("%s:%d", proxyLDAPAddr, 389)
+	}
+
+	if !strings.Contains(targetLDAPAddr, ":") {
+		if ldaps {
+			targetLDAPAddr = fmt.Sprintf("%s:%d", targetLDAPAddr, 636)
+		} else {
+			targetLDAPAddr = fmt.Sprintf("%s:%d", targetLDAPAddr, 389)
+		}
+	}
+
 	var err error
 	listener, err = net.Listen("tcp", proxyLDAPAddr)
 	if err != nil {
@@ -267,7 +282,11 @@ func main() {
 		shutdownProgram()
 	}
 
-	log.Log.Printf("[+] LDAP Proxy listening on '%s', forwarding to '%s' (T)\n", proxyLDAPAddr, targetLDAPAddr)
+	if socksServer != "" {
+		log.Log.Printf("[+] LDAP Proxy listening on '%s', forwarding to '%s' (T) via '%s'\n", proxyLDAPAddr, targetLDAPAddr, socksServer)
+	} else {
+		log.Log.Printf("[+] LDAP Proxy listening on '%s', forwarding to '%s' (T)\n", proxyLDAPAddr, targetLDAPAddr)
+	}
 	log.Log.Printf("[+] BaseDNMiddlewares: [%s]", strings.Join(appliedBaseDNMiddlewares, ","))
 	log.Log.Printf("[+] FilterMiddlewares: [%s]", strings.Join(appliedFilterMiddlewares, ","))
 	log.Log.Printf("[+] AttrListMiddlewares: [%s]", strings.Join(appliedAttrListMiddlewares, ","))

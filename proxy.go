@@ -10,6 +10,7 @@ import (
 	"github.com/Macmod/ldapx/log"
 	"github.com/Macmod/ldapx/parser"
 	ber "github.com/go-asn1-ber/asn1-ber"
+	"h12.io/socks"
 )
 
 func startProxyLoop(listener net.Listener) {
@@ -49,10 +50,31 @@ func connect(addr string) (net.Conn, error) {
 	var err error
 	var dialer net.Dialer
 
-	if ldaps {
-		conn, err = tls.DialWithDialer(&dialer, "tcp", addr, insecureTlsConfig)
+	if socksServer != "" {
+		dialSocksProxy := socks.Dial(socksServer)
+
+		// First establish connection through SOCKS proxy
+		conn, err = dialSocksProxy("tcp", addr)
+		if err != nil {
+			return nil, err
+		}
+
+		if ldaps {
+			// Wrap the SOCKS connection with TLS
+			tlsConn := tls.Client(conn, insecureTlsConfig)
+			if err = tlsConn.Handshake(); err != nil {
+				conn.Close()
+				return nil, err
+			}
+			conn = tlsConn
+		}
 	} else {
-		conn, err = net.Dial("tcp", addr)
+		// Original non-proxy connection logic
+		if ldaps {
+			conn, err = tls.DialWithDialer(&dialer, "tcp", addr, insecureTlsConfig)
+		} else {
+			conn, err = net.Dial("tcp", addr)
+		}
 	}
 
 	return conn, err

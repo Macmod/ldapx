@@ -8,6 +8,7 @@ require (
 	github.com/go-asn1-ber/asn1-ber v1.5.5
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.10.0
+	h12.io/socks v1.0.3
 )
 
 require (

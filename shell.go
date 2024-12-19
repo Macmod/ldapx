@@ -38,6 +38,7 @@ var setParamSuggestions = []prompt.Suggest{
 	{Text: "iadd", Description: "Set add operation interception (true/false)"},
 	{Text: "idelete", Description: "Set delete operation interception (true/false)"},
 	{Text: "imodifydn", Description: "Set modifydn operation interception (true/false)"},
+	{Text: "socks", Description: "Set the SOCKS server to use for the target connection"},
 }
 
 var clearParamSuggestions = []prompt.Suggest{
@@ -51,6 +52,7 @@ var clearParamSuggestions = []prompt.Suggest{
 	{Text: "iadd", Description: "Clear add operation interception"},
 	{Text: "idelete", Description: "Clear delete operation interception"},
 	{Text: "imodifydn", Description: "Clear modifydn operation interception"},
+	{Text: "socks", Description: "Clear configured SOCKS server"},
 }
 
 var showParamSuggestions = []prompt.Suggest{
@@ -71,6 +73,7 @@ var showParamSuggestions = []prompt.Suggest{
 	{Text: "iadd", Description: "Show add operation interception status"},
 	{Text: "idelete", Description: "Show delete operation interception status"},
 	{Text: "imodifydn", Description: "Show modifydn operation interception status"},
+	{Text: "socks", Description: "Show configured SOCKS server"},
 }
 
 var helpParamSuggestions = []prompt.Suggest{
@@ -86,6 +89,7 @@ var helpParamSuggestions = []prompt.Suggest{
 	{Text: "stats", Description: "Show stats parameter info"},
 	{Text: "verbfwd", Description: "Show forward verbosity parameter info"},
 	{Text: "verbrev", Description: "Show reverse verbosity parameter info"},
+	{Text: "socks", Description: "Show socks parameter info"},
 }
 
 var testBaseDN = "DC=test,DC=local"
@@ -214,6 +218,9 @@ func handleClearCommand(param string) {
 	case "imodifydn":
 		interceptModifyDN = false
 		fmt.Printf("ModifyDN interception cleared.\n")
+	case "socks":
+		socksServer = ""
+		fmt.Printf("SOCKS server cleared.\n")
 	default:
 		fmt.Printf("Unknown parameter: %s\n", param)
 	}
@@ -365,6 +372,12 @@ func handleSetCommand(param string, values []string) {
 		}
 		interceptModifyDN = val
 		fmt.Printf("ModifyDN interception set to: %v\n", interceptModifyDN)
+	case "socks":
+		if len(values) != 1 {
+			fmt.Println("Usage: set socks <true/false>")
+			return
+		}
+		socksServer = values[0]
 	default:
 		fmt.Printf("Unknown parameter for 'set': %s\n", param)
 	}
@@ -407,6 +420,8 @@ func handleShowCommand(param string) {
 		fmt.Printf("Forward verbosity level: %d\n", verbFwd)
 	case "verbrev":
 		fmt.Printf("Reverse verbosity level: %d\n", verbRev)
+	case "socks":
+		fmt.Printf("SOCKS proxy: %s\n", socksServer)
 	default:
 		fmt.Printf("Unknown parameter for 'show': '%s'\n", param)
 	}
@@ -483,6 +498,7 @@ func showHelp(args ...string) {
 		fmt.Println("  iadd         - Add operation interception mode (true/false)")
 		fmt.Println("  idelete      - Delete operation interception mode (true/false)")
 		fmt.Println("  imodifydn    - ModifyDN operation interception (true/false)")
+		fmt.Println("  socks        - SOCKS proxy address to use for the target connection")
 		fmt.Println("\nUse 'help <parameter>' for detailed information about specific parameters")
 		fmt.Println("")
 		return
@@ -523,6 +539,8 @@ func showHelp(args ...string) {
 		fmt.Println("  0: No verbosity")
 		fmt.Println("  1: Show metadata for all responses")
 		fmt.Println("  2: Show packet dump for all responses")
+	case "socks":
+		fmt.Println("socks - SOCKS proxy address in the schema://host:port format")
 	default:
 		fmt.Printf("Unknown parameter: %s\n", args[0])
 	}
