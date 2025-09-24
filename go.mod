@@ -1,6 +1,8 @@
 module github.com/Macmod/ldapx
 
-go 1.21.5
+go 1.24.0
+
+toolchain go1.24.7
 
 require (
 	github.com/c-bata/go-prompt v0.2.6
@@ -8,6 +10,7 @@ require (
 	github.com/go-asn1-ber/asn1-ber v1.5.5
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.10.0
+	golang.org/x/net v0.44.0
 	h12.io/socks v1.0.3
 )
 
@@ -19,6 +22,6 @@ require (
 	github.com/mattn/go-tty v0.0.3 // indirect
 	github.com/pkg/term v1.2.0-beta.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	golang.org/x/sys v0.25.0 // indirect
+	golang.org/x/sys v0.36.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

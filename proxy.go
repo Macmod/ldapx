@@ -10,7 +10,7 @@ import (
 	"github.com/Macmod/ldapx/log"
 	"github.com/Macmod/ldapx/parser"
 	ber "github.com/go-asn1-ber/asn1-ber"
-	"h12.io/socks"
+	"golang.org/x/net/proxy"
 )
 
 func startProxyLoop(listener net.Listener) {
@@ -51,11 +51,16 @@ func connect(addr string) (net.Conn, error) {
 	var dialer net.Dialer
 
 	if socksServer != "" {
-		dialSocksProxy := socks.Dial(socksServer)
-
-		// First establish connection through SOCKS proxy
-		conn, err = dialSocksProxy("tcp", addr)
+		// Create a SOCKS5 dialer
+		socksDialer, err := proxy.SOCKS5("tcp", socksServer, nil, proxy.Direct)
 		if err != nil {
+			return nil, fmt.Errorf("failed to create SOCKS5 dialer: %w", err)
+		}
+
+		// Dial through the SOCKS5 proxy
+		conn, err = socksDialer.Dial("tcp", addr)
+		if err != nil {
+			fmt.Println("SOCKS5 dial error:", err)
 			return nil, err
 		}
 
