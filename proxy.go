@@ -50,6 +50,7 @@ func connect(addr string) (net.Conn, error) {
 	var err error
 	var dialer net.Dialer
 
+	// only works with SOCKS5
 	if socksServer != "" {
 		// Create a SOCKS5 dialer
 		socksDialer, err := proxy.SOCKS5("tcp", socksServer, nil, proxy.Direct)
