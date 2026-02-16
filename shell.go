@@ -204,22 +204,34 @@ func handleClearCommand(param string) {
 		clearStatistics()
 		fmt.Println("Statistics cleared.")
 	case "isearch":
-		interceptSearch = false
+		runtimeConfig.Lock()
+		runtimeConfig.interceptSearch = false
+		runtimeConfig.Unlock()
 		fmt.Printf("Search interception cleared.\n")
 	case "imodify":
-		interceptModify = false
+		runtimeConfig.Lock()
+		runtimeConfig.interceptModify = false
+		runtimeConfig.Unlock()
 		fmt.Printf("Modify interception cleared.\n")
 	case "iadd":
-		interceptAdd = false
+		runtimeConfig.Lock()
+		runtimeConfig.interceptAdd = false
+		runtimeConfig.Unlock()
 		fmt.Printf("Add interception cleared.\n")
 	case "idelete":
-		interceptDelete = false
+		runtimeConfig.Lock()
+		runtimeConfig.interceptDelete = false
+		runtimeConfig.Unlock()
 		fmt.Printf("Delete interception cleared.\n")
 	case "imodifydn":
-		interceptModifyDN = false
+		runtimeConfig.Lock()
+		runtimeConfig.interceptModifyDN = false
+		runtimeConfig.Unlock()
 		fmt.Printf("ModifyDN interception cleared.\n")
 	case "socks":
-		socksServer = ""
+		runtimeConfig.Lock()
+		runtimeConfig.socksServer = ""
+		runtimeConfig.Unlock()
 		fmt.Printf("SOCKS server cleared.\n")
 	default:
 		fmt.Printf("Unknown parameter: %s\n", param)
@@ -255,8 +267,10 @@ func handleSetCommand(param string, values []string) {
 		}
 		fmt.Printf("Test attributes list set to: %v\n", testAttrList)
 	case "target":
-		targetLDAPAddr = value
-		fmt.Printf("Target LDAP server address set to: %s\n", targetLDAPAddr)
+		runtimeConfig.Lock()
+		runtimeConfig.targetAddr = value
+		runtimeConfig.Unlock()
+		fmt.Printf("Target LDAP server address set to: %s\n", value)
 		/*
 			fmt.Println("Connecting to the new target...")
 			err := reconnectTarget()
@@ -286,8 +300,10 @@ func handleSetCommand(param string, values []string) {
 			fmt.Printf("Invalid verbosity level: %s\n", values[0])
 			return
 		}
-		verbFwd = uint(level)
-		fmt.Printf("Forward verbosity level set to: %d\n", verbFwd)
+		runtimeConfig.Lock()
+		runtimeConfig.verbFwd = uint(level)
+		runtimeConfig.Unlock()
+		fmt.Printf("Forward verbosity level set to: %d\n", level)
 	case "verbrev":
 		if len(values) != 1 {
 			fmt.Println("Usage: set verbrev <level>")
@@ -298,8 +314,10 @@ func handleSetCommand(param string, values []string) {
 			fmt.Printf("Invalid verbosity level: %s\n", values[0])
 			return
 		}
-		verbRev = uint(level)
-		fmt.Printf("Reverse verbosity level set to: %d\n", verbRev)
+		runtimeConfig.Lock()
+		runtimeConfig.verbRev = uint(level)
+		runtimeConfig.Unlock()
+		fmt.Printf("Reverse verbosity level set to: %d\n", level)
 	case "ldaps":
 		if len(values) != 1 {
 			fmt.Println("Usage: set ldaps <true/false>")
@@ -310,8 +328,10 @@ func handleSetCommand(param string, values []string) {
 			fmt.Printf("Invalid boolean value: %s\n", values[0])
 			return
 		}
-		ldaps = ldapsValue
-		fmt.Printf("LDAPS mode set to: %v\n", ldaps)
+		runtimeConfig.Lock()
+		runtimeConfig.ldaps = ldapsValue
+		runtimeConfig.Unlock()
+		fmt.Printf("LDAPS mode set to: %v\n", ldapsValue)
 	case "isearch":
 		if len(values) != 1 {
 			fmt.Println("Usage: set isearch <true/false>")
@@ -322,8 +342,10 @@ func handleSetCommand(param string, values []string) {
 			fmt.Printf("Invalid boolean value: %s\n", values[0])
 			return
 		}
-		interceptSearch = val
-		fmt.Printf("Search interception set to: %v\n", interceptSearch)
+		runtimeConfig.Lock()
+		runtimeConfig.interceptSearch = val
+		runtimeConfig.Unlock()
+		fmt.Printf("Search interception set to: %v\n", val)
 	case "imodify":
 		if len(values) != 1 {
 			fmt.Println("Usage: set imodify <true/false>")
@@ -334,8 +356,10 @@ func handleSetCommand(param string, values []string) {
 			fmt.Printf("Invalid boolean value: %s\n", values[0])
 			return
 		}
-		interceptModify = val
-		fmt.Printf("Modify interception set to: %v\n", interceptModify)
+		runtimeConfig.Lock()
+		runtimeConfig.interceptModify = val
+		runtimeConfig.Unlock()
+		fmt.Printf("Modify interception set to: %v\n", val)
 	case "iadd":
 		if len(values) != 1 {
 			fmt.Println("Usage: set iadd <true/false>")
@@ -346,8 +370,10 @@ func handleSetCommand(param string, values []string) {
 			fmt.Printf("Invalid boolean value: %s\n", values[0])
 			return
 		}
-		interceptAdd = val
-		fmt.Printf("Add interception set to: %v\n", interceptAdd)
+		runtimeConfig.Lock()
+		runtimeConfig.interceptAdd = val
+		runtimeConfig.Unlock()
+		fmt.Printf("Add interception set to: %v\n", val)
 	case "idelete":
 		if len(values) != 1 {
 			fmt.Println("Usage: set idelete <true/false>")
@@ -358,8 +384,10 @@ func handleSetCommand(param string, values []string) {
 			fmt.Printf("Invalid boolean value: %s\n", values[0])
 			return
 		}
-		interceptDelete = val
-		fmt.Printf("Delete interception set to: %v\n", interceptDelete)
+		runtimeConfig.Lock()
+		runtimeConfig.interceptDelete = val
+		runtimeConfig.Unlock()
+		fmt.Printf("Delete interception set to: %v\n", val)
 	case "imodifydn":
 		if len(values) != 1 {
 			fmt.Println("Usage: set imodifydn <true/false>")
@@ -370,14 +398,18 @@ func handleSetCommand(param string, values []string) {
 			fmt.Printf("Invalid boolean value: %s\n", values[0])
 			return
 		}
-		interceptModifyDN = val
-		fmt.Printf("ModifyDN interception set to: %v\n", interceptModifyDN)
+		runtimeConfig.Lock()
+		runtimeConfig.interceptModifyDN = val
+		runtimeConfig.Unlock()
+		fmt.Printf("ModifyDN interception set to: %v\n", val)
 	case "socks":
 		if len(values) != 1 {
 			fmt.Println("Usage: set socks <true/false>")
 			return
 		}
-		socksServer = values[0]
+		runtimeConfig.Lock()
+		runtimeConfig.socksServer = values[0]
+		runtimeConfig.Unlock()
 	default:
 		fmt.Printf("Unknown parameter for 'set': %s\n", param)
 	}
@@ -409,19 +441,34 @@ func handleShowCommand(param string) {
 	case "testattrlist":
 		fmt.Println(testAttrList)
 	case "target":
-		fmt.Println(targetLDAPAddr)
+		runtimeConfig.RLock()
+		target := runtimeConfig.targetAddr
+		runtimeConfig.RUnlock()
+		fmt.Println(target)
 	case "ldaps":
-		fmt.Printf("LDAPS mode: %v\n", ldaps)
+		runtimeConfig.RLock()
+		ldapsMode := runtimeConfig.ldaps
+		runtimeConfig.RUnlock()
+		fmt.Printf("LDAPS mode: %v\n", ldapsMode)
 	case "options", "option":
 		showOptions()
 	case "stats":
 		showStatistics()
 	case "verbfwd":
-		fmt.Printf("Forward verbosity level: %d\n", verbFwd)
+		runtimeConfig.RLock()
+		verbFwdLevel := runtimeConfig.verbFwd
+		runtimeConfig.RUnlock()
+		fmt.Printf("Forward verbosity level: %d\n", verbFwdLevel)
 	case "verbrev":
-		fmt.Printf("Reverse verbosity level: %d\n", verbRev)
+		runtimeConfig.RLock()
+		verbRevLevel := runtimeConfig.verbRev
+		runtimeConfig.RUnlock()
+		fmt.Printf("Reverse verbosity level: %d\n", verbRevLevel)
 	case "socks":
-		fmt.Printf("SOCKS proxy: '%s'\n", socksServer)
+		runtimeConfig.RLock()
+		socksProxy := runtimeConfig.socksServer
+		runtimeConfig.RUnlock()
+		fmt.Printf("SOCKS proxy: '%s'\n", socksProxy)
 	default:
 		fmt.Printf("Unknown parameter for 'show': '%s'\n", param)
 	}
@@ -548,18 +595,22 @@ func showHelp(args ...string) {
 }
 func showGlobalConfig() {
 	fmt.Printf("[Global settings]\n")
+	verbFwd, verbRev := runtimeConfig.GetVerbosity()
+	targetAddr, socksProxy, ldapsMode := runtimeConfig.GetConnectionConfig()
+	intercepts := runtimeConfig.GetInterceptFlags()
+
 	fmt.Printf("  Forward Verbosity: %d\n", verbFwd)
 	fmt.Printf("  Reverse Verbosity: %d\n", verbRev)
 	fmt.Printf("  Listen address: %s\n", proxyLDAPAddr)
-	fmt.Printf("  Target address: %s\n", targetLDAPAddr)
-	fmt.Printf("  Target LDAPS: %t\n", ldaps)
-	fmt.Printf("  SOCKS proxy: '%s'\n", socksServer)
+	fmt.Printf("  Target address: %s\n", targetAddr)
+	fmt.Printf("  Target LDAPS: %t\n", ldapsMode)
+	fmt.Printf("  SOCKS proxy: '%s'\n", socksProxy)
 	fmt.Printf("\n[Interceptions]\n")
-	fmt.Printf("  Search: %t\n", interceptSearch)
-	fmt.Printf("  Modify: %t\n", interceptModify)
-	fmt.Printf("  Add: %t\n", interceptAdd)
-	fmt.Printf("  Delete: %t\n", interceptDelete)
-	fmt.Printf("  ModifyDN: %t\n", interceptModifyDN)
+	fmt.Printf("  Search: %t\n", intercepts.Search)
+	fmt.Printf("  Modify: %t\n", intercepts.Modify)
+	fmt.Printf("  Add: %t\n", intercepts.Add)
+	fmt.Printf("  Delete: %t\n", intercepts.Delete)
+	fmt.Printf("  ModifyDN: %t\n", intercepts.ModifyDN)
 	fmt.Printf("\n[Test settings]\n")
 	fmt.Printf("  Test BaseDN: '%s'\n", testBaseDN)
 	testAttrs, _ := json.Marshal(testAttrList)
@@ -608,6 +659,7 @@ func handleTestCommand(query string) {
 }
 
 func showStatistics() {
+	globalStats.Lock()
 	fmt.Println("[Client -> Target]")
 	fmt.Printf("  Packets Received: %d\n", globalStats.Forward.PacketsReceived)
 	fmt.Printf("  Packets Sent: %d\n", globalStats.Forward.PacketsSent)
@@ -635,27 +687,24 @@ func showStatistics() {
 		}
 		fmt.Printf("    %s: %d\n", appName, count)
 	}
+	globalStats.Unlock()
 }
 
 func clearStatistics() {
-	globalStats = Stats{
-		Forward: struct {
-			PacketsReceived uint64
-			PacketsSent     uint64
-			BytesReceived   uint64
-			BytesSent       uint64
-			CountsByType    map[int]uint64
-		}{
-			CountsByType: make(map[int]uint64),
-		},
-		Reverse: struct {
-			PacketsReceived uint64
-			PacketsSent     uint64
-			BytesReceived   uint64
-			BytesSent       uint64
-			CountsByType    map[int]uint64
-		}{
-			CountsByType: make(map[int]uint64),
-		},
+	globalStats.Lock()
+	globalStats.Forward.PacketsReceived = 0
+	globalStats.Forward.PacketsSent = 0
+	globalStats.Forward.BytesReceived = 0
+	globalStats.Forward.BytesSent = 0
+	for k := range globalStats.Forward.CountsByType {
+		delete(globalStats.Forward.CountsByType, k)
 	}
+	globalStats.Reverse.PacketsReceived = 0
+	globalStats.Reverse.PacketsSent = 0
+	globalStats.Reverse.BytesReceived = 0
+	globalStats.Reverse.BytesSent = 0
+	for k := range globalStats.Reverse.CountsByType {
+		delete(globalStats.Reverse.CountsByType, k)
+	}
+	globalStats.Unlock()
 }

@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/Macmod/ldapx/log"
 	attrentriesmid "github.com/Macmod/ldapx/middlewares/attrentries"
@@ -36,7 +37,7 @@ type Stats struct {
 	}
 }
 
-var version = "v1.1.0"
+var version = "v1.2.0"
 
 var green = color.New(color.FgGreen)
 var red = color.New(color.FgRed)
@@ -47,38 +48,82 @@ var insecureTlsConfig = &tls.Config{
 	InsecureSkipVerify: true,
 }
 
-var targetConn net.Conn
-
 var globalStats Stats
 
-var (
-	shutdownChan = make(chan struct{})
-	fc           *filtermid.FilterMiddlewareChain
-	ac           *attrlistmid.AttrListMiddlewareChain
-	bc           *basednmid.BaseDNMiddlewareChain
-	ec           *attrentriesmid.AttrEntriesMiddlewareChain
-
-	proxyLDAPAddr  string
-	targetLDAPAddr string
-	verbFwd        uint
-	verbRev        uint
-	ldaps          bool
-	noShell        bool
-	filterChain    string
-	attrChain      string
-	baseChain      string
-	entriesChain   string
-	tracking       bool
-	options        MapFlag
-	outputFile     string
-	socksServer    string
-
+// RuntimeConfig holds thread-safe runtime configuration
+type RuntimeConfig struct {
+	sync.RWMutex
+	targetAddr        string
+	verbFwd           uint
+	verbRev           uint
+	ldaps             bool
+	socksServer       string
 	interceptSearch   bool
 	interceptModify   bool
 	interceptAdd      bool
 	interceptDelete   bool
 	interceptModifyDN bool
-	listener          net.Listener
+}
+
+// InterceptFlags bundles all interception settings
+type InterceptFlags struct {
+	Search   bool
+	Modify   bool
+	Add      bool
+	Delete   bool
+	ModifyDN bool
+}
+
+// GetInterceptFlags returns all interception flags in a single lock
+func (rc *RuntimeConfig) GetInterceptFlags() InterceptFlags {
+	rc.RLock()
+	defer rc.RUnlock()
+	return InterceptFlags{
+		Search:   rc.interceptSearch,
+		Modify:   rc.interceptModify,
+		Add:      rc.interceptAdd,
+		Delete:   rc.interceptDelete,
+		ModifyDN: rc.interceptModifyDN,
+	}
+}
+
+// GetVerbosity returns forward and reverse verbosity levels in a single lock
+func (rc *RuntimeConfig) GetVerbosity() (fwd, rev uint) {
+	rc.RLock()
+	defer rc.RUnlock()
+	return rc.verbFwd, rc.verbRev
+}
+
+// GetConnectionConfig returns connection settings in a single lock
+func (rc *RuntimeConfig) GetConnectionConfig() (targetAddr, socksServer string, ldaps bool) {
+	rc.RLock()
+	defer rc.RUnlock()
+	return rc.targetAddr, rc.socksServer, rc.ldaps
+}
+
+var runtimeConfig RuntimeConfig
+
+// Middleware chain pointers - accessed atomically for thread safety
+var (
+	filterChainPtr      atomic.Value // *filtermid.FilterMiddlewareChain
+	attrListChainPtr    atomic.Value // *attrlistmid.AttrListMiddlewareChain
+	baseDNChainPtr      atomic.Value // *basednmid.BaseDNMiddlewareChain
+	attrEntriesChainPtr atomic.Value // *attrentriesmid.AttrEntriesMiddlewareChain
+)
+
+var (
+	shutdownChan = make(chan struct{})
+
+	proxyLDAPAddr string
+	noShell       bool
+	filterChain   string
+	attrChain     string
+	baseChain     string
+	entriesChain  string
+	tracking      bool
+	options       MapFlag
+	outputFile    string
+	listener      net.Listener
 )
 
 func shutdownProgram() {
@@ -129,6 +174,20 @@ func prettyList(list []string) string {
 }
 
 func init() {
+	// Temporary variables for flag parsing
+	var (
+		targetLDAPAddr    string
+		verbFwd           uint
+		verbRev           uint
+		ldaps             bool
+		socksServer       string
+		interceptSearch   bool
+		interceptModify   bool
+		interceptAdd      bool
+		interceptDelete   bool
+		interceptModifyDN bool
+	)
+
 	pflag.StringVarP(&proxyLDAPAddr, "listen", "l", ":389", "Address & port to listen on for incoming LDAP connections")
 	pflag.StringVarP(&targetLDAPAddr, "target", "t", "", "Target LDAP server address")
 	pflag.UintVarP(&verbFwd, "vf", "F", 1, "Set the verbosity level for forward LDAP traffic (requests)")
@@ -150,6 +209,19 @@ func init() {
 	pflag.BoolVarP(&interceptDelete, "delete", "D", false, "Intercept LDAP Delete operations")
 	pflag.BoolVarP(&interceptModifyDN, "modifydn", "L", false, "Intercept LDAP ModifyDN operations")
 
+	// Initialize runtime config after parsing
+	pflag.Parse()
+	runtimeConfig.targetAddr = targetLDAPAddr
+	runtimeConfig.verbFwd = verbFwd
+	runtimeConfig.verbRev = verbRev
+	runtimeConfig.ldaps = ldaps
+	runtimeConfig.socksServer = socksServer
+	runtimeConfig.interceptSearch = interceptSearch
+	runtimeConfig.interceptModify = interceptModify
+	runtimeConfig.interceptAdd = interceptAdd
+	runtimeConfig.interceptDelete = interceptDelete
+	runtimeConfig.interceptModifyDN = interceptModifyDN
+
 	pflag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: %s [OPTIONS]\n", os.Args[0])
 		fmt.Fprintf(os.Stderr, "\nOptions:\n")
@@ -162,54 +234,86 @@ func init() {
 }
 func updateFilterChain(chain string) {
 	filterChain = chain
-	fc = &filtermid.FilterMiddlewareChain{}
+	newChain := &filtermid.FilterMiddlewareChain{}
 	for _, c := range filterChain {
 		if middlewareName, exists := filterMidFlags[rune(c)]; exists {
-			fc.Add(filtermid.FilterMiddlewareDefinition{
+			newChain.Add(filtermid.FilterMiddlewareDefinition{
 				Name: middlewareName,
 				Func: func() filtermid.FilterMiddleware { return filterMidMap[middlewareName] },
 			})
 		}
 	}
+	filterChainPtr.Store(newChain)
+}
+
+func getFilterChain() *filtermid.FilterMiddlewareChain {
+	if chain := filterChainPtr.Load(); chain != nil {
+		return chain.(*filtermid.FilterMiddlewareChain)
+	}
+	return &filtermid.FilterMiddlewareChain{}
 }
 
 func updateBaseDNChain(chain string) {
 	baseChain = chain
-	bc = &basednmid.BaseDNMiddlewareChain{}
+	newChain := &basednmid.BaseDNMiddlewareChain{}
 	for _, c := range baseChain {
 		if middlewareName, exists := baseDNMidFlags[rune(c)]; exists {
-			bc.Add(basednmid.BaseDNMiddlewareDefinition{
+			newChain.Add(basednmid.BaseDNMiddlewareDefinition{
 				Name: middlewareName,
 				Func: func() basednmid.BaseDNMiddleware { return baseDNMidMap[middlewareName] },
 			})
 		}
 	}
+	baseDNChainPtr.Store(newChain)
+}
+
+func getBaseDNChain() *basednmid.BaseDNMiddlewareChain {
+	if chain := baseDNChainPtr.Load(); chain != nil {
+		return chain.(*basednmid.BaseDNMiddlewareChain)
+	}
+	return &basednmid.BaseDNMiddlewareChain{}
 }
 
 func updateAttrListChain(chain string) {
 	attrChain = chain
-	ac = &attrlistmid.AttrListMiddlewareChain{}
+	newChain := &attrlistmid.AttrListMiddlewareChain{}
 	for _, c := range attrChain {
 		if middlewareName, exists := attrListMidFlags[rune(c)]; exists {
-			ac.Add(attrlistmid.AttrListMiddlewareDefinition{
+			newChain.Add(attrlistmid.AttrListMiddlewareDefinition{
 				Name: middlewareName,
 				Func: func() attrlistmid.AttrListMiddleware { return attrListMidMap[middlewareName] },
 			})
 		}
 	}
+	attrListChainPtr.Store(newChain)
+}
+
+func getAttrListChain() *attrlistmid.AttrListMiddlewareChain {
+	if chain := attrListChainPtr.Load(); chain != nil {
+		return chain.(*attrlistmid.AttrListMiddlewareChain)
+	}
+	return &attrlistmid.AttrListMiddlewareChain{}
 }
 
 func updateAttrEntriesChain(chain string) {
 	entriesChain = chain
-	ec = &attrentriesmid.AttrEntriesMiddlewareChain{}
+	newChain := &attrentriesmid.AttrEntriesMiddlewareChain{}
 	for _, c := range entriesChain {
 		if middlewareName, exists := attrEntriesMidFlags[rune(c)]; exists {
-			ec.Add(attrentriesmid.AttrEntriesMiddlewareDefinition{
+			newChain.Add(attrentriesmid.AttrEntriesMiddlewareDefinition{
 				Name: middlewareName,
 				Func: func() attrentriesmid.AttrEntriesMiddleware { return attrEntriesMidMap[middlewareName] },
 			})
 		}
 	}
+	attrEntriesChainPtr.Store(newChain)
+}
+
+func getAttrEntriesChain() *attrentriesmid.AttrEntriesMiddlewareChain {
+	if chain := attrEntriesChainPtr.Load(); chain != nil {
+		return chain.(*attrentriesmid.AttrEntriesMiddlewareChain)
+	}
+	return &attrentriesmid.AttrEntriesMiddlewareChain{}
 }
 
 func main() {
@@ -267,13 +371,17 @@ func main() {
 		proxyLDAPAddr = fmt.Sprintf("%s:%d", proxyLDAPAddr, 389)
 	}
 
-	if !strings.Contains(targetLDAPAddr, ":") {
-		if ldaps {
-			targetLDAPAddr = fmt.Sprintf("%s:%d", targetLDAPAddr, 636)
+	runtimeConfig.Lock()
+	if !strings.Contains(runtimeConfig.targetAddr, ":") {
+		if runtimeConfig.ldaps {
+			runtimeConfig.targetAddr = fmt.Sprintf("%s:%d", runtimeConfig.targetAddr, 636)
 		} else {
-			targetLDAPAddr = fmt.Sprintf("%s:%d", targetLDAPAddr, 389)
+			runtimeConfig.targetAddr = fmt.Sprintf("%s:%d", runtimeConfig.targetAddr, 389)
 		}
 	}
+	targetAddr := runtimeConfig.targetAddr
+	socks := runtimeConfig.socksServer
+	runtimeConfig.Unlock()
 
 	var err error
 	listener, err = net.Listen("tcp", proxyLDAPAddr)
@@ -282,10 +390,10 @@ func main() {
 		shutdownProgram()
 	}
 
-	if socksServer != "" {
-		log.Log.Printf("[+] LDAP Proxy listening on '%s', forwarding to '%s' (T) via '%s'\n", proxyLDAPAddr, targetLDAPAddr, socksServer)
+	if socks != "" {
+		log.Log.Printf("[+] LDAP Proxy listening on '%s', forwarding to '%s' (T) via '%s'\n", proxyLDAPAddr, targetAddr, socks)
 	} else {
-		log.Log.Printf("[+] LDAP Proxy listening on '%s', forwarding to '%s' (T)\n", proxyLDAPAddr, targetLDAPAddr)
+		log.Log.Printf("[+] LDAP Proxy listening on '%s', forwarding to '%s' (T)\n", proxyLDAPAddr, targetAddr)
 	}
 	log.Log.Printf("[+] BaseDNMiddlewares: [%s]", strings.Join(appliedBaseDNMiddlewares, ","))
 	log.Log.Printf("[+] FilterMiddlewares: [%s]", strings.Join(appliedFilterMiddlewares, ","))

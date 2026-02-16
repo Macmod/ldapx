@@ -16,40 +16,40 @@ import (
 // General logic behind the transformations that ldapx
 // is capable of applying to each LDAP operation.
 func TransformSearchRequest(filter parser.Filter, baseDN string, attrs []string) (parser.Filter, string, []string) {
-	newFilter := fc.Execute(filter, true)
-	newAttrs := ac.Execute(attrs, true)
-	newBaseDN := bc.Execute(baseDN, true)
+	newFilter := getFilterChain().Execute(filter, true)
+	newAttrs := getAttrListChain().Execute(attrs, true)
+	newBaseDN := getBaseDNChain().Execute(baseDN, true)
 
 	return newFilter, newBaseDN, newAttrs
 }
 
 func TransformModifyRequest(targetDN string, changes []ChangeRequest) (string, []ChangeRequest) {
-	newTargetDN := bc.Execute(targetDN, true)
+	newTargetDN := getBaseDNChain().Execute(targetDN, true)
 	newChanges := make([]ChangeRequest, len(changes))
 
 	for idx := range newChanges {
 		newChanges[idx].OperationId = changes[idx].OperationId
-		newChanges[idx].Modifications = ec.Execute(changes[idx].Modifications, true)
+		newChanges[idx].Modifications = getAttrEntriesChain().Execute(changes[idx].Modifications, true)
 	}
 
 	return newTargetDN, newChanges
 }
 
 func TransformAddRequest(targetDN string, entries parser.AttrEntries) (string, parser.AttrEntries) {
-	newTargetDN := bc.Execute(targetDN, true)
-	newEntries := ec.Execute(entries, true)
+	newTargetDN := getBaseDNChain().Execute(targetDN, true)
+	newEntries := getAttrEntriesChain().Execute(entries, true)
 
 	return newTargetDN, newEntries
 }
 
 func TransformDeleteRequest(targetDN string) string {
-	return bc.Execute(targetDN, true)
+	return getBaseDNChain().Execute(targetDN, true)
 }
 
 func TransformModifyDNRequest(entry string, newRDN string, delOld bool, newSuperior string) (string, string, bool, string) {
-	newEntry := bc.Execute(entry, true)
-	newNSuperior := bc.Execute(newSuperior, true)
-	newNRDN := bc.Execute(newRDN, true)
+	newEntry := getBaseDNChain().Execute(entry, true)
+	newNSuperior := getBaseDNChain().Execute(newSuperior, true)
+	newNRDN := getBaseDNChain().Execute(newRDN, true)
 	newDelOld := delOld // Not processed
 
 	return newEntry, newNRDN, newDelOld, newNSuperior

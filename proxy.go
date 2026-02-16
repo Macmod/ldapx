@@ -29,26 +29,12 @@ func startProxyLoop(listener net.Listener) {
 	}
 }
 
-func reconnectTarget() error {
-	// Close the existing target connection
-	if targetConn != nil {
-		targetConn.Close()
-	}
-
-	// Connect to the new target
-	var err error
-	targetConn, err = connect(targetLDAPAddr)
-	if err != nil {
-		return fmt.Errorf("failed to connect to target LDAP server: %v", err)
-	}
-
-	return nil
-}
-
 func connect(addr string) (net.Conn, error) {
 	var conn net.Conn
 	var err error
 	var dialer net.Dialer
+
+	_, socksServer, useLdaps := runtimeConfig.GetConnectionConfig()
 
 	if socksServer != "" {
 		dialSocksProxy := socks.Dial(socksServer)
@@ -59,7 +45,7 @@ func connect(addr string) (net.Conn, error) {
 			return nil, err
 		}
 
-		if ldaps {
+		if useLdaps {
 			// Wrap the SOCKS connection with TLS
 			tlsConn := tls.Client(conn, insecureTlsConfig)
 			if err = tlsConn.Handshake(); err != nil {
@@ -70,7 +56,7 @@ func connect(addr string) (net.Conn, error) {
 		}
 	} else {
 		// Original non-proxy connection logic
-		if ldaps {
+		if useLdaps {
 			conn, err = tls.DialWithDialer(&dialer, "tcp", addr, insecureTlsConfig)
 		} else {
 			conn, err = net.Dial("tcp", addr)
@@ -83,19 +69,20 @@ func connect(addr string) (net.Conn, error) {
 func handleLDAPConnection(conn net.Conn) {
 	defer conn.Close()
 
-	// Connect to target conn
-	var err error
-	targetConn, err = connect(targetLDAPAddr)
+	// Get target address from config
+	targetAddr, _, _ := runtimeConfig.GetConnectionConfig()
 
+	// Connect to target conn - local variable for this connection only
+	localTargetConn, err := connect(targetAddr)
 	if err != nil {
 		fmt.Println("")
 		log.Log.Printf("Failed to connect to target LDAP server: %v\n", err)
 		return
 	}
-	defer targetConn.Close()
+	defer localTargetConn.Close()
 
-	targetConnReader := bufio.NewReader(targetConn)
-	targetConnWriter := bufio.NewWriter(targetConn)
+	targetConnReader := bufio.NewReader(localTargetConn)
+	targetConnWriter := bufio.NewWriter(localTargetConn)
 
 	done := make(chan struct{}) // Channel to signal when either goroutine is done
 
@@ -150,6 +137,8 @@ func handleLDAPConnection(conn net.Conn) {
 
 			fmt.Println("\n" + strings.Repeat("─", 55))
 
+			verbFwd, _ := runtimeConfig.GetVerbosity()
+
 			if verbFwd > 1 {
 				log.Log.Printf("[DEBUG] Packet Dump (Received From Client)")
 				ber.PrintPacket(packet)
@@ -172,35 +161,39 @@ func handleLDAPConnection(conn net.Conn) {
 				log.Log.Printf("[C->T] [%d - %s]\n", reqMessageID, applicationText)
 			}
 
+			intercepts := runtimeConfig.GetInterceptFlags()
+
 			switch application {
 			case parser.ApplicationSearchRequest:
-				if interceptSearch {
+				if intercepts.Search {
 					log.Log.Printf("[+] Search Request Intercepted (%d)\n", reqMessageID)
 					packet = ProcessSearchRequest(packet, searchRequestMap)
 				}
 			case parser.ApplicationModifyRequest:
-				if interceptModify {
+				if intercepts.Modify {
 					log.Log.Printf("[+] Modify Request Intercepted (%d)\n", reqMessageID)
 					packet = ProcessModifyRequest(packet)
 				}
 			case parser.ApplicationAddRequest:
-				if interceptAdd {
+				if intercepts.Add {
 					log.Log.Printf("[+] Add Request Intercepted (%d)\n", reqMessageID)
 					packet = ProcessAddRequest(packet)
 				}
 			case parser.ApplicationDelRequest:
-				if interceptDelete {
+				if intercepts.Delete {
 					log.Log.Printf("[+] Delete Request Intercepted (%d)\n", reqMessageID)
 					packet = ProcessDeleteRequest(packet)
 				}
 			case parser.ApplicationModifyDNRequest:
-				if interceptModifyDN {
+				if intercepts.ModifyDN {
 					log.Log.Printf("[+] ModifyDN Request Intercepted (%d)\n", reqMessageID)
 					packet = ProcessModifyDNRequest(packet)
 				}
 			}
 
 			sendPacketForward(packet)
+
+			verbFwd, _ = runtimeConfig.GetVerbosity()
 
 			if verbFwd > 1 {
 				log.Log.Printf("[DEBUG] Packet Dump (Sent To Target)")
@@ -236,6 +229,8 @@ func handleLDAPConnection(conn net.Conn) {
 				}
 
 				sendPacketReverse(responsePacket)
+
+				_, verbRev := runtimeConfig.GetVerbosity()
 
 				if verbRev > 0 {
 					log.Log.Printf("[C<-T] [%d - %s] (%d bytes)\n", respMessageID, applicationText, len(responsePacket.Bytes()))
