@@ -265,6 +265,7 @@ func RandGarbageFilterObf(maxGarbage int, garbageSize int, charset string) func(
 	applier = func(filter parser.Filter) parser.Filter {
 		switch f := filter.(type) {
 		case *parser.FilterAnd:
+			// Recurse into AND children
 			newFilters := make([]parser.Filter, len(f.Filters))
 			for i, subFilter := range f.Filters {
 				newFilters[i] = applier(subFilter)
@@ -272,6 +273,7 @@ func RandGarbageFilterObf(maxGarbage int, garbageSize int, charset string) func(
 			return &parser.FilterAnd{Filters: newFilters}
 
 		case *parser.FilterOr:
+			// Recurse into OR children
 			newFilters := make([]parser.Filter, len(f.Filters))
 			for i, subFilter := range f.Filters {
 				newFilters[i] = applier(subFilter)
@@ -279,25 +281,19 @@ func RandGarbageFilterObf(maxGarbage int, garbageSize int, charset string) func(
 			return &parser.FilterOr{Filters: newFilters}
 
 		case *parser.FilterNot:
-			// Check if child is a leaf
-			switch f.Filter.(type) {
-			case *parser.FilterAnd, *parser.FilterOr, *parser.FilterNot:
-				// Child is composite - recurse into it
-				return &parser.FilterNot{Filter: applier(f.Filter)}
-			default:
-				// Child is a leaf - treat NOT(leaf) as a unit
-				// Add garbage at this level: OR(NOT(leaf), garbage)
-				numGarbage := 1 + rand.Intn(maxGarbage)
-				garbageFilters := make([]parser.Filter, numGarbage+1)
-				garbageFilters[0] = filter // Keep NOT(leaf) intact
-				for i := 1; i <= numGarbage; i++ {
-					garbageFilters[i] = GenerateGarbageFilter("", garbageSize, charset)
-				}
-				return &parser.FilterOr{Filters: garbageFilters}
+			// Important: Never recurse into NOT!
+			// Treat entire NOT subtree as atomic to prevent UNDEFINED propagation.
+			// Wrapping: OR(NOT(...), garbage) is safe; garbage inside NOT is not.
+			numGarbage := 1 + rand.Intn(maxGarbage)
+			garbageFilters := make([]parser.Filter, numGarbage+1)
+			garbageFilters[0] = filter // Keep entire NOT intact
+			for i := 1; i <= numGarbage; i++ {
+				garbageFilters[i] = GenerateGarbageFilter("", garbageSize, charset)
 			}
+			return &parser.FilterOr{Filters: garbageFilters}
 
 		default:
-			// Leaf node - add garbage as usual
+			// Leaf node - add garbage
 			numGarbage := 1 + rand.Intn(maxGarbage)
 			garbageFilters := make([]parser.Filter, numGarbage+1)
 			garbageFilters[0] = filter
