@@ -260,16 +260,55 @@ func GenerateGarbageFilter(attr string, garbageSize int, chars string) parser.Fi
 }
 
 func RandGarbageFilterObf(maxGarbage int, garbageSize int, charset string) func(parser.Filter) parser.Filter {
-	return LeafApplierFilterMiddleware(func(filter parser.Filter) parser.Filter {
-		numGarbage := 1 + rand.Intn(maxGarbage)
+	var applier func(parser.Filter) parser.Filter
 
-		garbageFilters := make([]parser.Filter, numGarbage+1)
-		garbageFilters[0] = filter
-		for i := 1; i <= numGarbage; i++ {
-			garbageFilters[i] = GenerateGarbageFilter("", garbageSize, charset)
+	applier = func(filter parser.Filter) parser.Filter {
+		switch f := filter.(type) {
+		case *parser.FilterAnd:
+			newFilters := make([]parser.Filter, len(f.Filters))
+			for i, subFilter := range f.Filters {
+				newFilters[i] = applier(subFilter)
+			}
+			return &parser.FilterAnd{Filters: newFilters}
+
+		case *parser.FilterOr:
+			newFilters := make([]parser.Filter, len(f.Filters))
+			for i, subFilter := range f.Filters {
+				newFilters[i] = applier(subFilter)
+			}
+			return &parser.FilterOr{Filters: newFilters}
+
+		case *parser.FilterNot:
+			// Check if child is a leaf
+			switch f.Filter.(type) {
+			case *parser.FilterAnd, *parser.FilterOr, *parser.FilterNot:
+				// Child is composite - recurse into it
+				return &parser.FilterNot{Filter: applier(f.Filter)}
+			default:
+				// Child is a leaf - treat NOT(leaf) as a unit
+				// Add garbage at this level: OR(NOT(leaf), garbage)
+				numGarbage := 1 + rand.Intn(maxGarbage)
+				garbageFilters := make([]parser.Filter, numGarbage+1)
+				garbageFilters[0] = filter // Keep NOT(leaf) intact
+				for i := 1; i <= numGarbage; i++ {
+					garbageFilters[i] = GenerateGarbageFilter("", garbageSize, charset)
+				}
+				return &parser.FilterOr{Filters: garbageFilters}
+			}
+
+		default:
+			// Leaf node - add garbage as usual
+			numGarbage := 1 + rand.Intn(maxGarbage)
+			garbageFilters := make([]parser.Filter, numGarbage+1)
+			garbageFilters[0] = filter
+			for i := 1; i <= numGarbage; i++ {
+				garbageFilters[i] = GenerateGarbageFilter("", garbageSize, charset)
+			}
+			return &parser.FilterOr{Filters: garbageFilters}
 		}
-		return &parser.FilterOr{Filters: garbageFilters}
-	})
+	}
+
+	return applier
 }
 
 /*
