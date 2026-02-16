@@ -37,7 +37,7 @@ type Stats struct {
 	}
 }
 
-var version = "v1.2.0"
+var version = "v1.2.1"
 
 var green = color.New(color.FgGreen)
 var red = color.New(color.FgRed)

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/fatih/color"
 
@@ -105,19 +106,19 @@ func ProcessSearchRequest(packet *ber.Packet, searchRequestMap map[string]*ber.P
 
 	filter, err := parser.PacketToFilter(filterData)
 	if err != nil {
-		red.Printf("[ERROR] %s\n", err)
+		fmt.Println(red.Sprintf("[ERROR] %s", err))
 		return packet
 	}
 
 	oldFilterStr, err := parser.FilterToQuery(filter)
 	if err != nil {
-		yellow.Printf("[WARNING] %s\n", err)
+		fmt.Println(yellow.Sprintf("[WARNING] %s", err))
 	}
 
-	blue.Printf(
-		"Intercepted Search\n    BaseDN: '%s'\n    Filter: %s\n    Attributes: %s\n",
+	fmt.Println(blue.Sprintf(
+		"Intercepted Search\n    BaseDN: '%s'\n    Filter: %s\n    Attributes: %s",
 		baseDN, oldFilterStr, prettyList(attrs),
-	)
+	))
 
 	newFilter, newBaseDN, newAttrs := TransformSearchRequest(
 		filter, baseDN, attrs,
@@ -125,7 +126,7 @@ func ProcessSearchRequest(packet *ber.Packet, searchRequestMap map[string]*ber.P
 
 	newFilterStr, err := parser.FilterToQuery(newFilter)
 	if err != nil {
-		yellow.Printf("[WARNING] %s\n", err)
+		fmt.Println(yellow.Sprintf("[WARNING] %s", err))
 	}
 
 	// Change the fields that need to be changed
@@ -147,12 +148,12 @@ func ProcessSearchRequest(packet *ber.Packet, searchRequestMap map[string]*ber.P
 	}
 
 	if updatedFlag {
-		green.Printf("Changed Search\n    BaseDN: '%s'\n    Filter: %s\n    Attributes: %s\n", newBaseDN, newFilterStr, prettyList(newAttrs))
+		fmt.Println(green.Sprintf("Changed Search\n    BaseDN: '%s'\n    Filter: %s\n    Attributes: %s", newBaseDN, newFilterStr, prettyList(newAttrs)))
 
 		// We need to copy it to refresh the internal Data of the parent packet
 		return CopyBerPacket(packet)
 	} else {
-		blue.Printf("Nothing changed in the request\n")
+		fmt.Println(blue.Sprintf("Nothing changed in the request"))
 	}
 
 	return packet
@@ -163,7 +164,7 @@ type ChangeRequest struct {
 	Modifications parser.AttrEntries
 }
 
-func (change *ChangeRequest) PrintChanges(color *color.Color) {
+func (change *ChangeRequest) FormatChanges(c *color.Color) string {
 	var operationStr string
 	switch change.OperationId {
 	case 0:
@@ -176,12 +177,14 @@ func (change *ChangeRequest) PrintChanges(color *color.Color) {
 		operationStr = "Unknown"
 	}
 
-	color.Printf("    Operation: %s (%d)\n", operationStr, change.OperationId)
+	var result strings.Builder
+	result.WriteString(c.Sprintf("    Operation: %s (%d)\n", operationStr, change.OperationId))
 
 	for _, attribute := range change.Modifications {
 		valuesStr, _ := json.Marshal(attribute.Values)
-		color.Printf("        '%s': %s\n", attribute.Name, valuesStr)
+		result.WriteString(c.Sprintf("        '%s': %s\n", attribute.Name, valuesStr))
 	}
+	return result.String()
 }
 
 // https://ldap.com/ldapv3-wire-protocol-reference-modify/
@@ -213,10 +216,12 @@ func ProcessModifyRequest(packet *ber.Packet) *ber.Packet {
 			changeRequests = append(changeRequests, changeRequest)
 		}
 
-		blue.Printf("Intercepted Modify\n    TargetDN: '%s'\n", targetDN)
+		var msg strings.Builder
+		msg.WriteString(blue.Sprintf("Intercepted Modify\n    TargetDN: '%s'\n", targetDN))
 		for _, req := range changeRequests {
-			req.PrintChanges(blue)
+			msg.WriteString(req.FormatChanges(blue))
 		}
+		fmt.Print(msg.String())
 
 		newTargetDN, newChangeRequests := TransformModifyRequest(targetDN, changeRequests)
 
@@ -257,18 +262,20 @@ func ProcessModifyRequest(packet *ber.Packet) *ber.Packet {
 		}
 
 		if updatedFlag {
-			green.Printf("Changed Modify Request\n    TargetDN: '%s'\n", newTargetDN)
+			var msg strings.Builder
+			msg.WriteString(green.Sprintf("Changed Modify Request\n    TargetDN: '%s'\n", newTargetDN))
 			for _, req := range newChangeRequests {
-				req.PrintChanges(green)
+				msg.WriteString(req.FormatChanges(green))
 			}
+			fmt.Print(msg.String())
 
 			// We need to copy it to refresh the internal Data of the parent packet
 			return CopyBerPacket(packet)
 		} else {
-			blue.Printf("Nothing changed in the request\n")
+			fmt.Println(blue.Sprintf("Nothing changed in the request"))
 		}
 	} else {
-		red.Printf("Malformed request (missing required fields)\n")
+		fmt.Println(red.Sprintf("Malformed request (missing required fields)"))
 	}
 
 	return packet
@@ -291,12 +298,14 @@ func ProcessAddRequest(packet *ber.Packet) *ber.Packet {
 			}
 		}
 
-		blue.Printf("Intercepted Add Request\n    TargetDN: '%s'\n    Attributes: \n", targetDN)
+		var msg strings.Builder
+		msg.WriteString(blue.Sprintf("Intercepted Add Request\n    TargetDN: '%s'\n    Attributes: \n", targetDN))
 		for _, attrEntry := range targetAttrEntries {
 			for _, attrVal := range attrEntry.Values {
-				blue.Printf("      '%s': '%s'\n", attrEntry.Name, attrVal)
+				msg.WriteString(blue.Sprintf("      '%s': '%s'\n", attrEntry.Name, attrVal))
 			}
 		}
+		fmt.Print(msg.String())
 
 		updatedFlag := false
 
@@ -328,20 +337,22 @@ func ProcessAddRequest(packet *ber.Packet) *ber.Packet {
 		}
 
 		if updatedFlag {
-			green.Printf("Changed Add Request\n    TargetDN: '%s'\n    Attributes: \n", newTargetDN)
+			var msg strings.Builder
+			msg.WriteString(green.Sprintf("Changed Add Request\n    TargetDN: '%s'\n    Attributes: \n", newTargetDN))
 			for _, attrEntry := range newTargetAttrEntries {
 				for _, attrVal := range attrEntry.Values {
-					green.Printf("      '%s': '%s'\n", attrEntry.Name, attrVal)
+					msg.WriteString(green.Sprintf("      '%s': '%s'\n", attrEntry.Name, attrVal))
 				}
 			}
+			fmt.Print(msg.String())
 
 			// We need to copy it to refresh the internal Data of the parent packet
 			return CopyBerPacket(packet)
 		} else {
-			blue.Printf("Nothing changed in the request\n")
+			fmt.Println(blue.Sprintf("Nothing changed in the request"))
 		}
 	} else {
-		red.Printf("Malformed request (missing required fields)\n")
+		fmt.Println(red.Sprintf("Malformed request (missing required fields)"))
 	}
 
 	return packet
@@ -352,18 +363,18 @@ func ProcessDeleteRequest(packet *ber.Packet) *ber.Packet {
 	if len(packet.Children) > 1 {
 		targetDN := string(packet.Children[1].Data.Bytes())
 
-		blue.Printf("Intercepted Delete\n    TargetDN: '%s'\n", targetDN)
+		fmt.Println(blue.Sprintf("Intercepted Delete\n    TargetDN: '%s'", targetDN))
 
 		newTargetDN := TransformDeleteRequest(targetDN)
 		newEncodedDN := ber.NewString(ber.ClassApplication, ber.TypePrimitive, 0x0A, newTargetDN, "")
 		if newTargetDN != targetDN {
-			green.Printf("Changed Delete\n    TargetDN: '%s'\n", newTargetDN)
+			fmt.Println(green.Sprintf("Changed Delete\n    TargetDN: '%s'", newTargetDN))
 			UpdateBerChildLeaf(packet, 1, newEncodedDN)
 		} else {
-			blue.Printf("Nothing changed in the request\n")
+			fmt.Println(blue.Sprintf("Nothing changed in the request"))
 		}
 	} else {
-		red.Printf("Malformed request (missing required fields)\n")
+		fmt.Println(red.Sprintf("Malformed request (missing required fields)"))
 	}
 
 	return packet
@@ -380,7 +391,7 @@ func ProcessModifyDNRequest(packet *ber.Packet) *ber.Packet {
 			delOld := len(modDNPacket.Children[2].Data.Bytes()) > 0 && modDNPacket.Children[3].Data.Bytes()[0] != byte(0)
 			newSuperior := string(modDNPacket.Children[3].Data.Bytes())
 
-			blue.Printf("Intercepted ModifyDN\n    Entry: '%s'\n    NewRDN: '%s'\n    DeleteOldRDN: '%t'\n    NewSuperior: '%s'\n", entry, newRDN, delOld, newSuperior)
+			fmt.Println(blue.Sprintf("Intercepted ModifyDN\n    Entry: '%s'\n    NewRDN: '%s'\n    DeleteOldRDN: '%t'\n    NewSuperior: '%s'", entry, newRDN, delOld, newSuperior))
 
 			newEntry, newNRDN, newDelOld, newNSuperior := TransformModifyDNRequest(entry, newRDN, delOld, newSuperior)
 
@@ -410,16 +421,16 @@ func ProcessModifyDNRequest(packet *ber.Packet) *ber.Packet {
 			}
 
 			if updatedFlag {
-				green.Printf("Changed ModifyDN\n    Entry: '%s'\n    NewRDN: '%s'\n    DeleteOldRDN: '%t'\n    NewSuperior: '%s'\n", newEntry, newNRDN, newDelOld, newNSuperior)
+				fmt.Println(green.Sprintf("Changed ModifyDN\n    Entry: '%s'\n    NewRDN: '%s'\n    DeleteOldRDN: '%t'\n    NewSuperior: '%s'", newEntry, newNRDN, newDelOld, newNSuperior))
 				return CopyBerPacket(packet)
 			} else {
-				blue.Printf("Nothing changed in the request\n")
+				fmt.Println(blue.Sprintf("Nothing changed in the request"))
 			}
 		} else {
-			red.Printf("Malformed request (missing required fields)\n")
+			fmt.Println(red.Sprintf("Malformed request (missing required fields)"))
 		}
 	} else {
-		red.Printf("Malformed request (missing required fields)\n")
+		fmt.Println(red.Sprintf("Malformed request (missing required fields)"))
 	}
 
 	return packet

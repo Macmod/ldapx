@@ -625,20 +625,22 @@ func handleTestCommand(query string) {
 
 	filter, err := parser.QueryToFilter(query)
 	if err != nil {
-		red.Printf("Error compiling query: %v\n", err)
+		fmt.Println(red.Sprintf("Error compiling query: %v", err))
 		return
 	}
 
 	parsed, err := parser.FilterToQuery(filter)
 	if err != nil {
-		red.Printf("Unknown error: %v\n", err)
+		fmt.Println(red.Sprintf("Unknown error: %v", err))
 		return
 	}
 
-	blue.Printf("Input Request:\n")
-	blue.Printf("  BaseDN: %s\n", testBaseDN)
-	blue.Printf("  Attributes: %v\n", testAttrList)
-	blue.Printf("  Filter: %s\n", parsed)
+	var inputMsg strings.Builder
+	inputMsg.WriteString(blue.Sprintf("Input Request:\n"))
+	inputMsg.WriteString(blue.Sprintf("  BaseDN: %s\n", testBaseDN))
+	inputMsg.WriteString(blue.Sprintf("  Attributes: %v\n", testAttrList))
+	inputMsg.WriteString(blue.Sprintf("  Filter: %s", parsed))
+	fmt.Println(inputMsg.String())
 
 	// Transform using current middleware chains
 	newFilter, newBaseDN, newAttrs := TransformSearchRequest(
@@ -649,13 +651,15 @@ func handleTestCommand(query string) {
 
 	newParsed, err := parser.FilterToQuery(newFilter)
 	if err != nil {
-		red.Printf("Unknown error: '%v'", err)
+		fmt.Println(red.Sprintf("Unknown error: '%v'", err))
 	}
 
-	green.Printf("Output Request:\n")
-	green.Printf("  BaseDN: %s\n", newBaseDN)
-	green.Printf("  Attributes: %v\n", newAttrs)
-	green.Printf("  Filter: %v\n", newParsed)
+	var outputMsg strings.Builder
+	outputMsg.WriteString(green.Sprintf("Output Request:\n"))
+	outputMsg.WriteString(green.Sprintf("  BaseDN: %s\n", newBaseDN))
+	outputMsg.WriteString(green.Sprintf("  Attributes: %v\n", newAttrs))
+	outputMsg.WriteString(green.Sprintf("  Filter: %v", newParsed))
+	fmt.Println(outputMsg.String())
 }
 
 func showStatistics() {
