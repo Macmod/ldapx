@@ -125,6 +125,31 @@ func DoubleQuotesBaseDNObf() func(string) string {
 	}
 }
 
+// GUIDBaseDNObf replaces the BaseDN with the <GUID=hex> alternative form.
+// Per MS-ADTS 3.1.1.3.1.2.4, AD supports <GUID=object_guid> where object_guid
+// is the hex representation of the objectGUID attribute. This completely changes
+// the BaseDN format, making it unrecognizable as a traditional DN.
+func GUIDBaseDNObf(guidHex string) func(string) string {
+	return func(dn string) string {
+		if dn == "" || guidHex == "" {
+			return dn
+		}
+		return "<GUID=" + guidHex + ">"
+	}
+}
+
+// SIDBaseDNObf replaces the BaseDN with the <SID=sid> alternative form.
+// Per MS-ADTS 3.1.1.3.1.2.4, AD supports <SID=sid> where sid is either
+// the string form (S-1-5-21-...) or hex representation of the binary SID.
+func SIDBaseDNObf(sid string) func(string) string {
+	return func(dn string) string {
+		if dn == "" || sid == "" {
+			return dn
+		}
+		return "<SID=" + sid + ">"
+	}
+}
+
 // RandHexValueBaseDNObf randomly hex encodes characters in BaseDN
 func RandHexValueBaseDNObf(prob float64) func(string) string {
 	return func(dn string) string {

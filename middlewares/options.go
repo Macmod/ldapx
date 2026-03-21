@@ -6,6 +6,8 @@ var DefaultOptions = map[string]string{
 	"BDNOIDAttributeMaxSpaces":     "4",
 	"BDNOIDAttributeMaxZeros":      "4",
 	"BDNOIDAttributeIncludePrefix": "true",
+	"BDNGuid":                      "",
+	"BDNSid":                       "",
 
 	"FiltSpacingMaxSpaces":            "4",
 	"FiltTimestampGarbageUseComma":    "false",
@@ -25,6 +27,7 @@ var DefaultOptions = map[string]string{
 	"FiltOIDAttributeMaxSpaces":       "4",
 	"FiltOIDAttributeMaxZeros":        "4",
 	"FiltOIDAttributeIncludePrefix":   "true",
+	"FiltDNAttrNoiseProb":             "0.5",
 
 	"AttrsDuplicateProb":              "0.7",
 	"AttrsCaseProb":                   "0.7",
