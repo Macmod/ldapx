@@ -36,6 +36,8 @@ var baseDNMidFlags map[rune]string = map[rune]string{
 	'X': "HexValue",
 	'S': "Spacing",
 	'Q': "DoubleQuotes",
+	'U': "GUIDFormat",
+	'I': "SIDFormat",
 }
 
 var filterMidFlags map[rune]string = map[rune]string{
@@ -60,6 +62,8 @@ var filterMidFlags map[rune]string = map[rune]string{
 	's': "SubstringSplit",
 	'N': "NamesToANR",
 	'n': "ANRGarbageSubstring",
+	'P': "DNAttributesNoise",
+	'L': "TransitiveEval",
 }
 
 var attrListMidFlags map[rune]string = map[rune]string{
@@ -94,6 +98,8 @@ func SetupMiddlewaresMap() {
 		"HexValue":     basednmid.RandHexValueBaseDNObf(optFloat("BDNHexValueProb")),
 		"Spacing":      basednmid.RandSpacingBaseDNObf(optInt("BDNSpacingMaxElems")),
 		"DoubleQuotes": basednmid.DoubleQuotesBaseDNObf(),
+		"GUIDFormat":   basednmid.GUIDBaseDNObf(optStr("BDNGuid")),
+		"SIDFormat":    basednmid.SIDBaseDNObf(optStr("BDNSid")),
 	}
 
 	filterMidMap = map[string]filtermid.FilterMiddleware{
@@ -118,6 +124,8 @@ func SetupMiddlewaresMap() {
 		"SubstringSplit":       filtermid.RandSubstringSplitFilterObf(optFloat("FiltSubstringSplitProb")),
 		"NamesToANR":           filtermid.ANRAttributeFilterObf(ANRSet),
 		"ANRGarbageSubstring":  filtermid.ANRSubstringGarbageFilterObf(optInt("FiltANRSubstringMaxElems"), optStr("FiltGarbageCharset")),
+		"DNAttributesNoise":    filtermid.RandDNAttributesNoiseFilterObf(optFloat("FiltDNAttrNoiseProb")),
+		"TransitiveEval":       filtermid.TransitiveEvalFilterObf(),
 	}
 
 	attrListMidMap = map[string]attrlistmid.AttrListMiddleware{

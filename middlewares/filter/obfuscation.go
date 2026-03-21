@@ -1279,3 +1279,50 @@ func ReplaceTautologiesFilterObf() func(parser.Filter) parser.Filter {
 		return filter
 	})
 }
+
+/*
+	New middlewares based on MS-ADTS research
+*/
+
+// Known link attributes that support LDAP_MATCHING_RULE_TRANSITIVE_EVAL
+var transitiveLinkAttrs = []string{
+	"memberof", "member", "manager", "directreports",
+	"msds-membertransitive", "msds-memberoftransitive",
+}
+
+// RandDNAttributesNoiseFilterObf randomly toggles the dnAttributes field
+// on extensible match filters. Per MS-ADTS 3.1.1.3.1.3.1, AD always
+// ignores this field and treats it as FALSE, so toggling it adds noise
+// without affecting query results.
+func RandDNAttributesNoiseFilterObf(prob float64) func(parser.Filter) parser.Filter {
+	return LeafApplierFilterMiddleware(func(filter parser.Filter) parser.Filter {
+		switch f := filter.(type) {
+		case *parser.FilterExtensibleMatch:
+			if rand.Float64() < prob {
+				f.DNAttributes = !f.DNAttributes
+			}
+		}
+		return filter
+	})
+}
+
+// TransitiveEvalFilterObf converts equality matches on link attributes
+// to use LDAP_MATCHING_RULE_TRANSITIVE_EVAL (1.2.840.113556.1.4.1941).
+// Per MS-ADTS 3.1.1.3.4.4.3, this rule performs recursive evaluation
+// of link attributes. For direct membership queries it produces
+// equivalent results while changing the query syntax.
+func TransitiveEvalFilterObf() func(parser.Filter) parser.Filter {
+	return LeafApplierFilterMiddleware(func(filter parser.Filter) parser.Filter {
+		switch f := filter.(type) {
+		case *parser.FilterEqualityMatch:
+			if slices.Contains(transitiveLinkAttrs, strings.ToLower(f.AttributeDesc)) {
+				return &parser.FilterExtensibleMatch{
+					MatchingRule:  "1.2.840.113556.1.4.1941",
+					AttributeDesc: f.AttributeDesc,
+					MatchValue:    f.AssertionValue,
+				}
+			}
+		}
+		return filter
+	})
+}
