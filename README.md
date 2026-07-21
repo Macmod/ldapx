@@ -1,6 +1,6 @@
 # ldapx
 
-![GitHub Release](https://img.shields.io/github/v/release/Macmod/ldapx) ![](https://img.shields.io/github/go-mod/go-version/Macmod/ldapx) ![](https://img.shields.io/github/languages/code-size/Macmod/ldapx) ![](https://img.shields.io/github/license/Macmod/ldapx) ![](https://img.shields.io/github/actions/workflow/status/Macmod/ldapx/release.yml) [![Go Report Card](https://goreportcard.com/badge/github.com/Macmod/ldapx)](https://goreportcard.com/report/github.com/Macmod/ldapx) ![GitHub Downloads](https://img.shields.io/github/downloads/Macmod/ldapx/total) [<img alt="Twitter Follow" src="https://img.shields.io/twitter/follow/MacmodSec?style=for-the-badge&logo=X&color=blue">](https://twitter.com/MacmodSec)
+![GitHub Release](https://img.shields.io/github/v/release/Macmod/ldapx) ![](https://img.shields.io/github/go-mod/go-version/Macmod/ldapx) ![](https://img.shields.io/github/languages/code-size/Macmod/ldapx) ![](https://img.shields.io/github/license/Macmod/ldapx) ![](https://img.shields.io/github/actions/workflow/status/Macmod/ldapx/release.yml) ![GitHub Downloads](https://img.shields.io/github/downloads/Macmod/ldapx/total) [<img alt="Twitter Follow" src="https://img.shields.io/twitter/follow/MacmodSec?style=for-the-badge&logo=X&color=blue">](https://twitter.com/MacmodSec)
 
 ![Logo](https://raw.githubusercontent.com/Macmod/ldapx/main/images/ldapx-ai-logo.jpg)
 
