@@ -1,6 +1,7 @@
 package decrypt
 
 import (
+	"crypto/hmac"
 	"crypto/rand"
 	"encoding/binary"
 	"errors"
@@ -102,7 +103,7 @@ func rc4Unwrap(key types.EncryptionKey, wrapped []byte, fromAcceptor bool) (payl
 	if err != nil {
 		return nil, 0, fmt.Errorf("krb5decrypt: rc4 unwrap: checksum: %w", err)
 	}
-	if len(expected) < 8 || !equalBytes(expected[:8], tok.Checksum) {
+	if len(expected) < 8 || !hmac.Equal(expected[:8], tok.Checksum) {
 		return nil, 0, errors.New("krb5decrypt: rc4 unwrap: checksum mismatch")
 	}
 	if err := rfc4757.XORSequenceNumber(keyBytes, tok.Checksum, tok.SequenceNumber); err != nil {
@@ -150,7 +151,7 @@ func rc4DecryptSealed(keyBytes []byte, tok *rfc4757.WrapToken, data []byte) ([]b
 	if err != nil {
 		return nil, fmt.Errorf("checksum: %w", err)
 	}
-	if len(expected) < 8 || !equalBytes(expected[:8], tok.Checksum) {
+	if len(expected) < 8 || !hmac.Equal(expected[:8], tok.Checksum) {
 		return nil, errors.New("checksum mismatch")
 	}
 
@@ -303,18 +304,6 @@ func rc4StripTrailingMarker(data []byte) []byte {
 		return data[:len(data)-1]
 	}
 	return data
-}
-
-func equalBytes(a, b []byte) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }
 
 func encodeDERLength(length int) []byte {

@@ -136,8 +136,7 @@ func dirPrintf(fromClient bool, format string, args ...interface{}) {
 }
 
 // dirErrorf logs one error line, prefixed by direction like dirPrintf but
-// colored red (matching this codebase's existing error convention, e.g.
-// interceptors.go's "Malformed request" messages) rather than the
+// colored red (this codebase's convention for errors) rather than the
 // direction's cyan/magenta - errors shouldn't be visually softened into an
 // informational color. Always printed regardless of verbosity: a real
 // failure (a dropped connection, an unreadable message) shouldn't be

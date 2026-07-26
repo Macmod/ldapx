@@ -371,12 +371,13 @@ type gssSessionContext struct {
 	// every token emitted afterward advances the counter by one.
 	//
 	// Mirroring the observed number on every relay instead would be correct
-	// only while the relay stays 1:1. It isn't: --split-wrapped fans one
-	// received bundle out into several frames, and a real peer rejects the
-	// repeated sequence number that mirroring would produce for all of them.
-	// Counting keeps a split contiguous, and keeps the frame *after* a split
-	// contiguous too - the offset has to persist past the bundle, or the next
-	// message collides with the last frame of the one before it.
+	// only while the relay stays 1:1, which it need not be: one received
+	// frame can carry several LDAP messages and be relayed as one frame each,
+	// and a real peer rejects the repeated sequence number that mirroring
+	// would then produce for all of them. Counting keeps such a fan-out
+	// contiguous, and keeps the frame after it contiguous too - the offset
+	// has to persist, or the next message collides with the last frame of
+	// the group before it.
 	clientSeqNum uint64 // next sequence number to emit toward the target
 	targetSeqNum uint64 // next sequence number to emit toward the client
 	clientSeqSet bool   // clientSeqNum has been anchored to the client's own numbering

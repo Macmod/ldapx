@@ -543,9 +543,7 @@ func (bs *BindSession) completeDigestMD5(password string) error {
 
 	// A client that negotiated auth-conf is required to echo the cipher it
 	// picked from the challenge's list (RFC 2831 §2.1.3). Absent, assume
-	// `rc4` - the only one an omitting client could have meant in practice,
-	// and the value this code derived keys for unconditionally before the
-	// cipher was honored at all.
+	// `rc4` - the only one an omitting client could plausibly have meant.
 	cipherName := response.Cipher
 	if conf {
 		if cipherName == "" {

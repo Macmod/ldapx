@@ -245,7 +245,7 @@ func le32Bytes(v uint32) []byte {
 //     an unsolicited "Error decrypting ldap message") and unwrapping the
 //     DC's replies produces garbage.
 type NTLMDirectionCipher struct {
-	sealKey   []byte      // base sealing key; retained for the datagram per-message rekey
+	sealKey   []byte // base sealing key; retained for the datagram per-message rekey
 	signKey   []byte
 	rc4Stream *rc4.Cipher // continuous keystream; nil in datagram mode (re-keyed per message)
 	datagram  bool
