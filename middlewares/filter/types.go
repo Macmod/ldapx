@@ -25,7 +25,7 @@ func (c *FilterMiddlewareChain) Execute(f parser.Filter, verbose bool) parser.Fi
 	current := f
 	for _, middleware := range c.Middlewares {
 		if verbose {
-			log.Log.Printf("[+] Applying middleware on Filter: %s\n", middleware.Name)
+			log.Log.Printf("[+] Applying middleware on Filter: %s", middleware.Name)
 		}
 		current = middleware.Func()(current)
 	}
