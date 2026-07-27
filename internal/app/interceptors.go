@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"crypto/sha256"
@@ -60,7 +60,7 @@ func TransformModifyDNRequest(entry string, newRDN string, delOld bool, newSuper
 // is capable of applying to each LDAP operation.
 
 func ProcessSearchRequest(packet *ber.Packet, searchRequestMap map[string]*ber.Packet) *ber.Packet {
-	if tracking {
+	if runtimeConfig.GetTracking() {
 		// Handle possible cookie desync by tracking the original corresponding request
 		// If the current search request is paged and has a cookie, forward the original request
 		// that generated the paging, including the current paging control
@@ -69,7 +69,18 @@ func ProcessSearchRequest(packet *ber.Packet, searchRequestMap map[string]*ber.P
 			for _, control := range controls {
 				if len(control.Children) > 1 && control.Children[0].Value == "1.2.840.113556.1.4.319" {
 					// RFC2696 - LDAP Control Extension for Simple Paged Results Manipulation
-					searchControlValue := ber.DecodePacket(control.Children[1].Data.Bytes())
+					// Control SEQUENCE: { controlType (OID), criticality? (BOOLEAN), controlValue (OCTET STRING) }
+					// Determine which child is the control value: if child[1] is a BOOLEAN,
+					// the criticality is present and the value is at child[2].
+					valueIdx := 1
+					if len(control.Children) > 2 && control.Children[1].Tag == ber.TagBoolean {
+						valueIdx = 2
+					}
+					searchControlValue := ber.DecodePacket(control.Children[valueIdx].Data.Bytes())
+					if searchControlValue == nil || len(searchControlValue.Children) < 2 {
+						log.Log.Print(yellow.Sprintf("[-] Malformed paged results control value - skipping tracking for this control"))
+						continue
+					}
 					cookie := searchControlValue.Children[1].Data.Bytes()
 
 					if len(cookie) > 0 {
@@ -84,11 +95,11 @@ func ProcessSearchRequest(packet *ber.Packet, searchRequestMap map[string]*ber.P
 							forwardPacket.AppendChild(searchPacket.Children[1])
 							forwardPacket.AppendChild(packet.Children[2])
 
-							log.Log.Printf("[+] [Paging] Search Request Forwarded\n")
+							log.Log.Printf("[+] [Paging] Search Request Forwarded")
 
 							return forwardPacket
 						} else {
-							log.Log.Printf("[-] Error finding previous packet (tracking algorithm)")
+							log.Log.Print(yellow.Sprintf("[-] Error finding previous packet (tracking algorithm)"))
 						}
 					}
 				}

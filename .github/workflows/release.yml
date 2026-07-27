@@ -4,6 +4,9 @@ on:
   release:
     types: [created]
 
+permissions:
+  contents: write # required to upload build artifacts to the release
+
 jobs:
   releases-matrix:
     name: Release Go Binary

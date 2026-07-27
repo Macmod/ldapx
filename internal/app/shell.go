@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"encoding/json"
@@ -39,6 +39,9 @@ var setParamSuggestions = []prompt.Suggest{
 	{Text: "idelete", Description: "Set delete operation interception (true/false)"},
 	{Text: "imodifydn", Description: "Set modifydn operation interception (true/false)"},
 	{Text: "socks", Description: "Set the SOCKS server to use for the target connection"},
+	{Text: "spoof-mechs", Description: "Set SASL mechanisms to report in rootDSE supportedSASLMechanisms"},
+	{Text: "split-wrapped", Description: "Set split-wrapped policy (in/out/both)"},
+	{Text: "tracking", Description: "Set tracking algorithm mode (true/false)"},
 }
 
 var clearParamSuggestions = []prompt.Suggest{
@@ -53,6 +56,9 @@ var clearParamSuggestions = []prompt.Suggest{
 	{Text: "idelete", Description: "Clear delete operation interception"},
 	{Text: "imodifydn", Description: "Clear modifydn operation interception"},
 	{Text: "socks", Description: "Clear configured SOCKS server"},
+	{Text: "spoof-mechs", Description: "Clear SASL mechanism spoofing"},
+	{Text: "split-wrapped", Description: "Clear split-wrapped policy"},
+	{Text: "tracking", Description: "Clear tracking algorithm mode"},
 }
 
 var showParamSuggestions = []prompt.Suggest{
@@ -74,6 +80,9 @@ var showParamSuggestions = []prompt.Suggest{
 	{Text: "idelete", Description: "Show delete operation interception status"},
 	{Text: "imodifydn", Description: "Show modifydn operation interception status"},
 	{Text: "socks", Description: "Show configured SOCKS server"},
+	{Text: "spoof-mechs", Description: "Show configured SASL mechanism spoofing"},
+	{Text: "split-wrapped", Description: "Show split-wrapped policy"},
+	{Text: "tracking", Description: "Show tracking algorithm mode"},
 }
 
 var helpParamSuggestions = []prompt.Suggest{
@@ -90,6 +99,9 @@ var helpParamSuggestions = []prompt.Suggest{
 	{Text: "verbfwd", Description: "Show forward verbosity parameter info"},
 	{Text: "verbrev", Description: "Show reverse verbosity parameter info"},
 	{Text: "socks", Description: "Show socks parameter info"},
+	{Text: "spoof-mechs", Description: "Show spoof-mechs parameter info"},
+	{Text: "split-wrapped", Description: "Show split-wrapped parameter info"},
+	{Text: "tracking", Description: "Show tracking parameter info"},
 }
 
 var testBaseDN = "DC=test,DC=local"
@@ -233,6 +245,22 @@ func handleClearCommand(param string) {
 		runtimeConfig.socksServer = ""
 		runtimeConfig.Unlock()
 		fmt.Printf("SOCKS server cleared.\n")
+	case "spoof-mechs":
+		runtimeConfig.Lock()
+		runtimeConfig.spoofMechs = nil
+		runtimeConfig.spoofGiven = false
+		runtimeConfig.Unlock()
+		fmt.Printf("SASL mechanism spoofing cleared.\n")
+	case "split-wrapped":
+		runtimeConfig.Lock()
+		runtimeConfig.splitWrapped = ""
+		runtimeConfig.Unlock()
+		fmt.Printf("Split-wrapped policy cleared (bundling restored).\n")
+	case "tracking":
+		runtimeConfig.Lock()
+		runtimeConfig.tracking = true
+		runtimeConfig.Unlock()
+		fmt.Printf("Tracking algorithm reset to default (enabled).\n")
 	default:
 		fmt.Printf("Unknown parameter: %s\n", param)
 	}
@@ -295,7 +323,7 @@ func handleSetCommand(param string, values []string) {
 			fmt.Println("Usage: set verbfwd <level>")
 			return
 		}
-		level, err := strconv.ParseUint(values[0], 10, 64)
+		level, err := strconv.ParseUint(values[0], 10, strconv.IntSize)
 		if err != nil {
 			fmt.Printf("Invalid verbosity level: %s\n", values[0])
 			return
@@ -309,7 +337,7 @@ func handleSetCommand(param string, values []string) {
 			fmt.Println("Usage: set verbrev <level>")
 			return
 		}
-		level, err := strconv.ParseUint(values[0], 10, 64)
+		level, err := strconv.ParseUint(values[0], 10, strconv.IntSize)
 		if err != nil {
 			fmt.Printf("Invalid verbosity level: %s\n", values[0])
 			return
@@ -410,6 +438,49 @@ func handleSetCommand(param string, values []string) {
 		runtimeConfig.Lock()
 		runtimeConfig.socksServer = values[0]
 		runtimeConfig.Unlock()
+	case "spoof-mechs":
+		if len(values) == 1 && (values[0] == "" || values[0] == "none") {
+			runtimeConfig.Lock()
+			runtimeConfig.spoofMechs = nil
+			runtimeConfig.spoofGiven = true
+			runtimeConfig.Unlock()
+			fmt.Printf("SASL mechanism spoofing disabled (mechanisms removed from rootDSE).\n")
+		} else {
+			runtimeConfig.Lock()
+			runtimeConfig.spoofMechs = values
+			runtimeConfig.spoofGiven = true
+			runtimeConfig.Unlock()
+			fmt.Printf("SASL mechanism spoofing set to: %v\n", values)
+		}
+	case "split-wrapped":
+		if len(values) != 1 {
+			fmt.Println("Usage: set split-wrapped <in|out|both|''>")
+			return
+		}
+		val := strings.ToLower(values[0])
+		switch val {
+		case "in", "out", "both", "":
+			runtimeConfig.Lock()
+			runtimeConfig.splitWrapped = val
+			runtimeConfig.Unlock()
+			fmt.Printf("Split-wrapped policy set to: '%s'\n", val)
+		default:
+			fmt.Printf("Invalid split-wrapped value: '%s' (use in, out, both, or empty string to disable)\n", val)
+		}
+	case "tracking":
+		if len(values) != 1 {
+			fmt.Println("Usage: set tracking <true/false>")
+			return
+		}
+		val, err := strconv.ParseBool(values[0])
+		if err != nil {
+			fmt.Printf("Invalid boolean value: %s\n", values[0])
+			return
+		}
+		runtimeConfig.Lock()
+		runtimeConfig.tracking = val
+		runtimeConfig.Unlock()
+		fmt.Printf("Tracking algorithm set to: %v\n", val)
 	default:
 		fmt.Printf("Unknown parameter for 'set': %s\n", param)
 	}
@@ -469,6 +540,29 @@ func handleShowCommand(param string) {
 		socksProxy := runtimeConfig.socksServer
 		runtimeConfig.RUnlock()
 		fmt.Printf("SOCKS proxy: '%s'\n", socksProxy)
+	case "spoof-mechs":
+		runtimeConfig.RLock()
+		mechs, given := runtimeConfig.spoofMechs, runtimeConfig.spoofGiven
+		runtimeConfig.RUnlock()
+		if given {
+			fmt.Printf("SASL mechanism spoofing: %v\n", mechs)
+		} else {
+			fmt.Println("SASL mechanism spoofing: not configured")
+		}
+	case "split-wrapped":
+		runtimeConfig.RLock()
+		sw := runtimeConfig.splitWrapped
+		runtimeConfig.RUnlock()
+		if sw == "" {
+			fmt.Println("Split-wrapped: default (bundling enabled)")
+		} else {
+			fmt.Printf("Split-wrapped: '%s'\n", sw)
+		}
+	case "tracking":
+		runtimeConfig.RLock()
+		t := runtimeConfig.tracking
+		runtimeConfig.RUnlock()
+		fmt.Printf("Tracking algorithm: %t\n", t)
 	default:
 		fmt.Printf("Unknown parameter for 'show': '%s'\n", param)
 	}
@@ -528,24 +622,27 @@ func showHelp(args ...string) {
 		fmt.Println("  exit                       Exit the program")
 		fmt.Println("  test <query>               Simulate an LDAP query through the middlewares without sending it")
 		fmt.Println("\nParameters:")
-		fmt.Println("  basedn       - BaseDN middleware chain")
-		fmt.Println("  filter       - Filter middleware chain")
-		fmt.Println("  attrlist     - Attributes list middleware chain")
-		fmt.Println("  attrentries  - AttrEntries middleware chain")
-		fmt.Println("  testbasedn   - BaseDN to use for the `test` command")
-		fmt.Println("  testattrlist - Attributes list to use for the `test` command (separated by commas)")
-		fmt.Println("  target       - Target address to connect upon receiving a connection")
-		fmt.Println("  ldaps        - Enable/disable LDAPS connection mode (true/false)")
-		fmt.Println("  stats        - Packet statistics")
-		fmt.Println("  option       - Middleware options")
-		fmt.Println("  verbfwd      - Forward verbosity level")
-		fmt.Println("  verbrev      - Reverse verbosity level")
-		fmt.Println("  isearch      - Search operation interception mode (true/false)")
-		fmt.Println("  imodify      - Modify operation interception mode (true/false)")
-		fmt.Println("  iadd         - Add operation interception mode (true/false)")
-		fmt.Println("  idelete      - Delete operation interception mode (true/false)")
-		fmt.Println("  imodifydn    - ModifyDN operation interception (true/false)")
-		fmt.Println("  socks        - SOCKS proxy address to use for the target connection")
+		fmt.Println("  basedn        - BaseDN middleware chain")
+		fmt.Println("  filter        - Filter middleware chain")
+		fmt.Println("  attrlist      - Attributes list middleware chain")
+		fmt.Println("  attrentries   - AttrEntries middleware chain")
+		fmt.Println("  testbasedn    - BaseDN to use for the `test` command")
+		fmt.Println("  testattrlist  - Attributes list to use for the `test` command (separated by commas)")
+		fmt.Println("  target        - Target address to connect upon receiving a connection")
+		fmt.Println("  ldaps         - Enable/disable LDAPS connection mode (true/false)")
+		fmt.Println("  stats         - Packet statistics")
+		fmt.Println("  option        - Middleware options")
+		fmt.Println("  verbfwd       - Forward verbosity level")
+		fmt.Println("  verbrev       - Reverse verbosity level")
+		fmt.Println("  isearch       - Search operation interception mode (true/false)")
+		fmt.Println("  imodify       - Modify operation interception mode (true/false)")
+		fmt.Println("  iadd          - Add operation interception mode (true/false)")
+		fmt.Println("  idelete       - Delete operation interception mode (true/false)")
+		fmt.Println("  imodifydn     - ModifyDN operation interception (true/false)")
+		fmt.Println("  socks         - SOCKS proxy address to use for the target connection")
+		fmt.Println("  spoof-mechs   - SASL mechanisms to report in rootDSE supportedSASLMechanisms")
+		fmt.Println("  split-wrapped - Split bundled wrapped LDAP messages (in/out/both)")
+		fmt.Println("  tracking      - Tracking algorithm for paged search cookie management (true/false)")
 		fmt.Println("\nUse 'help <parameter>' for detailed information about specific parameters")
 		fmt.Println("")
 		return
@@ -588,6 +685,20 @@ func showHelp(args ...string) {
 		fmt.Println("  2: Show packet dump for all responses")
 	case "socks":
 		fmt.Println("socks - SOCKS proxy address in the schema://host:port format")
+	case "spoof-mechs":
+		fmt.Println("spoof-mechs - SASL mechanism(s) to report in the rootDSE's supportedSASLMechanisms attribute")
+		fmt.Println("  Set to mechanism names (comma-separated), or 'none'/empty to remove the attribute")
+		fmt.Println("  Use 'clear spoof-mechs' to restore original behavior (use the flag if given at startup)")
+	case "split-wrapped":
+		fmt.Println("split-wrapped - Split bundled wrapped LDAP messages into individual seal frames")
+		fmt.Println("  'in'   - Split C->T direction")
+		fmt.Println("  'out'  - Split T->C direction")
+		fmt.Println("  'both' - Split both directions")
+		fmt.Println("  ''     - Disable splitting (default bundling)")
+	case "tracking":
+		fmt.Println("tracking - Enable/disable the tracking algorithm for paged search cookie management")
+		fmt.Println("  true  - Tracking enabled (avoids cookie desync with complex middlewares)")
+		fmt.Println("  false - Tracking disabled (may cause cookie desync issues)")
 	default:
 		fmt.Printf("Unknown parameter: %s\n", args[0])
 	}
@@ -605,6 +716,22 @@ func showGlobalConfig() {
 	fmt.Printf("  Target address: %s\n", targetAddr)
 	fmt.Printf("  Target LDAPS: %t\n", ldapsMode)
 	fmt.Printf("  SOCKS proxy: '%s'\n", socksProxy)
+	fmt.Printf("  Tracking algorithm: %t\n", runtimeConfig.GetTracking())
+	sw := runtimeConfig.GetSplitWrapped()
+	if sw == "" {
+		fmt.Println("  Split-wrapped: default (bundling enabled)")
+	} else {
+		fmt.Printf("  Split-wrapped: '%s'\n", sw)
+	}
+	{
+		mechs, given := runtimeConfig.GetSpoofMechConfig()
+		if given {
+			fmt.Printf("  SASL mechanism spoofing: %v\n", mechs)
+		} else {
+			fmt.Println("  SASL mechanism spoofing: not configured")
+		}
+	}
+
 	fmt.Printf("\n[Interceptions]\n")
 	fmt.Printf("  Search: %t\n", intercepts.Search)
 	fmt.Printf("  Modify: %t\n", intercepts.Modify)
@@ -620,8 +747,8 @@ func showGlobalConfig() {
 
 func handleTestCommand(query string) {
 	fmt.Printf("%s\n", strings.Repeat("─", 55))
-	log.Log.Printf("[+] Simulated LDAP Search\n")
-	log.Log.Printf("[+] Input: %s\n", query)
+	log.Log.Printf("[+] Simulated LDAP Search")
+	log.Log.Printf("[+] Input: %s", query)
 
 	filter, err := parser.QueryToFilter(query)
 	if err != nil {

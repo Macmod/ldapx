@@ -25,7 +25,7 @@ func (c *AttrEntriesMiddlewareChain) Execute(attrEntries parser.AttrEntries, ver
 	current := attrEntries
 	for _, middleware := range c.Middlewares {
 		if verbose {
-			log.Log.Printf("[+] Applying middleware on AttrEntries: %s\n", middleware.Name)
+			log.Log.Printf("[+] Applying middleware on AttrEntries: %s", middleware.Name)
 		}
 		current = middleware.Func()(current)
 	}

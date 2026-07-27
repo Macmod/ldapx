@@ -1207,7 +1207,7 @@ func ReplaceTautologiesFilterObf() func(parser.Filter) parser.Filter {
 		return makeBasicTautology(
 			&parser.FilterEqualityMatch{
 				AttributeDesc:  randomAttr,
-				AssertionValue: string(rand.Intn(26) + 'a'),
+				AssertionValue: string(rune(rand.Intn(26) + 'a')),
 			},
 		)
 	}
@@ -1221,13 +1221,13 @@ func ReplaceTautologiesFilterObf() func(parser.Filter) parser.Filter {
 
 		substrings := []parser.SubstringFilter{}
 		if rand.Intn(2) == 0 {
-			substrings = append(substrings, parser.SubstringFilter{Initial: string(rand.Intn(26) + 'a')})
+			substrings = append(substrings, parser.SubstringFilter{Initial: string(rune(rand.Intn(26) + 'a'))})
 		}
 		if rand.Intn(2) == 0 {
-			substrings = append(substrings, parser.SubstringFilter{Any: string(rand.Intn(26) + 'a')})
+			substrings = append(substrings, parser.SubstringFilter{Any: string(rune(rand.Intn(26) + 'a'))})
 		}
 		if rand.Intn(2) == 0 {
-			substrings = append(substrings, parser.SubstringFilter{Final: string(rand.Intn(26) + 'a')})
+			substrings = append(substrings, parser.SubstringFilter{Final: string(rune(rand.Intn(26) + 'a'))})
 		}
 
 		return makeBasicTautology(
