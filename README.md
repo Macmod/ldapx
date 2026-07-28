@@ -84,6 +84,73 @@ ldapx> show stats
 
 You can also show/set other parameters through the shell, such as the target address and verbosity levels. To check all available commands, use the `help` command.
 
+### Decrypting protected LDAP traffic
+
+Clients that negotiate a security layer wrap their LDAP messages on the wire. To intercept and transform that traffic (available from [v1.3.0](https://github.com/Macmod/ldapx/releases/tag/v1.3.0) onwards), supply the credential material for the connecting account so `ldapx` can unwrap and re-wrap it. All `--decrypt-*` flags are opt-in; unprotected traffic is forwarded untouched.
+
+NTLM (via `Sicily`, `SASL/GSSAPI` or `SASL/GSS-SPNEGO`) - supply the connecting account's NT hash or password:
+
+```bash
+$ ldapx -t 192.168.117.2:389 --decrypt-hash 31d6cfe0d16ae931b73c59d7e0c089c0
+$ ldapx -t 192.168.117.2:389 --decrypt-password 'Passw0rd!'
+```
+
+Kerberos (via `SASL/GSSAPI` or `SASL/GSS-SPNEGO`) - supply either the exact service ticket the client is using, or the target LDAP service's own credential to recover the session key:
+
+```bash
+# The exact service ticket (ST) observed on the connection
+$ ldapx -t dc.draco.local:389 --decrypt-ccache service.ccache
+
+# The target LDAP service account's own credential
+$ ldapx -t dc.draco.local:389 --decrypt-svc-password 'ServiceP@ss'
+$ ldapx -t dc.draco.local:389 --decrypt-svc-key 0011223344...ff
+$ ldapx -t dc.draco.local:389 --decrypt-svc-keytab service.keytab
+```
+
+Use `--decrypt-salt` to override the default AES salt (`REALM` + the ticket's SPN) when deriving an AES key from `--decrypt-svc-password`.
+
+DIGEST-MD5 (`auth-int` / `auth-conf`) - requires the plaintext password:
+
+```bash
+$ ldapx -t 192.168.117.2:389 --decrypt-password 'Passw0rd!'
+```
+
+### TLS listener and Pass the Cert
+
+Terminate TLS on the listener so that clients requiring LDAPS can be intercepted, and optionally forward a client certificate to the upstream server over LDAPS. When any TLS listener flag is set and `-l` / `--listen` has no explicit port, the default port changes from 389 to 636.
+
+```bash
+# In-memory self-signed listener certificate
+$ ldapx -t dc.draco.local:636 --ldaps --listener-tls
+
+# Your own listener certificate
+$ ldapx -t dc.draco.local:636 --ldaps --listener-cert server.pem --listener-key server.key
+
+# End-to-end TLS client authentication ("Pass the Cert"): the certificate is
+# taken from the connecting client's TLS handshake; --key supplies its private key
+$ ldapx -t dc.draco.local:636 --ldaps --listener-tls --key client.key
+```
+
+### Spoofing supported SASL mechanisms
+
+Rewrite the rootDSE's `supportedSASLMechanisms` attribute to try to steer clients toward a fallback mechanism, or remove it entirely:
+
+```bash
+# Advertise only GSSAPI and SPNEGO
+$ ldapx -t 192.168.117.2:389 --spoof-mechs gssapi,spnego
+
+# Remove the attribute from the response
+$ ldapx -t 192.168.117.2:389 --spoof-mechs none
+```
+
+### Splitting bundled wrapped messages
+
+By default `ldapx` mirrors the original sender's sealed framing. `--split-wrapped` re-seals each message in its own frame instead — `in` splits client->target, `out` splits target->client, `both` splits both directions:
+
+```bash
+$ ldapx -t dc.draco.local:389 --decrypt-ccache service.ccache --split-wrapped both
+```
+
 ## Middlewares
 
 The tool provides several middlewares "ready for use" for inline LDAP filter transformation. These middlewares were designed for use in Active Directory environments, but theoretically some of them could work in other LDAP environments.
