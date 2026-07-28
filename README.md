@@ -161,7 +161,7 @@ The tool provides several middlewares "ready for use" for inline LDAP filter tra
 |--------|------|---------|-------------|--------|--------|---------|
 | `O` | OIDAttribute | Obfuscation | Converts DN attrs to OIDs | `cn=Admin` | `2.5.4.3=Admin` | Uses standard LDAP OIDs, can be customized with options |
 | `C` | Case | Obfuscation | Randomizes DN case | `CN=lol,DC=draco,DC=local` | `cN=lOl,dC=dRaCo,Dc=loCaL` | Probability based |
-| `X` | HexValue | Obfuscation | Hex encodes characters in the values | `cn=john` | `cn=\6a\6fmin` | Probability based | 
+| `X` | HexValue | Obfuscation | Hex encodes characters in the values | `cn=john` | `cn=\6a\6fmin` | Probability based |
 | `S` | Spacing | Obfuscation | Adds random spaces in the BaseDN (in the beginning and/or end) | `DC=draco` | `DC=draco     ` | Probability based |
 | `Q` | DoubleQuotes | Obfuscation | Adds quotes to values | `cn=Admin` | `cn="Admin"` | Incompatible with `HexValue` / `Spacing` |
 
@@ -230,7 +230,7 @@ Please note that transforming packets involving change operations may lead to un
 
 ### Search
 
-Applies the specified `BaseDN`, `Filter` and `AttrList` middleware chains to the respective fields. 
+Applies the specified `BaseDN`, `Filter` and `AttrList` middleware chains to the respective fields.
 
 ### Modify
 
@@ -266,7 +266,7 @@ Applies the specified `BaseDN` middleware chain to:
 
 All `ExtendedRequest`s (`FastBind`, `StartTLS`, `TTLRefresh`, `WhoAmI`, `BatchRequest`) are currently unhandled by `ldapx` and are just forwarded back and forth through the proxy. For some of these, if they change the expected wire format after the corresponding `ExtendedResponse` (e.g. `StartTLS`), this probably breaks the proxy.
 
-## Library Usage 
+## Library Usage
 
 To use `ldapx` as a library, you can import the `parser` package and the individual middleware packages that you wish to use.
 
@@ -347,7 +347,7 @@ To develop a new middleware, you can create a new function inside the appropriat
 
 ### Attributes Entries
 ```go
-  func YourAttrEntriesMiddleware(args) func(parser.AttrEntries) parser.AttrEntries 
+  func YourAttrEntriesMiddleware(args) func(parser.AttrEntries) parser.AttrEntries
 ```
 
 Then to actually have ldapx use your middleware:
@@ -412,7 +412,7 @@ Contributions are welcome by [opening an issue](https://github.com/Macmod/ldapx/
 
 * [ldap.com](https://ldap.com/), [MS-ADTS](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/d2435927-0999-4c62-8c6d-13ba31a52e1a), [RFC4510](https://docs.ldap.com/specs/rfc4510.txt), [RFC4515](https://docs.ldap.com/specs/rfc4515.txt), [RFC4512](https://docs.ldap.com/specs/rfc4512.txt), [RFC2696](https://www.ietf.org/rfc/rfc2696.txt) and many other online resources were of great help.
 
-## Disclaimers 
+## Disclaimers
 
 > [!NOTE]
 > This tool is meant to be used for authorized security testing, troubleshooting and research purposes only. The author is not responsible for any misuse of this tool.
