@@ -151,6 +151,17 @@ By default `ldapx` mirrors the original sender's sealed framing. `--split-wrappe
 $ ldapx -t dc.draco.local:389 --decrypt-ccache service.ccache --split-wrapped both
 ```
 
+### Channel Binding Injection
+
+When the target server enforces channel binding ([RFC 5929](https://datatracker.ietf.org/doc/html/rfc5929)), `ldapx` injects the binding into bind requests on their way upstream so they complete through the proxy. The target's TLS certificate is captured from the proxy-to-target connection and used to compute the binding hash.
+
+Supported for both Kerberos and NTLMv2, across all bind carriers:
+
+- **Kerberos** (SASL/GSSAPI, SASL/GSS-SPNEGO): the binding goes in the AP-REQ Authenticator's GSS-API checksum `Bnd` field.
+- **NTLMv2** (Sicily, SASL/GSSAPI, SASL/GSS-SPNEGO): the binding goes in the `MsvAvChannelBindings` `AV_PAIR`, with full NTProofStr/session-key recomputation and MIC re-signing.
+
+Injection reuses the `--decrypt-*` credentials, since the bind must be re-signed/re-encrypted under the recovered key: `--decrypt-hash`/`--decrypt-password` for NTLMv2, and `--decrypt-ccache`/`--decrypt-svc-keytab`/`--decrypt-svc-key`/`--decrypt-svc-password` for Kerberos. It engages automatically whenever those are set and the target connection is TLS (`--ldaps`).
+
 ## Middlewares
 
 The tool provides several middlewares "ready for use" for inline LDAP filter transformation. These middlewares were designed for use in Active Directory environments, but theoretically some of them could work in other LDAP environments.
