@@ -29,12 +29,12 @@ const (
 // (RFC 4511 §4.2.2).
 const serverSaslCredsTag ber.Tag = 7
 
+// resultSaslBindInProgress is RFC 4511 §4.1.9's saslBindInProgress.
+const resultSaslBindInProgress int64 = 14
+
 // primitiveBytes returns a primitive packet's raw content bytes regardless
 // of class. ber.ReadPacket only populates .ByteValue for ClassUniversal
-// primitives (see its content-read path) - context-tagged primitives like
-// Sicily's [9]/[10]/[11] choices and BindResponse's serverSaslCreds [7]
-// only ever get their content written into .Data, never .ByteValue, when
-// read off the wire.
+// primitives; context-tagged primitives only get their content in .Data.
 func primitiveBytes(p *ber.Packet) []byte {
 	if len(p.ByteValue) > 0 {
 		return p.ByteValue
@@ -135,8 +135,9 @@ func InspectBindRequest(bs *BindSession, packet *ber.Packet) {
 	bs.mu.Lock()
 	defer bs.mu.Unlock()
 
-	if bs.negotiated {
-		return // nothing left to observe once keys are already derived
+	// A bind after the previous one finished starts a new authentication.
+	if bs.bindComplete {
+		bs.resetHandshake()
 	}
 
 	switch {
@@ -154,9 +155,9 @@ func InspectBindRequest(bs *BindSession, packet *ber.Packet) {
 	case auth.ClassType == ber.ClassContext && auth.Tag == authChoiceSicilyNegotiate:
 		bs.lastAuthChoiceSicily = false
 		if !bs.mechAnnounced {
-			bs.mech = MechSicilyNTLM
+			bs.hsMech = MechSicilyNTLM
 			bs.mechAnnounced = true
-			log.Log.Print(decryptColor.Sprintf("[+] Bind mechanism identified: %s", bs.mech))
+			log.Log.Print(decryptColor.Sprintf("[+] Bind mechanism identified: %s", bs.hsMech))
 		}
 		if b := primitiveBytes(auth); len(b) > 0 {
 			bs.pending = append(bs.pending, b)
@@ -181,20 +182,20 @@ func InspectBindRequest(bs *BindSession, packet *ber.Packet) {
 		if !bs.mechAnnounced {
 			switch mechName {
 			case "GSSAPI":
-				bs.mech = MechSaslGSSAPI
+				bs.hsMech = MechSaslGSSAPI
 			case "GSS-SPNEGO":
-				bs.mech = MechSaslSPNEGO
+				bs.hsMech = MechSaslSPNEGO
 			case "NTLM", "NTLMSSP":
-				bs.mech = MechSaslNTLM
+				bs.hsMech = MechSaslNTLM
 			case "DIGEST-MD5":
-				bs.mech = MechSaslDigestMD5
+				bs.hsMech = MechSaslDigestMD5
 			default:
 				bs.mechAnnounced = true
 				log.Log.Print(decryptColor.Sprintf("[+] Bind mechanism identified: SASL/%s (unhandled - forwarding only, no decryption)", mechName))
 				return
 			}
 			bs.mechAnnounced = true
-			log.Log.Print(decryptColor.Sprintf("[+] Bind mechanism identified: %s", bs.mech))
+			log.Log.Print(decryptColor.Sprintf("[+] Bind mechanism identified: %s", bs.hsMech))
 
 			if len(credBytes) > 0 {
 				switch mechName {
@@ -229,30 +230,44 @@ func InspectBindResponse(bs *BindSession, packet *ber.Packet, cfg Config) {
 	}
 
 	bs.mu.Lock()
-	mech := bs.mech
-	negotiated := bs.negotiated
+	mech := bs.hsMech
+	alreadyObserved := bs.handshakeObserved
 	sicilyDone := bs.lastAuthChoiceSicily
 	bs.mu.Unlock()
 
-	if mech == MechNone || negotiated {
+	resultCode, ok := resp.Children[0].Value.(int64)
+
+	// Record the end of this authentication. Sicily has no in-progress code,
+	// so its final step is the one answering a sicilyResponse.
+	if ok && resultCode != resultSaslBindInProgress {
+		if resultCode != 0 || mech != MechSicilyNTLM || sicilyDone {
+			bs.mu.Lock()
+			bs.bindComplete = true
+			bs.mu.Unlock()
+		}
+	}
+
+	if mech == MechNone || alreadyObserved {
 		return
 	}
 
 	captureBindResponsePayload(bs, mech, resp)
 
-	resultCode, ok := resp.Children[0].Value.(int64)
 	if !ok || resultCode != 0 {
 		return // not a final success yet (or a SASL continuation) - keep waiting
 	}
 
-	// Sicily has no "not done yet" result code of its own (see
-	// BindSession.lastAuthChoiceSicily) - every successful step returns 0,
-	// so only the response to a sicilyResponse request is actually final.
+	// Sicily has no in-progress code; only the response to a sicilyResponse
+	// request is final.
 	if mech == MechSicilyNTLM && !sicilyDone {
 		return
 	}
 
-	completeHandshake(bs, mech, cfg)
+	// Deferred: the BindResponse hasn't been written back yet and still
+	// belongs to the previous layer.
+	bs.mu.Lock()
+	bs.pendingCompletion = &pendingCompletion{mech: mech, cfg: cfg}
+	bs.mu.Unlock()
 }
 
 func captureBindResponsePayload(bs *BindSession, mech BindMechanism, resp *ber.Packet) {
@@ -292,27 +307,43 @@ func captureBindResponsePayload(bs *BindSession, mech BindMechanism, resp *ber.P
 func completeHandshake(bs *BindSession, mech BindMechanism, cfg Config) {
 	bs.mu.Lock()
 	bs.handshakeObserved = true
+	// Set the mechanism now: completeGSSAPI/completeSPNEGO refine it further
+	// (e.g. SASL carrying NTLM becomes MechSaslNTLM).
+	prevMech := bs.mech
+	bs.mech = mech
 	bs.mu.Unlock()
+
+	derived := false
+	defer func() {
+		if !derived {
+			bs.mu.Lock()
+			bs.mech = prevMech
+			bs.mu.Unlock()
+		}
+	}()
 
 	var err error
 
 	switch mech {
 	case MechSicilyNTLM, MechSaslNTLM:
 		ntHash, haveHash := cfg.resolveNTHash()
-		if !haveHash {
-			// Nothing to decrypt with; readLDAPMessage reports it if wrapped
-			// traffic actually shows up.
-			return
-		}
 		bs.mu.Lock()
 		if len(bs.pending) < 2 {
 			err = errors.New("bindsession: incomplete NTLM handshake (missing challenge or authenticate message)")
 		} else {
 			challenge := bs.pending[len(bs.pending)-2]
 			authenticate := bs.pending[len(bs.pending)-1]
-			// Sicily/bare SASL NTLM has no SPNEGO envelope, so no
-			// mechListMIC from either side.
-			err = bs.completeNTLM(ntHash, challenge, authenticate, false, false, false)
+			if h := logNetNTLMHash(challenge, authenticate); h != "" {
+				log.Log.Print(decryptColor.Sprintf("[+] NetNTLM hash: %s", h))
+			}
+			if haveHash {
+				err = bs.completeNTLM(ntHash, challenge, authenticate, false, false, false)
+			} else {
+				// Hash captured above; without a credential no keys can be
+				// derived, so stop here (don't fall through to "derived").
+				bs.mu.Unlock()
+				return
+			}
 		}
 		bs.mu.Unlock()
 
@@ -346,16 +377,15 @@ func completeHandshake(bs *BindSession, mech BindMechanism, cfg Config) {
 		return
 	}
 
+	derived = true
+
 	bs.mu.Lock()
 	mechStr, layerStr := bs.mech.String(), bs.layer.String()
 	layerKnown := bs.layer != LayerUnknown
 	bs.mu.Unlock()
 
-	// NTLM/Sicily read their security layer straight out of the
-	// AUTHENTICATE_MESSAGE. GSSAPI/SPNEGO-Kerberos derives it from the
-	// Authenticator checksum flags at bind time (see completeGSSAPI/
-	// completeSPNEGO in bindsession.go), so the layer is known immediately
-	// after the handshake completes.
+	// NTLM/Sicily read their security layer from the AUTHENTICATE_MESSAGE.
+	// GSSAPI/SPNEGO-Kerberos derives it from the Authenticator checksum flags.
 	if layerKnown {
 		log.Log.Print(decryptColor.Sprintf("[+] Security layer identified: %s", layerStr))
 	} else {

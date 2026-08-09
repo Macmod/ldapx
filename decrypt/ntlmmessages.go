@@ -2,7 +2,9 @@ package decrypt
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
+	"fmt"
 
 	"golang.org/x/text/encoding/unicode"
 )
@@ -76,10 +78,14 @@ func parseNTLMChallenge(msg []byte) (*ntlmChallenge, error) {
 }
 
 type ntlmAuthenticate struct {
-	NegotiateFlags            uint32
-	Domain                    string
-	User                      string
-	NtChallengeResponse       []byte
+	NegotiateFlags      uint32
+	Domain              string
+	User                string
+	NtChallengeResponse []byte
+	// LmChallengeResponse is only needed by the NTLMv1 chain, where it
+	// carries the client challenge under extended session security and feeds
+	// the key exchange key (MS-NLMP §3.3.1, §3.4.5.1).
+	LmChallengeResponse       []byte
 	EncryptedRandomSessionKey []byte // may be nil if NEGOTIATE_KEY_EXCH wasn't negotiated
 }
 
@@ -96,6 +102,10 @@ func parseNTLMAuthenticate(msg []byte) (*ntlmAuthenticate, error) {
 		return nil, errors.New("ntlmmessages: AUTHENTICATE_MESSAGE too short")
 	}
 
+	lmResponse, err := ntlmField(msg, 12)
+	if err != nil {
+		return nil, err
+	}
 	ntResponse, err := ntlmField(msg, 20)
 	if err != nil {
 		return nil, err
@@ -133,6 +143,37 @@ func parseNTLMAuthenticate(msg []byte) (*ntlmAuthenticate, error) {
 		Domain:                    domain,
 		User:                      user,
 		NtChallengeResponse:       ntResponse,
+		LmChallengeResponse:       lmResponse,
 		EncryptedRandomSessionKey: sessionKey,
 	}, nil
+}
+
+// formatNetNTLMHash builds the crackable hash string in hashcat format:
+//
+//   NTLMv2 (-m 5600): user::domain:server_challenge:NTProofStr:blob
+//   NTLMv1 (-m 5500): user::domain:lm_response:nt_response:server_challenge
+func formatNetNTLMHash(ch *ntlmChallenge, auth *ntlmAuthenticate) string {
+	sc := hex.EncodeToString(ch.ServerChallenge)
+	if ntlmResponseIsV2(auth.NtChallengeResponse) {
+		ntProofStr := hex.EncodeToString(auth.NtChallengeResponse[:16])
+		blob := hex.EncodeToString(auth.NtChallengeResponse[16:])
+		return fmt.Sprintf("%s::%s:%s:%s:%s", auth.User, auth.Domain, sc, ntProofStr, blob)
+	}
+	lm := hex.EncodeToString(auth.LmChallengeResponse)
+	nt := hex.EncodeToString(auth.NtChallengeResponse)
+	return fmt.Sprintf("%s::%s:%s:%s:%s", auth.User, auth.Domain, lm, nt, sc)
+}
+
+// logNetNTLMHash parses raw NTLM messages and returns the crackable NetNTLM
+// hash string. Returns empty string if either message fails to parse.
+func logNetNTLMHash(challenge, authenticate []byte) string {
+	ch, err := parseNTLMChallenge(challenge)
+	if err != nil {
+		return ""
+	}
+	auth, err := parseNTLMAuthenticate(authenticate)
+	if err != nil {
+		return ""
+	}
+	return formatNetNTLMHash(ch, auth)
 }

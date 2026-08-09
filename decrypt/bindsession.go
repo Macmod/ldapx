@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/Macmod/ldapx/log"
 	"github.com/jcmturner/gofork/encoding/asn1"
 	"github.com/oiweiwei/gokrb5.fork/v9/spnego"
 	"github.com/oiweiwei/gokrb5.fork/v9/types"
@@ -82,22 +83,23 @@ func (l SecurityLayer) String() string {
 type BindSession struct {
 	mu sync.Mutex
 
+	// mech/negotiated/layer describe the security layer currently protecting
+	// traffic. Replaced when a new authentication succeeds, not when one begins.
 	mech       BindMechanism
 	negotiated bool
 	layer      SecurityLayer
 
-	// Four independent cipher instances, not two: unwrapping a message and
-	// re-sealing it are each their own RC4 stream advancement even though
-	// both use the same key (client keys for the C->T leg, server keys for
-	// T->C). Reusing one instance for both would double-advance the stream
-	// per message and desync from what the real receiving endpoint expects.
-	ntlmClientRecv *NTLMDirectionCipher // unwraps incoming-from-client (client keys)
-	ntlmClientSend *NTLMDirectionCipher // (re)seals outgoing-to-target, on the client's behalf (client keys, independent stream)
-	ntlmServerRecv *NTLMDirectionCipher // unwraps incoming-from-target (server keys)
-	ntlmServerSend *NTLMDirectionCipher // (re)seals outgoing-to-client, on the target's behalf (server keys, independent stream)
+	// hsMech is the mechanism of the authentication currently being observed.
+	hsMech BindMechanism
 
-	// DIGEST-MD5: same four-direction pattern as NTLM (stateful per-direction
-	// sequence numbers and, for auth-conf, continuous RC4 streams).
+	// Four independent cipher instances: unwrapping and re-sealing are each
+	// their own RC4 stream advancement.
+	ntlmClientRecv *NTLMDirectionCipher // unwraps incoming-from-client (client keys)
+	ntlmClientSend *NTLMDirectionCipher // re-seals outgoing-to-target (client keys)
+	ntlmServerRecv *NTLMDirectionCipher // unwraps incoming-from-target (server keys)
+	ntlmServerSend *NTLMDirectionCipher // re-seals outgoing-to-client (server keys)
+
+	// DIGEST-MD5: same four-direction pattern as NTLM.
 	digestClientRecv *DigestMD5DirectionCipher
 	digestClientSend *DigestMD5DirectionCipher
 	digestServerRecv *DigestMD5DirectionCipher
@@ -105,47 +107,74 @@ type BindSession struct {
 
 	gss *gssSessionContext
 
-	// buffers negotiation tokens as they pass through, so the
-	// AUTHENTICATE_MESSAGE (which needs the preceding CHALLENGE's data) can
-	// be processed once the full exchange is visible.
+	// buffers negotiation tokens as they pass through.
 	pending [][]byte
 
-	// loggedFraming is set the first time ShouldLogFraming runs for this
-	// connection, so the caller's one-line "post-bind traffic:
-	// plaintext/unwrapping" log fires once, not per message.
+	// loggedFraming guards the one-time framing log line.
 	loggedFraming bool
 
-	// lastAuthChoiceSicily records whether the most recent BindRequest was
-	// specifically a sicilyResponse [11] - unlike SASL's saslBindInProgress
-	// (14), Sicily has no "not done yet" signal of its own: every successful
-	// step (package discovery, negotiate, response) returns the same
-	// resultCode 0, so completion can only be inferred from having just sent
-	// the *last* step of the exchange, not from the response code alone.
+	// cbLogged/cbFailLogged guard the one-time channel-binding log lines.
+	cbLogged     bool
+	cbFailLogged bool
+
+	// lastAuthChoiceSicily records whether the most recent BindRequest was a
+	// sicilyResponse [11]. Sicily has no in-progress result code, so
+	// completion is inferred from the request type, not the response code.
 	lastAuthChoiceSicily bool
 
-	// mechAnnounced guards the one-time "[+] Bind mechanism identified: ..."
-	// log line. mech alone can't serve as that guard: MechNone means both
-	// "not observed yet" and "this is a simple bind" (itself a valid,
-	// permanent identification), so a separate flag is needed to tell those
-	// two apart.
+	// mechAnnounced guards the one-time mechanism identification log line.
 	mechAnnounced bool
 
-	// handshakeObserved is set once the bind's final response has been
-	// seen, regardless of whether key derivation from it succeeded. mech
-	// alone isn't enough to gate post-bind-only reporting (see
-	// ShouldLogFraming): it's set as soon as the mechanism name is known,
-	// from the *first* round of a multi-round handshake, well before any
-	// later round or genuinely post-bind traffic.
+	// handshakeObserved is set once the bind's final response has been seen.
 	handshakeObserved bool
+
+	// bindComplete records that the authentication being observed has ended.
+	bindComplete bool
+
+	// pendingCompletion holds a finished handshake whose keys are not
+	// installed yet.
+	pendingCompletion *pendingCompletion
+}
+
+// pendingCompletion is a handshake that has been fully observed but whose
+// derived layer must not take effect until the BindResponse concluding it
+// has been forwarded.
+type pendingCompletion struct {
+	mech BindMechanism
+	cfg  Config
+}
+
+// FinishPendingHandshake installs the layer derived from a completed
+// handshake. Called after the concluding BindResponse has been forwarded.
+// No-op when no handshake is waiting.
+func (bs *BindSession) FinishPendingHandshake() {
+	bs.mu.Lock()
+	p := bs.pendingCompletion
+	bs.pendingCompletion = nil
+	bs.mu.Unlock()
+	if p == nil {
+		return
+	}
+	completeHandshake(bs, p.mech, p.cfg)
 }
 
 func NewBindSession() *BindSession {
 	return &BindSession{}
 }
 
-// State returns a snapshot of the negotiated/layer/mech fields in a single
-// lock, for callers (logging, framing decisions) that need a consistent
-// read of all three together.
+// resetHandshake discards what was observed of the previous authentication.
+// Leaves mech/negotiated/layer/ciphers/gss alone (the active layer has a
+// separate lifetime). Caller holds bs.mu.
+func (bs *BindSession) resetHandshake() {
+	bs.pending = nil
+	bs.hsMech = MechNone
+	bs.mechAnnounced = false
+	bs.lastAuthChoiceSicily = false
+	bs.handshakeObserved = false
+	bs.bindComplete = false
+}
+
+// State returns a snapshot of negotiated/layer/mech in a single lock.
 func (bs *BindSession) State() (negotiated bool, layer SecurityLayer, mech BindMechanism) {
 	bs.mu.Lock()
 	defer bs.mu.Unlock()
@@ -153,14 +182,8 @@ func (bs *BindSession) State() (negotiated bool, layer SecurityLayer, mech BindM
 }
 
 // ShouldLogFraming reports whether the caller should emit its one-time
-// "post-bind traffic: plaintext/unwrapping" log line for this connection,
-// marking it as logged if so. Gated on the bind's final response having
-// been observed (bs.handshakeObserved), not on key negotiation having
-// succeeded - plaintext vs. wrapped is observable straight off the wire
-// regardless of whether a credential was available to actually derive keys.
-// Simple binds and unhandled SASL mechanisms never reach a final response
-// through completeHandshake, so they never set this and never get this
-// line.
+// framing log line, marking it as logged if so. Gated on the bind's final
+// response having been observed, not on key derivation succeeding.
 func (bs *BindSession) ShouldLogFraming() bool {
 	bs.mu.Lock()
 	defer bs.mu.Unlock()
@@ -171,38 +194,22 @@ func (bs *BindSession) ShouldLogFraming() bool {
 	return true
 }
 
-// completeNTLM finishes an NTLM handshake given its CHALLENGE_MESSAGE and
-// AUTHENTICATE_MESSAGE bytes and the supplied NT hash: derives session keys
-// and sets up per-direction ciphers. Callers extract challenge/authenticate
-// from wherever they were observed - Sicily/SASL-NTLM's own bs.pending
-// entries directly, or (via completeSPNEGO) the NTLM messages found nested
-// inside a SPNEGO negotiation, since the messages themselves are identical
-// regardless of which mechanism carried them.
+// completeNTLM finishes an NTLM handshake: derives session keys and sets
+// up per-direction ciphers from the CHALLENGE_MESSAGE and
+// AUTHENTICATE_MESSAGE bytes.
 //
-// clientMechListMIC and serverMechListMIC control the initial per-message
-// sequence number for the client and server cipher sets respectively.
-// They must be true when the corresponding side sent a SPNEGO mechListMIC
-// (RFC 4178 §4.2.2) during the handshake - the mechListMIC is signed with a
-// throwaway cipher handle that leaves the real keystream untouched, but the
-// numeric per-message sequence counter embedded in every NTLMSSP_MESSAGE_
-// SIGNATURE still advances to account for it. The two sides advance
-// independently: a client that did NOT send a mechListMIC starts its
-// post-bind sequence at 0, while a server that DID starts at 1, and vice
-// versa. Both clientMechListMIC and serverMechListMIC are only meaningful
-// when the AUTHENTICATE_MESSAGE's negotiated flags include NTLMSSP_NEGOTIATE_
-// SIGN (the sign flag) - setting them without SIGN is harmless (no mechList
-// MIC is ever sent when SIGN isn't negotiated).
+// clientMechListMIC and serverMechListMIC must be true when the
+// corresponding side sent a SPNEGO mechListMIC (RFC 4178 §4.2.2). The
+// mechListMIC is signed with a throwaway cipher handle, but the numeric
+// per-message sequence counter still advances. The two sides advance
+// independently and differ in when they count one: a client numbers past
+// its own mechListMIC whether or not SIGN was negotiated, while a DC counts
+// its own only when SIGN was negotiated.
 //
-// gssWrapped must be true when the NTLM is carried inside GSS-API (bare
-// SASL/GSSAPI or SASL/GSS-SPNEGO), false for raw NTLMSSP (Sicily or bare
-// SASL/NTLM). It only matters for the sealed-only (SEAL without SIGN) layer:
-// confirmed live that a Windows Server 2022 DC re-keys its RC4 sealing per
-// message (the
-// connectionless MD5(SealKey||seq) discipline - see NTLMDirectionCipher)
-// only for GSS-wrapped NTLM, while raw Sicily NTLM keeps the continuous
-// connection-oriented stream even for the same flags. The two LDAP carriers
-// dispatch to the SSP differently, so the same SEAL-without-SIGN negotiation
-// seals differently on the wire.
+// gssWrapped must be true when the NTLM is carried inside GSS-API. It only
+// matters for the sealed-only (SEAL without SIGN) layer: a Windows Server
+// 2022 DC re-keys its RC4 sealing per message for GSS-wrapped NTLM but keeps
+// the continuous stream for raw Sicily NTLM with the same flags.
 func (bs *BindSession) completeNTLM(ntHash []byte, challenge, authenticate []byte, clientMechListMIC, serverMechListMIC, gssWrapped bool) error {
 	ch, err := parseNTLMChallenge(challenge)
 	if err != nil {
@@ -213,44 +220,58 @@ func (bs *BindSession) completeNTLM(ntHash []byte, challenge, authenticate []byt
 		return fmt.Errorf("bindsession: parse AUTHENTICATE_MESSAGE: %w", err)
 	}
 
-	keys, err := deriveNTLMv2SessionKeys(ntHash, auth.User, auth.Domain, ch.ServerChallenge, auth.NtChallengeResponse, auth.EncryptedRandomSessionKey, auth.NegotiateFlags)
+	// The chain is decided from the response's own length (MS-NLMP
+	// §3.2.5.1.2), not from anything negotiated.
+	var keys *ntlmv2SessionKeys
+	if ntlmResponseIsV2(auth.NtChallengeResponse) {
+		keys, err = deriveNTLMv2SessionKeys(ntHash, auth.User, auth.Domain, ch.ServerChallenge, auth.NtChallengeResponse, auth.EncryptedRandomSessionKey, auth.NegotiateFlags)
+	} else {
+		keys, err = deriveNTLMv1SessionKeys(ntHash, ch.ServerChallenge, auth.NtChallengeResponse, auth.LmChallengeResponse, auth.EncryptedRandomSessionKey, auth.NegotiateFlags)
+	}
 	if err != nil {
 		return err
 	}
 
-	sign := auth.NegotiateFlags&ntlmNegotiateSign != 0
 	var clientStartSeq, serverStartSeq uint32
-	if clientMechListMIC && sign {
+	if clientMechListMIC {
 		clientStartSeq = 1
 	}
-	if serverMechListMIC && sign {
+	// A DC counts its own mechListMIC only when SIGN was negotiated.
+	if serverMechListMIC && auth.NegotiateFlags&ntlmNegotiateSign != 0 {
 		serverStartSeq = 1
 	}
 
-	// Sealed-without-signing (SEAL set, SIGN not) over GSS-wrapped NTLM makes
-	// a Windows Server 2022 DC re-key its RC4 sealing per message with the
-	// connectionless formula MD5(SealingKey || seqNum), even over
-	// connection-oriented LDAP - see NTLMDirectionCipher's doc comment. Raw
-	// (Sicily/SASL) NTLM keeps the continuous stream for the same flags, so
-	// this is gated on the carrier too. Every direction must follow suit or
-	// nothing decrypts.
+	// Sealed-only (SEAL without SIGN) over GSS-wrapped NTLM uses datagram
+	// per-message rekeying; raw NTLM keeps the continuous stream.
 	datagram := gssWrapped && auth.NegotiateFlags&ntlmNegotiateSeal != 0 && auth.NegotiateFlags&ntlmNegotiateSign == 0
+
+	ess := auth.NegotiateFlags&ntlmNegotiateExtendedSessionSec != 0
 
 	var err2 error
 	newCipher := func(seal, sign []byte, startSeq uint32) *NTLMDirectionCipher {
 		if err2 != nil {
 			return nil
 		}
-		c, e := NewNTLMDirectionCipher(seal, sign, startSeq, datagram)
+		c, e := NewNTLMDirectionCipher(seal, sign, startSeq, datagram, ess)
 		if e != nil {
 			err2 = e
 		}
 		return c
 	}
-	bs.ntlmClientRecv = newCipher(keys.ClientSealingKey, keys.ClientSigningKey, clientStartSeq)
-	bs.ntlmClientSend = newCipher(keys.ClientSealingKey, keys.ClientSigningKey, clientStartSeq)
-	bs.ntlmServerRecv = newCipher(keys.ServerSealingKey, keys.ServerSigningKey, serverStartSeq)
-	bs.ntlmServerSend = newCipher(keys.ServerSealingKey, keys.ServerSigningKey, serverStartSeq)
+	if ess {
+		bs.ntlmClientRecv = newCipher(keys.ClientSealingKey, keys.ClientSigningKey, clientStartSeq)
+		bs.ntlmClientSend = newCipher(keys.ClientSealingKey, keys.ClientSigningKey, clientStartSeq)
+		bs.ntlmServerRecv = newCipher(keys.ServerSealingKey, keys.ServerSigningKey, serverStartSeq)
+		bs.ntlmServerSend = newCipher(keys.ServerSealingKey, keys.ServerSigningKey, serverStartSeq)
+	} else {
+		// Without ESS, MS-NLMP §3.4 uses a single sealing key half-duplex
+		// with a shared sequence number. Each leg (client-facing and
+		// target-facing) gets one cipher shared by both directions.
+		clientLeg := newCipher(keys.ClientSealingKey, keys.ClientSigningKey, 0)
+		targetLeg := newCipher(keys.ClientSealingKey, keys.ClientSigningKey, 0)
+		bs.ntlmClientRecv, bs.ntlmServerSend = clientLeg, clientLeg
+		bs.ntlmClientSend, bs.ntlmServerRecv = targetLeg, targetLeg
+	}
 	if err2 != nil {
 		return err2
 	}
@@ -261,29 +282,13 @@ func (bs *BindSession) completeNTLM(ntHash []byte, challenge, authenticate []byt
 }
 
 // completeGSSAPI finishes a SASL/GSSAPI handshake: recovers the session key
-// from the buffered AP-REQ via the configured credential source, and
-// classifies the negotiated security layer from the AP-REQ Authenticator's
-// own GSS checksum flags (krb5SecurityLayer) - see that function's doc
-// comment for the caveat specific to this mechanism (as opposed to
-// GSS-SPNEGO, where the same flags are authoritative).
+// from the buffered AP-REQ and classifies the security layer from the
+// Authenticator's GSS checksum flags.
 //
-// A Windows client offered only bare "GSSAPI" (no "GSS-SPNEGO") falls back
-// to NTLM under the hood rather than Kerberos, the same way SPNEGO can
-// negotiate NTLM instead of Kerberos (see completeSPNEGO) - the difference
-// is bare GSSAPI has no standard envelope of its own for this, so at least
-// one real client's continuation rounds carry an ad-hoc wrapper (the
-// mechanism name and the NTLM message as sibling context-tagged fields)
-// instead of any GSS/SPNEGO framing. Every pending round is checked for an
-// embedded NTLM message first, exactly like completeSPNEGO does.
-//
-// Genuine Kerberos's credentials field is a GSS-API "Initial Context Token"
-// (RFC 2743 §3.1: an OID-tagged wrapper identifying the mechanism, carrying
-// the mechanism-specific token) - not a bare AP-REQ - so it needs the same
-// spnego.KRB5Token unwrap completeSPNEGO applies to its own inner mechanism
-// token before the bare AP-REQ bytes are reachable. Unlike SPNEGO, bare
-// GSSAPI's first round always carries the complete token (Kerberos doesn't
-// need a server challenge first the way NTLM does), so the first pending
-// round - not the last - is the one that matters here.
+// Bare "GSSAPI" may negotiate NTLM rather than Kerberos, so each pending
+// round is checked for an embedded NTLM message first. Genuine Kerberos
+// credentials are a GSS-API Initial Context Token (RFC 2743 §3.1),
+// unwrapped via spnego.KRB5Token to reach the AP-REQ.
 func (bs *BindSession) completeGSSAPI(cfg Config) error {
 	if len(bs.pending) == 0 {
 		return errors.New("bindsession: no AP-REQ observed")
@@ -296,14 +301,15 @@ func (bs *BindSession) completeGSSAPI(cfg Config) error {
 		}
 	}
 	if len(ntlmMessages) >= 2 {
+		challenge := ntlmMessages[len(ntlmMessages)-2]
+		authenticate := ntlmMessages[len(ntlmMessages)-1]
+		if h := logNetNTLMHash(challenge, authenticate); h != "" {
+			log.Log.Print(decryptColor.Sprintf("[+] NetNTLM hash: %s", h))
+		}
 		ntHash, haveHash := cfg.resolveNTHash()
 		if !haveHash {
 			return errors.New("bindsession: SASL/GSSAPI negotiated NTLM, but no --decrypt-hash/--decrypt-password supplied")
 		}
-		challenge := ntlmMessages[len(ntlmMessages)-2]
-		authenticate := ntlmMessages[len(ntlmMessages)-1]
-		// GSSAPI NTLM fallback has no SPNEGO envelope, so no mechListMIC
-		// from either side.
 		if err := bs.completeNTLM(ntHash, challenge, authenticate, false, false, true); err != nil {
 			return err
 		}
@@ -328,9 +334,8 @@ func (bs *BindSession) completeGSSAPI(cfg Config) error {
 		return err
 	}
 	candidates := apRepKeyCandidates(cfg, &tok.APReq, key)
-	// apRepKeyCandidates only appends the ticket's own session key when it
-	// differs from key - so a second entry means key is the Authenticator's
-	// subkey, not the ticket's session key.
+	// A second entry means key is the Authenticator's subkey, not the
+	// ticket's session key.
 	isSubKey := len(candidates) == 2
 	if subkey, ok := findAPRepSubkey(bs.pending, candidates); ok {
 		key = subkey
@@ -355,15 +360,11 @@ func (bs *BindSession) completeGSSAPI(cfg Config) error {
 // mechToken/ResponseToken sub-field directly - completeSPNEGO unwraps both
 // layers).
 //
-// SPNEGO can negotiate NTLM instead of Kerberos whenever Kerberos isn't
-// usable (e.g. connecting by bare IP with no resolvable SPN), so every
-// pending round is checked for an embedded NTLM message first. If at least
-// two are found (a CHALLENGE_MESSAGE and an AUTHENTICATE_MESSAGE), this
-// reuses completeNTLM directly and reclassifies bs.mech to MechSaslNTLM:
-// SPNEGO's own job ends at carrying the negotiation, and per RFC 4178 §5,
-// per-message protection after that point uses the negotiated mechanism's
-// own native format - for NTLM, exactly the same wire framing
-// Sicily/SASL-NTLM already implement, so nothing else needs to change.
+// SPNEGO can negotiate NTLM instead of Kerberos, so every pending round is
+// checked for an embedded NTLM message first. If at least two are found,
+// this reuses completeNTLM directly and reclassifies bs.mech to
+// MechSaslNTLM: per RFC 4178 §5, per-message protection after negotiation
+// uses the negotiated mechanism's own native format.
 func (bs *BindSession) completeSPNEGO(cfg Config) error {
 	if len(bs.pending) == 0 {
 		return errors.New("bindsession: no SPNEGO mechanism token observed")
@@ -383,12 +384,15 @@ func (bs *BindSession) completeSPNEGO(cfg Config) error {
 		}
 	}
 	if len(ntlmMessages) >= 2 {
+		challenge := ntlmMessages[len(ntlmMessages)-2]
+		authenticate := ntlmMessages[len(ntlmMessages)-1]
+		if h := logNetNTLMHash(challenge, authenticate); h != "" {
+			log.Log.Print(decryptColor.Sprintf("[+] NetNTLM hash: %s", h))
+		}
 		ntHash, haveHash := cfg.resolveNTHash()
 		if !haveHash {
 			return errors.New("bindsession: SPNEGO negotiated NTLM, but no --decrypt-hash/--decrypt-password supplied")
 		}
-		challenge := ntlmMessages[len(ntlmMessages)-2]
-		authenticate := ntlmMessages[len(ntlmMessages)-1]
 		if err := bs.completeNTLM(ntHash, challenge, authenticate, clientMechListMIC, serverMechListMIC, true); err != nil {
 			return err
 		}

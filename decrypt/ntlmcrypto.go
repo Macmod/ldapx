@@ -6,6 +6,7 @@ import (
 	"crypto/rc4"
 	"encoding/binary"
 	"errors"
+	"hash/crc32"
 	"strings"
 
 	"golang.org/x/crypto/md4"
@@ -212,60 +213,34 @@ func le32Bytes(v uint32) []byte {
 }
 
 // NTLMDirectionCipher implements MS-NLMP §3.4.2/§3.4.3 (SIGN/SEAL) for one
-// direction of an NTLM session (client->server or server->client) plus a
-// per-message incrementing sequence number used in the HMAC checksum. ldapx
-// keeps exactly one of these alive per direction for the life of a
-// connection; since it originates every message it forwards in that
-// direction (having decrypted-then-possibly-modified-then-resealed each one
-// in order), its own keystream position naturally stays in lockstep with
-// what the real receiving endpoint will independently derive - no separate
-// synchronization is needed beyond forwarding exactly one resealed message
-// per received message, in order.
+// direction of an NTLM session with a per-message sequence number.
 //
 // Two keystream disciplines, selected by datagram:
 //
-//   - Connection-oriented (datagram=false): a single continuous RC4 stream,
-//     never re-initialized per message. This is what MS-NLMP §3.4.3
-//     ("Session Security Details") says connection-oriented transports like
-//     LDAP use - the sealing key "is computed only once per session" - and
-//     it's what real Windows uses whenever SIGN is negotiated (signonly or
-//     signseal).
+//   - Connection-oriented (datagram=false): a single continuous RC4 stream.
+//     Used whenever SIGN is negotiated.
 //   - Datagram-style rekey (datagram=true): a fresh RC4 handle per message,
 //     keyed by SealingKey' = MD5(SealingKey || le32(seqNum)) per MS-NLMP
-//     §3.4.3. That formula is *documented only for connectionless
-//     (datagram) mode* - connection-oriented LDAP is supposed to use the
-//     continuous stream, but in reality Windows does NOT: for the
-//     SEAL-without-SIGN case (the sealed-only security layer), a Windows
-//     Server 2022 DC re-keys per message with this connectionless formula
-//     even over a connection-oriented LDAP transport, which no Microsoft
-//     spec documents. Confirmed byte-for-byte against a live capture from a
-//     Windows Server 2022 DC: the server's first sealed response decrypts
-//     and its MAC verifies only under this rekey. Without matching it, the
-//     DC can't decrypt a continuously-sealed client request (it replies with
-//     an unsolicited "Error decrypting ldap message") and unwrapping the
-//     DC's replies produces garbage.
+//     §3.4.3. Windows Server 2022 uses this for SEAL-without-SIGN even over
+//     connection-oriented LDAP, which no Microsoft spec documents.
 type NTLMDirectionCipher struct {
 	sealKey   []byte // base sealing key; retained for the datagram per-message rekey
 	signKey   []byte
 	rc4Stream *rc4.Cipher // continuous keystream; nil in datagram mode (re-keyed per message)
 	datagram  bool
-	seqNum    uint32
+	// Whether NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY was negotiated.
+	// It selects the whole per-message regime.
+	ess    bool
+	seqNum uint32
 }
 
-// startSeq is 0 for every mechanism except SPNEGO-negotiated NTLM with a
-// mechListMIC (RFC 4178/MS-SPNG's post-negotiation integrity check over the
-// mechTypes list): a real client signs that MIC with a separate, throwaway
-// RC4 handle (so the connection's real keystream position is untouched) but
-// still advances the *numeric* per-message sequence counter embedded in
-// every NTLMSSP_MESSAGE_SIGNATURE to account for it - confirmed against a
-// live capture, where post-bind traffic in that case starts at seqNum=1 in
-// both directions, not 0.
+// startSeq is 0 except for SPNEGO-negotiated NTLM with a mechListMIC
+// (RFC 4178/MS-SPNG), where the throwaway MIC signing handle advances the
+// numeric per-message sequence counter.
 //
-// datagram must be true only for the SEAL-without-SIGN (sealed-only) case -
-// see the type doc comment for why Windows deviates from its own
-// connection-oriented rule there.
-func NewNTLMDirectionCipher(sealKey, signKey []byte, startSeq uint32, datagram bool) (*NTLMDirectionCipher, error) {
-	d := &NTLMDirectionCipher{sealKey: sealKey, signKey: signKey, datagram: datagram, seqNum: startSeq}
+// datagram must be true only for the SEAL-without-SIGN (sealed-only) case.
+func NewNTLMDirectionCipher(sealKey, signKey []byte, startSeq uint32, datagram, ess bool) (*NTLMDirectionCipher, error) {
+	d := &NTLMDirectionCipher{sealKey: sealKey, signKey: signKey, datagram: datagram, ess: ess, seqNum: startSeq}
 	if !datagram {
 		c, err := rc4.NewCipher(sealKey)
 		if err != nil {
@@ -276,23 +251,59 @@ func NewNTLMDirectionCipher(sealKey, signKey []byte, startSeq uint32, datagram b
 	return d, nil
 }
 
-// messageHandle returns the RC4 handle to use for the current message: the
-// persistent connection-oriented stream, or a fresh handle re-keyed from the
-// sequence number (SealingKey' = MD5(SealingKey || le32(seqNum))) in datagram
-// mode. Both the body seal and the MAC checksum for one message use this same
-// handle, so the checksum keystream continues from wherever the body left off.
+// messageHandle returns the RC4 handle for the current message: the
+// persistent stream, or a fresh handle re-keyed from the sequence number
+// (SealingKey' = MD5(SealingKey || le32(seqNum))) in datagram mode.
 func (d *NTLMDirectionCipher) messageHandle() *rc4.Cipher {
 	if !d.datagram {
 		return d.rc4Stream
 	}
-	sum := md5.Sum(concatBytes(d.sealKey, le32Bytes(d.seqNum)))
-	c, _ := rc4.NewCipher(sum[:]) // 16-byte key: rc4.NewCipher never errors here
+	key := d.sealKey
+	if d.ess {
+		// The per-message rekey belongs to extended session security.
+		sum := md5.Sum(concatBytes(key, le32Bytes(d.seqNum)))
+		key = sum[:]
+	}
+	c, _ := rc4.NewCipher(key) // 16-byte key: rc4.NewCipher never errors here
 	return c
 }
 
-// checksum computes MAC()'s 8-byte RC4-encrypted HMAC on the given handle -
-// shared by Seal, Unseal, and Sign, since MAC() always consumes Handle
-// regardless of whether the message body itself is sealed (MS-NLMP §3.4.4).
+// signatureHandle returns the handle that masks this message's signature.
+// Datagram mode without ESS is the exception: the signature gets its own
+// handle.
+func (d *NTLMDirectionCipher) signatureHandle(body *rc4.Cipher) *rc4.Cipher {
+	if d.datagram && !d.ess {
+		return d.messageHandle()
+	}
+	return body
+}
+
+// legacySignature builds MS-NLMP §3.4.4.1's signature (used without ESS):
+// Version(4) || RandomPad(4) || Checksum(4) || SeqNum(4), where the checksum
+// is CRC32 and the trailing twelve bytes are masked by the sealing keystream.
+func (d *NTLMDirectionCipher) legacySignature(h *rc4.Cipher, message []byte) []byte {
+	sig := make([]byte, 16)
+	binary.LittleEndian.PutUint32(sig[0:4], 1) // Version, always 1
+	binary.LittleEndian.PutUint32(sig[8:12], crc32.ChecksumIEEE(message))
+	binary.LittleEndian.PutUint32(sig[12:16], d.seqNum)
+	h.XORKeyStream(sig[4:16], sig[4:16])
+	copy(sig[4:8], make([]byte, 4))
+	return sig
+}
+
+// legacyVerify checks a §3.4.4.1 signature, comparing the checksum field
+// alone. RandomPad is not reproducible and SeqNum is masked, so only the
+// checksum is meaningful.
+func (d *NTLMDirectionCipher) legacyVerify(h *rc4.Cipher, message, signature []byte) error {
+	expected := d.legacySignature(h, message)
+	if !hmac.Equal(expected[8:12], signature[8:12]) {
+		return errors.New("ntlmcrypto: signature verification failed")
+	}
+	return nil
+}
+
+// checksum computes MAC()'s 8-byte RC4-encrypted HMAC on the given handle
+// (MS-NLMP §3.4.4).
 func (d *NTLMDirectionCipher) checksum(h *rc4.Cipher, message []byte) []byte {
 	mac := hmacMD5(d.signKey, concatBytes(le32Bytes(d.seqNum), message))[:8]
 	encrypted := make([]byte, 8)
@@ -313,8 +324,11 @@ func (d *NTLMDirectionCipher) Seal(plaintext []byte) (sealed, signature []byte) 
 	h := d.messageHandle()
 	sealed = make([]byte, len(plaintext))
 	h.XORKeyStream(sealed, plaintext)
-	encryptedChecksum := d.checksum(h, plaintext)
-	signature = buildSignature(encryptedChecksum, d.seqNum)
+	if !d.ess {
+		signature = d.legacySignature(d.signatureHandle(h), plaintext)
+	} else {
+		signature = buildSignature(d.checksum(h, plaintext), d.seqNum)
+	}
 	d.seqNum++
 	return sealed, signature
 }
@@ -324,9 +338,22 @@ func (d *NTLMDirectionCipher) Unseal(sealed, signature []byte) (plaintext []byte
 	if len(signature) != 16 {
 		return nil, errors.New("ntlmcrypto: signature must be 16 bytes")
 	}
+	// Datagram mode keys every message independently off the sequence number,
+	// so the receiver uses the number from the signature, not its own count.
+	if d.datagram {
+		d.seqNum = binary.LittleEndian.Uint32(signature[12:16])
+	}
 	h := d.messageHandle()
 	plaintext = make([]byte, len(sealed))
 	h.XORKeyStream(plaintext, sealed)
+	if !d.ess {
+		err = d.legacyVerify(d.signatureHandle(h), plaintext, signature)
+		d.seqNum++
+		if err != nil {
+			return nil, err
+		}
+		return plaintext, nil
+	}
 	encryptedChecksum := d.checksum(h, plaintext)
 	d.seqNum++
 	if !hmac.Equal(encryptedChecksum, signature[4:12]) {
@@ -335,24 +362,29 @@ func (d *NTLMDirectionCipher) Unseal(sealed, signature []byte) (plaintext []byte
 	return plaintext, nil
 }
 
-// Sign produces a signature for an unsealed (sign-only, no confidentiality)
-// message - the message body itself is never passed through RC4, only the
-// checksum is (MAC() always consumes Handle per MS-NLMP §3.4.4).
+// Sign produces a signature for a sign-only message (no confidentiality).
 func (d *NTLMDirectionCipher) Sign(message []byte) (signature []byte) {
 	h := d.messageHandle()
-	encryptedChecksum := d.checksum(h, message)
-	signature = buildSignature(encryptedChecksum, d.seqNum)
+	if !d.ess {
+		signature = d.legacySignature(d.signatureHandle(h), message)
+	} else {
+		signature = buildSignature(d.checksum(h, message), d.seqNum)
+	}
 	d.seqNum++
 	return signature
 }
 
-// Verify checks a sign-only message's signature without attempting to
-// decrypt anything (there's nothing encrypted to decrypt in this mode).
+// Verify checks a sign-only message's signature.
 func (d *NTLMDirectionCipher) Verify(message, signature []byte) error {
 	if len(signature) != 16 {
 		return errors.New("ntlmcrypto: signature must be 16 bytes")
 	}
 	h := d.messageHandle()
+	if !d.ess {
+		err := d.legacyVerify(d.signatureHandle(h), message, signature)
+		d.seqNum++
+		return err
+	}
 	encryptedChecksum := d.checksum(h, message)
 	d.seqNum++
 	if !hmac.Equal(encryptedChecksum, signature[4:12]) {

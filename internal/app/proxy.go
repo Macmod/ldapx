@@ -407,6 +407,15 @@ func handleLDAPConnection(conn net.Conn) {
 	}
 	defer localTargetConn.Close()
 
+	// The certificate the target presented over TLS (--ldaps). Channel
+	// bindings sent upstream cover this, not ldapx's listener.
+	var targetCert *x509.Certificate
+	if tlsConn, ok := localTargetConn.(*tls.Conn); ok {
+		if state := tlsConn.ConnectionState(); len(state.PeerCertificates) > 0 {
+			targetCert = state.PeerCertificates[0]
+		}
+	}
+
 	targetConnReader := bufio.NewReader(localTargetConn)
 	targetConnWriter := bufio.NewWriter(localTargetConn)
 
@@ -526,6 +535,8 @@ func handleLDAPConnection(conn net.Conn) {
 
 				switch application {
 				case parser.ApplicationBindRequest:
+
+					packet2 = decrypt.RewriteBindChannelBindings(bs, packet2, decryptCfg, targetCert)
 					decrypt.InspectBindRequest(bs, packet2)
 					if !bindMechCheckDone {
 						bindMechCheckDone = true
@@ -647,6 +658,10 @@ func handleLDAPConnection(conn net.Conn) {
 				if !sendPacketsReverse(processedPackets, wasWrapped) {
 					return
 				}
+
+				// Install derived keys now that the concluding BindResponse
+				// has been forwarded.
+				bs.FinishPendingHandshake()
 			}
 		}
 	}()
