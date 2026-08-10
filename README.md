@@ -217,6 +217,9 @@ The tool provides several middlewares "ready for use" for inline LDAP filter tra
 | `E` | ReplaceWithEmpty | Empties the attributes list | `cn,sn` | | Removes all attributes except operational attributes and "+" (in which case it includes a `*`) |
 | `R` | ReorderList | Randomly reorders attrs | `cn,sn,uid` | `uid,cn,sn` | Random permutation |
 
+> [!NOTE]
+> When applying middleware chains to the attributes list, note that `w`, `W`, `p`, `e` and `g` may change the result set, by making it return *more attributes* than requested for each object. This is not a problem for most use cases, but it's possible that the client being intercepted actually checks the shape of the attributes list returned.
+
 ### Attributes Entries
 
 These middlewares are mostly related to the `Add` and `Modify` operations described in the section below.
@@ -425,7 +428,7 @@ Contributions are welcome by [opening an issue](https://github.com/Macmod/ldapx/
 
 ## Disclaimers
 
-> [!NOTE]
+> [!IMPORTANT]
 > This tool is meant to be used for authorized security testing, troubleshooting and research purposes only. The author is not responsible for any misuse of this tool.
 
 > [!NOTE]
