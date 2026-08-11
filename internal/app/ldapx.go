@@ -367,7 +367,11 @@ func init() {
 	globalStats.Reverse.CountsByType = make(map[int]uint64)
 
 }
-func updateFilterChain(chain string) {
+func updateFilterChain(chain string) error {
+	if err := validateChainRunes(chain, filterMidFlags); err != nil {
+		return err
+	}
+
 	filterChain = chain
 	newChain := &filtermid.FilterMiddlewareChain{}
 	for _, c := range filterChain {
@@ -379,6 +383,7 @@ func updateFilterChain(chain string) {
 		}
 	}
 	filterChainPtr.Store(newChain)
+	return nil
 }
 
 func getFilterChain() *filtermid.FilterMiddlewareChain {
@@ -388,7 +393,11 @@ func getFilterChain() *filtermid.FilterMiddlewareChain {
 	return &filtermid.FilterMiddlewareChain{}
 }
 
-func updateBaseDNChain(chain string) {
+func updateBaseDNChain(chain string) error {
+	if err := validateChainRunes(chain, baseDNMidFlags); err != nil {
+		return err
+	}
+
 	baseChain = chain
 	newChain := &basednmid.BaseDNMiddlewareChain{}
 	for _, c := range baseChain {
@@ -400,6 +409,7 @@ func updateBaseDNChain(chain string) {
 		}
 	}
 	baseDNChainPtr.Store(newChain)
+	return nil
 }
 
 func getBaseDNChain() *basednmid.BaseDNMiddlewareChain {
@@ -409,7 +419,11 @@ func getBaseDNChain() *basednmid.BaseDNMiddlewareChain {
 	return &basednmid.BaseDNMiddlewareChain{}
 }
 
-func updateAttrListChain(chain string) {
+func updateAttrListChain(chain string) error {
+	if err := validateChainRunes(chain, attrListMidFlags); err != nil {
+		return err
+	}
+
 	attrChain = chain
 	newChain := &attrlistmid.AttrListMiddlewareChain{}
 	for _, c := range attrChain {
@@ -421,6 +435,7 @@ func updateAttrListChain(chain string) {
 		}
 	}
 	attrListChainPtr.Store(newChain)
+	return nil
 }
 
 func getAttrListChain() *attrlistmid.AttrListMiddlewareChain {
@@ -430,7 +445,11 @@ func getAttrListChain() *attrlistmid.AttrListMiddlewareChain {
 	return &attrlistmid.AttrListMiddlewareChain{}
 }
 
-func updateAttrEntriesChain(chain string) {
+func updateAttrEntriesChain(chain string) error {
+	if err := validateChainRunes(chain, attrEntriesMidFlags); err != nil {
+		return err
+	}
+
 	entriesChain = chain
 	newChain := &attrentriesmid.AttrEntriesMiddlewareChain{}
 	for _, c := range entriesChain {
@@ -442,6 +461,7 @@ func updateAttrEntriesChain(chain string) {
 		}
 	}
 	attrEntriesChainPtr.Store(newChain)
+	return nil
 }
 
 func getAttrEntriesChain() *attrentriesmid.AttrEntriesMiddlewareChain {
@@ -505,11 +525,26 @@ func Run() {
 
 	SetupMiddlewaresMap()
 
-	// Registering middlewares
-	updateFilterChain(filterChain)
-	updateBaseDNChain(baseChain)
-	updateAttrListChain(attrChain)
-	updateAttrEntriesChain(entriesChain)
+	// Validate and register middleware chains.
+	var startupErrors []string
+	if err := updateFilterChain(filterChain); err != nil {
+		startupErrors = append(startupErrors, fmt.Sprintf("filter: %v", err))
+	}
+	if err := updateBaseDNChain(baseChain); err != nil {
+		startupErrors = append(startupErrors, fmt.Sprintf("basedn: %v", err))
+	}
+	if err := updateAttrListChain(attrChain); err != nil {
+		startupErrors = append(startupErrors, fmt.Sprintf("attrlist: %v", err))
+	}
+	if err := updateAttrEntriesChain(entriesChain); err != nil {
+		startupErrors = append(startupErrors, fmt.Sprintf("attrentries: %v", err))
+	}
+	if len(startupErrors) > 0 {
+		for _, e := range startupErrors {
+			fmt.Fprintf(os.Stderr, "[-] %s\n", e)
+		}
+		os.Exit(1)
+	}
 
 	// BaseDN middlewares
 	appliedBaseDNMiddlewares := []string{}

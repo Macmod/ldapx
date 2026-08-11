@@ -270,19 +270,31 @@ func handleSetCommand(param string, values []string) {
 	value := strings.Join(values, " ")
 	switch param {
 	case "filter":
-		updateFilterChain(value)
+		if err := updateFilterChain(value); err != nil {
+			fmt.Printf("[-] Filter chain not updated: %v\n", err)
+			return
+		}
 		fmt.Printf("Middleware chain Filter updated:\n")
 		showChainConfig("Filter", filterChain, filterMidFlags)
 	case "basedn":
-		updateBaseDNChain(value)
+		if err := updateBaseDNChain(value); err != nil {
+			fmt.Printf("[-] BaseDN chain not updated: %v\n", err)
+			return
+		}
 		fmt.Printf("Middleware chain BaseDN updated:\n")
 		showChainConfig("BaseDN", baseChain, baseDNMidFlags)
 	case "attrlist":
-		updateAttrListChain(value)
+		if err := updateAttrListChain(value); err != nil {
+			fmt.Printf("[-] AttrList chain not updated: %v\n", err)
+			return
+		}
 		fmt.Printf("Middleware chain AttrList updated:\n")
 		showChainConfig("AttrList", attrChain, attrListMidFlags)
 	case "attrentries":
-		updateAttrEntriesChain(value)
+		if err := updateAttrEntriesChain(value); err != nil {
+			fmt.Printf("[-] AttrEntries chain not updated: %v\n", err)
+			return
+		}
 		fmt.Printf("Middleware chain AttrEntries updated:\n")
 		showChainConfig("AttrEntries", entriesChain, attrEntriesMidFlags)
 	case "testbasedn":
