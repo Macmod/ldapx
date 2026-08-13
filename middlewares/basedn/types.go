@@ -24,7 +24,7 @@ func (c *BaseDNMiddlewareChain) Execute(baseDN string, verbose bool) string {
 		if verbose {
 			log.Log.Printf("[+] Applying middleware on BaseDN: %s", middleware.Name)
 		}
-		current = middleware.Func()(current)
+		current = applyToDNPart(middleware.Func())(current)
 	}
 	return current
 }

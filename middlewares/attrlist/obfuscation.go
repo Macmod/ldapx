@@ -9,6 +9,16 @@ import (
 	"github.com/Macmod/ldapx/parser"
 )
 
+// attrIsDecorable reports whether an attribute selector can carry an
+// AttributeDescription option ([RFC2251] section 4.1.5). The wildcard "*", the
+// operational marker "+", the empty selector, and selectors that already carry
+// an option (contain ";") are left untouched. A server drops an attribute whose
+// AttributeDescription carries an option it does not honor, so an already-
+// optioned selector is never decorated further.
+func attrIsDecorable(attr string) bool {
+	return attr != "" && attr != "*" && attr != "+" && !strings.Contains(attr, ";")
+}
+
 /*
 	Obfuscation AttrList Middlewares
 
@@ -204,6 +214,25 @@ func ReorderListAttrListObf() func([]string) []string {
 		rand.Shuffle(len(result), func(i, j int) {
 			result[i], result[j] = result[j], result[i]
 		})
+		return result
+	}
+}
+
+// RangeAttrListObf attaches a range option to each attribute selector, turning
+// e.g. "member" into "member;range=0-*" (MS-ADTS section 3.1.1.3.1.3.3). The
+// server returns the requested value window and echoes the range option in the
+// returned AttributeDescription. rangeOption is the "low-high" specifier, with
+// "*" meaning all remaining values.
+func RangeAttrListObf(rangeOption string) func([]string) []string {
+	return func(attrs []string) []string {
+		result := make([]string, len(attrs))
+		for i, attr := range attrs {
+			if attrIsDecorable(attr) {
+				result[i] = attr + ";range=" + rangeOption
+			} else {
+				result[i] = attr
+			}
+		}
 		return result
 	}
 }

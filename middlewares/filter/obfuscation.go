@@ -1,6 +1,7 @@
 package filter
 
 import (
+	"fmt"
 	"math/rand"
 	"slices"
 	"strconv"
@@ -757,6 +758,306 @@ func EqualityToApproxMatchFilterObf() FilterMiddleware {
 			default:
 				return filter
 			}
+		},
+	)
+}
+
+// objectCategoryClasses maps the lDAPDisplayName of a class to the RDN of its
+// defaultObjectCategory. When a server evaluates an objectCategory assertion
+// whose value is a class name rather than a DN, it substitutes that class's
+// defaultObjectCategory (MS-ADTS 3.1.1.3.1.3.5), documented per class in
+// MS-ADSC as `CN=<RDN>,<SchemaNCDN>`. The RDN is the class's own CN in most
+// cases; the person-derived classes are the notable exception, all keeping
+// `CN=Person`.
+//
+// The table covers every class MS-ADSC marks Structural (objectClassCategory
+// 1) or 88-Class (objectClassCategory 0), i.e. the classes an object can be an
+// instance of. Abstract and auxiliary classes are omitted: no object's
+// objectCategory ever resolves to them, so rewriting such an assertion could
+// not change which objects match.
+var objectCategoryClasses = map[string]string{
+	"account":                                 "account",
+	"acspolicy":                               "ACS-Policy",
+	"acsresourcelimits":                       "ACS-Resource-Limits",
+	"acssubnet":                               "ACS-Subnet",
+	"addressbookcontainer":                    "Address-Book-Container",
+	"addresstemplate":                         "Address-Template",
+	"applicationentity":                       "Application-Entity",
+	"applicationprocess":                      "Application-Process",
+	"applicationversion":                      "Application-Version",
+	"attributeschema":                         "Attribute-Schema",
+	"builtindomain":                           "Builtin-Domain",
+	"categoryregistration":                    "Category-Registration",
+	"certificationauthority":                  "Certification-Authority",
+	"classregistration":                       "Class-Registration",
+	"classschema":                             "Class-Schema",
+	"classstore":                              "Class-Store",
+	"comconnectionpoint":                      "Com-Connection-Point",
+	"computer":                                "Computer",
+	"configuration":                           "Configuration",
+	"contact":                                 "Person",
+	"container":                               "Container",
+	"controlaccessright":                      "Control-Access-Right",
+	"country":                                 "Country",
+	"crldistributionpoint":                    "CRL-Distribution-Point",
+	"crossref":                                "Cross-Ref",
+	"crossrefcontainer":                       "Cross-Ref-Container",
+	"device":                                  "Device",
+	"dfsconfiguration":                        "Dfs-Configuration",
+	"dhcpclass":                               "DHCP-Class",
+	"displayspecifier":                        "Display-Specifier",
+	"displaytemplate":                         "Display-Template",
+	"dmd":                                     "DMD",
+	"dnsnode":                                 "Dns-Node",
+	"dnszone":                                 "Dns-Zone",
+	"dnszonescope":                            "Dns-Zone-Scope",
+	"dnszonescopecontainer":                   "Dns-Zone-Scope-Container",
+	"document":                                "document",
+	"documentseries":                          "documentSeries",
+	"domaindns":                               "Domain-DNS",
+	"domainpolicy":                            "Domain-Policy",
+	"dsa":                                     "DSA",
+	"dsuisettings":                            "DS-UI-Settings",
+	"filelinktracking":                        "File-Link-Tracking",
+	"filelinktrackingentry":                   "File-Link-Tracking-Entry",
+	"foreignsecurityprincipal":                "Foreign-Security-Principal",
+	"friendlycountry":                         "friendlyCountry",
+	"ftdfs":                                   "FT-Dfs",
+	"group":                                   "Group",
+	"groupofnames":                            "Group-Of-Names",
+	"groupofuniquenames":                      "groupOfUniqueNames",
+	"grouppolicycontainer":                    "Group-Policy-Container",
+	"indexservercatalog":                      "Index-Server-Catalog",
+	"inetorgperson":                           "Person",
+	"infrastructureupdate":                    "Infrastructure-Update",
+	"intellimirrorgroup":                      "Intellimirror-Group",
+	"intellimirrorscp":                        "Intellimirror-SCP",
+	"intersitetransport":                      "Inter-Site-Transport",
+	"intersitetransportcontainer":             "Inter-Site-Transport-Container",
+	"ipnetwork":                               "IpNetwork",
+	"ipprotocol":                              "IpProtocol",
+	"ipsecfilter":                             "Ipsec-Filter",
+	"ipsecisakmppolicy":                       "Ipsec-ISAKMP-Policy",
+	"ipsecnegotiationpolicy":                  "Ipsec-Negotiation-Policy",
+	"ipsecnfa":                                "Ipsec-NFA",
+	"ipsecpolicy":                             "Ipsec-Policy",
+	"ipservice":                               "IpService",
+	"licensingsitesettings":                   "Licensing-Site-Settings",
+	"linktrackobjectmovetable":                "Link-Track-Object-Move-Table",
+	"linktrackomtentry":                       "Link-Track-OMT-Entry",
+	"linktrackvolentry":                       "Link-Track-Vol-Entry",
+	"linktrackvolumetable":                    "Link-Track-Volume-Table",
+	"locality":                                "Locality",
+	"lostandfound":                            "Lost-And-Found",
+	"meeting":                                 "Meeting",
+	"ms-net-ieee-80211-grouppolicy":           "ms-net-ieee-80211-GroupPolicy",
+	"ms-net-ieee-8023-grouppolicy":            "ms-net-ieee-8023-GroupPolicy",
+	"ms-sql-olapcube":                         "MS-SQL-OLAPCube",
+	"ms-sql-olapdatabase":                     "MS-SQL-OLAPDatabase",
+	"ms-sql-olapserver":                       "MS-SQL-OLAPServer",
+	"ms-sql-sqldatabase":                      "MS-SQL-SQLDatabase",
+	"ms-sql-sqlpublication":                   "MS-SQL-SQLPublication",
+	"ms-sql-sqlrepository":                    "MS-SQL-SQLRepository",
+	"ms-sql-sqlserver":                        "MS-SQL-SQLServer",
+	"msauthz-centralaccesspolicies":           "ms-Authz-Central-Access-Policies",
+	"msauthz-centralaccesspolicy":             "ms-Authz-Central-Access-Policy",
+	"msauthz-centralaccessrule":               "ms-Authz-Central-Access-Rule",
+	"msauthz-centralaccessrules":              "ms-Authz-Central-Access-Rules",
+	"mscom-partition":                         "ms-COM-Partition",
+	"mscom-partitionset":                      "ms-COM-PartitionSet",
+	"msdfs-deletedlinkv2":                     "ms-DFS-Deleted-Link-v2",
+	"msdfs-linkv2":                            "ms-DFS-Link-v2",
+	"msdfs-namespaceanchor":                   "ms-DFS-Namespace-Anchor",
+	"msdfs-namespacev2":                       "ms-DFS-Namespace-v2",
+	"msdfsr-connection":                       "ms-DFSR-Connection",
+	"msdfsr-content":                          "ms-DFSR-Content",
+	"msdfsr-contentset":                       "ms-DFSR-ContentSet",
+	"msdfsr-globalsettings":                   "ms-DFSR-GlobalSettings",
+	"msdfsr-localsettings":                    "ms-DFSR-LocalSettings",
+	"msdfsr-member":                           "ms-DFSR-Member",
+	"msdfsr-replicationgroup":                 "ms-DFSR-ReplicationGroup",
+	"msdfsr-subscriber":                       "ms-DFSR-Subscriber",
+	"msdfsr-subscription":                     "ms-DFSR-Subscription",
+	"msdfsr-topology":                         "ms-DFSR-Topology",
+	"msdns-serversettings":                    "ms-DNS-Server-Settings",
+	"msds-app-configuration":                  "ms-DS-App-Configuration",
+	"msds-appdata":                            "ms-DS-App-Data",
+	"msds-authnpolicies":                      "ms-DS-AuthN-Policies",
+	"msds-authnpolicy":                        "ms-DS-AuthN-Policy",
+	"msds-authnpolicysilo":                    "ms-DS-AuthN-Policy-Silo",
+	"msds-authnpolicysilos":                   "ms-DS-AuthN-Policy-Silos",
+	"msds-azadminmanager":                     "ms-DS-Az-Admin-Manager",
+	"msds-azapplication":                      "ms-DS-Az-Application",
+	"msds-azoperation":                        "ms-DS-Az-Operation",
+	"msds-azrole":                             "ms-DS-Az-Role",
+	"msds-azscope":                            "ms-DS-Az-Scope",
+	"msds-aztask":                             "ms-DS-Az-Task",
+	"msds-claimstransformationpolicies":       "ms-DS-Claims-Transformation-Policies",
+	"msds-claimstransformationpolicytype":     "ms-DS-Claims-Transformation-Policy-Type",
+	"msds-claimtype":                          "ms-DS-Claim-Type",
+	"msds-claimtypes":                         "ms-DS-Claim-Types",
+	"msds-delegatedmanagedserviceaccount":     "ms-DS-Delegated-Managed-Service-Account",
+	"msds-device":                             "ms-DS-Device",
+	"msds-devicecontainer":                    "ms-DS-Device-Container",
+	"msds-deviceregistrationservice":          "ms-DS-Device-Registration-Service",
+	"msds-deviceregistrationservicecontainer": "ms-DS-Device-Registration-Service-Container",
+	"msds-groupmanagedserviceaccount":         "ms-DS-Group-Managed-Service-Account",
+	"msds-keycredential":                      "ms-DS-Key-Credential",
+	"msds-managedserviceaccount":              "ms-DS-Managed-Service-Account",
+	"msds-optionalfeature":                    "ms-DS-Optional-Feature",
+	"msds-passwordsettings":                   "ms-DS-Password-Settings",
+	"msds-passwordsettingscontainer":          "ms-DS-Password-Settings-Container",
+	"msds-quotacontainer":                     "ms-DS-Quota-Container",
+	"msds-quotacontrol":                       "ms-DS-Quota-Control",
+	"msds-resourceproperties":                 "ms-DS-Resource-Properties",
+	"msds-resourceproperty":                   "ms-DS-Resource-Property",
+	"msds-resourcepropertylist":               "ms-DS-Resource-Property-List",
+	"msds-shadowprincipal":                    "ms-DS-Shadow-Principal",
+	"msds-shadowprincipalcontainer":           "ms-DS-Shadow-Principal-Container",
+	"msds-valuetype":                          "ms-DS-Value-Type",
+	"msexchconfigurationcontainer":            "ms-Exch-Configuration-Container",
+	"msfve-recoveryinformation":               "ms-FVE-RecoveryInformation",
+	"msieee80211-policy":                      "ms-ieee-80211-Policy",
+	"msimaging-postscanprocess":               "ms-Imaging-PostScanProcess",
+	"msimaging-psps":                          "ms-Imaging-PSPs",
+	"mskds-provrootkey":                       "ms-Kds-Prov-RootKey",
+	"mskds-provserverconfiguration":           "ms-Kds-Prov-ServerConfiguration",
+	"msmq-custom-recipient":                   "MSMQ-Custom-Recipient",
+	"msmq-group":                              "MSMQ-Group",
+	"msmqconfiguration":                       "MSMQ-Configuration",
+	"msmqenterprisesettings":                  "MSMQ-Enterprise-Settings",
+	"msmqmigrateduser":                        "MSMQ-Migrated-User",
+	"msmqqueue":                               "MSMQ-Queue",
+	"msmqsettings":                            "MSMQ-Settings",
+	"msmqsitelink":                            "MSMQ-Site-Link",
+	"mspki-enterprise-oid":                    "ms-PKI-Enterprise-Oid",
+	"mspki-key-recovery-agent":                "ms-PKI-Key-Recovery-Agent",
+	"mspki-privatekeyrecoveryagent":           "ms-PKI-Private-Key-Recovery-Agent",
+	"msprint-connectionpolicy":                "ms-Print-ConnectionPolicy",
+	"mssfu30domaininfo":                       "msSFU-30-Domain-Info",
+	"mssfu30mailaliases":                      "msSFU-30-Mail-Aliases",
+	"mssfu30netid":                            "msSFU-30-Net-Id",
+	"mssfu30networkuser":                      "msSFU-30-Network-User",
+	"mssfu30nismapconfig":                     "msSFU-30-NIS-Map-Config",
+	"msspp-activationobject":                  "ms-SPP-Activation-Object",
+	"msspp-activationobjectscontainer":        "ms-SPP-Activation-Objects-Container",
+	"mstapi-rtconference":                     "ms-TAPI-Rt-Conference",
+	"mstapi-rtperson":                         "ms-TAPI-Rt-Person",
+	"mstpm-informationobject":                 "ms-TPM-Information-Object",
+	"mstpm-informationobjectscontainer":       "ms-TPM-Information-Objects-Container",
+	"mswmi-intrangeparam":                     "ms-WMI-IntRangeParam",
+	"mswmi-intsetparam":                       "ms-WMI-IntSetParam",
+	"mswmi-mergeablepolicytemplate":           "ms-WMI-MergeablePolicyTemplate",
+	"mswmi-objectencoding":                    "ms-WMI-ObjectEncoding",
+	"mswmi-policytemplate":                    "ms-WMI-PolicyTemplate",
+	"mswmi-policytype":                        "ms-WMI-PolicyType",
+	"mswmi-rangeparam":                        "ms-WMI-RangeParam",
+	"mswmi-realrangeparam":                    "ms-WMI-RealRangeParam",
+	"mswmi-rule":                              "ms-WMI-Rule",
+	"mswmi-shadowobject":                      "ms-WMI-ShadowObject",
+	"mswmi-simplepolicytemplate":              "ms-WMI-SimplePolicyTemplate",
+	"mswmi-som":                               "ms-WMI-Som",
+	"mswmi-stringsetparam":                    "ms-WMI-StringSetParam",
+	"mswmi-uintrangeparam":                    "ms-WMI-UintRangeParam",
+	"mswmi-uintsetparam":                      "ms-WMI-UintSetParam",
+	"mswmi-unknownrangeparam":                 "ms-WMI-UnknownRangeParam",
+	"mswmi-wmigpo":                            "ms-WMI-WMIGPO",
+	"nismap":                                  "NisMap",
+	"nisnetgroup":                             "NisNetgroup",
+	"nisobject":                               "NisObject",
+	"ntdsconnection":                          "NTDS-Connection",
+	"ntdsdsa":                                 "NTDS-DSA",
+	"ntdsdsaro":                               "NTDS-DSA-RO",
+	"ntdsservice":                             "NTDS-Service",
+	"ntdssitesettings":                        "NTDS-Site-Settings",
+	"ntfrsmember":                             "NTFRS-Member",
+	"ntfrsreplicaset":                         "NTFRS-Replica-Set",
+	"ntfrssettings":                           "NTFRS-Settings",
+	"ntfrssubscriber":                         "NTFRS-Subscriber",
+	"ntfrssubscriptions":                      "NTFRS-Subscriptions",
+	"oncrpc":                                  "OncRpc",
+	"organization":                            "Organization",
+	"organizationalperson":                    "Person",
+	"organizationalrole":                      "Organizational-Role",
+	"organizationalunit":                      "Organizational-Unit",
+	"packageregistration":                     "Package-Registration",
+	"person":                                  "Person",
+	"physicallocation":                        "Physical-Location",
+	"pkicertificatetemplate":                  "PKI-Certificate-Template",
+	"pkienrollmentservice":                    "PKI-Enrollment-Service",
+	"printqueue":                              "Print-Queue",
+	"querypolicy":                             "Query-Policy",
+	"remotemailrecipient":                     "Remote-Mail-Recipient",
+	"remotestorageservicepoint":               "Remote-Storage-Service-Point",
+	"residentialperson":                       "Residential-Person",
+	"rfc822localpart":                         "rFC822LocalPart",
+	"ridmanager":                              "RID-Manager",
+	"ridset":                                  "RID-Set",
+	"room":                                    "room",
+	"rpccontainer":                            "Rpc-Container",
+	"rpcgroup":                                "rpc-Group",
+	"rpcprofile":                              "rpc-Profile",
+	"rpcprofileelement":                       "rpc-Profile-Element",
+	"rpcserver":                               "rpc-Server",
+	"rpcserverelement":                        "rpc-Server-Element",
+	"rrasadministrationconnectionpoint":       "RRAS-Administration-Connection-Point",
+	"rrasadministrationdictionary":            "RRAS-Administration-Dictionary",
+	"samserver":                               "Sam-Server",
+	"secret":                                  "Secret",
+	"server":                                  "Server",
+	"serverscontainer":                        "Servers-Container",
+	"serviceadministrationpoint":              "Service-Administration-Point",
+	"serviceclass":                            "Service-Class",
+	"serviceconnectionpoint":                  "Service-Connection-Point",
+	"serviceinstance":                         "Service-Instance",
+	"site":                                    "Site",
+	"sitelink":                                "Site-Link",
+	"sitelinkbridge":                          "Site-Link-Bridge",
+	"sitescontainer":                          "Sites-Container",
+	"storage":                                 "Storage",
+	"subnet":                                  "Subnet",
+	"subnetcontainer":                         "Subnet-Container",
+	"subschema":                               "SubSchema",
+	"trusteddomain":                           "Trusted-Domain",
+	"typelibrary":                             "Type-Library",
+	"user":                                    "Person",
+	"volume":                                  "Volume",
+}
+
+// ObjectCategoryFormFilterObf rewrites shortname objectCategory assertions into
+// the full DN of the corresponding schema object, which is the form the server
+// resolves them to anyway (MS-ADTS 3.1.1.3.1.3.5).
+//
+// Values that already look like a DN are left untouched, as are classes absent
+// from the shortname table.
+//
+// rootDN is the DN of the forest root domain, since the config NC that holds
+// the schema objects lives there rather than under each domain.
+func ObjectCategoryFormFilterObf(rootDN string) FilterMiddleware {
+	return LeafApplierFilterMiddleware(
+		func(filter parser.Filter) parser.Filter {
+			switch f := filter.(type) {
+			case *parser.FilterEqualityMatch:
+				if !strings.EqualFold(f.AttributeDesc, "objectCategory") {
+					return filter
+				}
+
+				if strings.Contains(f.AssertionValue, "=") {
+					return filter
+				}
+
+				cn, exists := objectCategoryClasses[strings.ToLower(f.AssertionValue)]
+				if !exists {
+					return filter
+				}
+
+				return &parser.FilterEqualityMatch{
+					AttributeDesc:  f.AttributeDesc,
+					AssertionValue: fmt.Sprintf("CN=%s,CN=Schema,CN=Configuration,%s", cn, rootDN),
+				}
+			}
+
+			return filter
 		},
 	)
 }

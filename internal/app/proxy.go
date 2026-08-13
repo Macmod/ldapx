@@ -639,6 +639,9 @@ func handleLDAPConnection(conn net.Conn) {
 						if applied {
 							spoofApplied.Store(true)
 						}
+						if attrListChainHasRange() {
+							responsePacket, _ = StripAddedRangeOptions(responsePacket)
+						}
 					}
 
 					_, verbRev := runtimeConfig.GetVerbosity()

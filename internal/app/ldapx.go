@@ -368,7 +368,7 @@ func init() {
 
 }
 func updateFilterChain(chain string) error {
-	if err := validateChainRunes(chain, filterMidFlags); err != nil {
+	if err := validateFilterChain(chain); err != nil {
 		return err
 	}
 
@@ -394,7 +394,7 @@ func getFilterChain() *filtermid.FilterMiddlewareChain {
 }
 
 func updateBaseDNChain(chain string) error {
-	if err := validateChainRunes(chain, baseDNMidFlags); err != nil {
+	if err := validateBaseDNChain(chain); err != nil {
 		return err
 	}
 

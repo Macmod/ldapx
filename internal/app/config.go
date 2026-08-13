@@ -38,6 +38,7 @@ var baseDNMidFlags map[rune]string = map[rune]string{
 	'Q': "DoubleQuotes",
 	'U': "GUIDFormat",
 	'I': "SIDFormat",
+	'W': "WKGUIDFormat",
 }
 
 var filterMidFlags map[rune]string = map[rune]string{
@@ -64,6 +65,7 @@ var filterMidFlags map[rune]string = map[rune]string{
 	'n': "ANRGarbageSubstring",
 	'P': "DNAttributesNoise",
 	'L': "TransitiveEval",
+	'F': "ObjectCategoryForm",
 }
 
 var attrListMidFlags map[rune]string = map[rune]string{
@@ -77,6 +79,7 @@ var attrListMidFlags map[rune]string = map[rune]string{
 	'p': "AddPlus",
 	'E': "ReplaceWithEmpty",
 	'R': "ReorderList",
+	'r': "Range",
 }
 
 var attrEntriesMidFlags map[rune]string = map[rune]string{
@@ -98,8 +101,9 @@ func SetupMiddlewaresMap() {
 		"HexValue":     basednmid.RandHexValueBaseDNObf(optFloat("BDNHexValueProb")),
 		"Spacing":      basednmid.RandSpacingBaseDNObf(optInt("BDNSpacingMaxElems")),
 		"DoubleQuotes": basednmid.DoubleQuotesBaseDNObf(),
-		"GUIDFormat":   basednmid.GUIDBaseDNObf(optStr("BDNGuid")),
-		"SIDFormat":    basednmid.SIDBaseDNObf(optStr("BDNSid")),
+		"GUIDFormat":   basednmid.GUIDBaseDNObf(optStr("BDNGuid"), optStr("BDNMatch")),
+		"SIDFormat":    basednmid.SIDBaseDNObf(optStr("BDNSid"), optStr("BDNMatch")),
+		"WKGUIDFormat": basednmid.WKGUIDFormatBaseDNObf(),
 	}
 
 	filterMidMap = map[string]filtermid.FilterMiddleware{
@@ -109,8 +113,8 @@ func SetupMiddlewaresMap() {
 		"Spacing":              filtermid.RandSpacingFilterObf(optInt("FiltSpacingMaxSpaces")),
 		"ReplaceTautologies":   filtermid.ReplaceTautologiesFilterObf(),
 		"TimestampGarbage":     filtermid.RandTimestampSuffixFilterObf(optInt("FiltTimestampGarbageMaxChars"), optStr("FiltGarbageCharset"), optBool("FiltTimestampGarbageUseComma")),
-		"AddBool":              filtermid.RandAddBoolFilterObf(optInt("FiltAddBoolMaxDepth"), optFloat("FiltDeMorganBoolProb")),
-		"DblNegBool":           filtermid.RandDblNegBoolFilterObf(optInt("FiltDblNegBoolMaxDepth"), optFloat("FiltDeMorganBoolProb")),
+		"AddBool":              filtermid.RandAddBoolFilterObf(optInt("FiltAddBoolMaxDepth"), optFloat("FiltAddBoolProb")),
+		"DblNegBool":           filtermid.RandDblNegBoolFilterObf(optInt("FiltDblNegBoolMaxDepth"), optFloat("FiltDblNegBoolProb")),
 		"DeMorganBool":         filtermid.DeMorganBoolFilterObf(),
 		"ReorderBool":          filtermid.RandBoolReorderFilterObf(),
 		"ExactBitwiseBreakout": filtermid.ExactBitwiseBreakoutFilterObf(),
@@ -126,10 +130,11 @@ func SetupMiddlewaresMap() {
 		"ANRGarbageSubstring":  filtermid.ANRSubstringGarbageFilterObf(optInt("FiltANRSubstringMaxElems"), optStr("FiltGarbageCharset")),
 		"DNAttributesNoise":    filtermid.RandDNAttributesNoiseFilterObf(optFloat("FiltDNAttrNoiseProb")),
 		"TransitiveEval":       filtermid.TransitiveEvalFilterObf(),
+		"ObjectCategoryForm":   filtermid.ObjectCategoryFormFilterObf(optStr("FiltObjCategoryRootDN")),
 	}
 
 	attrListMidMap = map[string]attrlistmid.AttrListMiddleware{
-		"OIDAttribute":        attrlistmid.OIDAttributeAttrListObf(optInt("AttrsOIDAttributeMaxSpaces"), optInt("AttrsOIDAttributeMaxZeros"), optBool("AttrsOIDAttributePrefix")),
+		"OIDAttribute":        attrlistmid.OIDAttributeAttrListObf(optInt("AttrsOIDAttributeMaxSpaces"), optInt("AttrsOIDAttributeMaxZeros"), optBool("AttrsOIDAttributeIncludePrefix")),
 		"Case":                attrlistmid.RandCaseAttrListObf(optFloat("AttrsCaseProb")),
 		"Duplicate":           attrlistmid.DuplicateAttrListObf(optFloat("AttrsDuplicateProb")),
 		"GarbageNonExisting":  attrlistmid.GarbageNonExistingAttrListObf(optInt("AttrsGarbageNonExistingMaxElems"), optInt("AttrsGarbageNonExistingMaxSize"), optStr("AttrsGarbageCharset")),
@@ -139,10 +144,11 @@ func SetupMiddlewaresMap() {
 		"AddPlus":             attrlistmid.AddPlusAttrListObf(),
 		"ReplaceWithEmpty":    attrlistmid.ReplaceWithEmptyAttrListObf(),
 		"ReorderList":         attrlistmid.ReorderListAttrListObf(),
+		"Range":               attrlistmid.RangeAttrListObf(optStr("AttrsRangeOption")),
 	}
 
 	attrEntriesMidMap = map[string]attrentriesmid.AttrEntriesMiddleware{
-		"OIDAttribute": attrentriesmid.OIDAttributeAttrEntriesObf(optInt("AttrEntriesOIDAttributeMaxSpaces"), optInt("AttrEntriesOIDAttributeMaxZeros"), optBool("AttrEntriesOIDAttributePrefix")),
+		"OIDAttribute": attrentriesmid.OIDAttributeAttrEntriesObf(optInt("AttrEntriesOIDAttributeMaxSpaces"), optInt("AttrEntriesOIDAttributeMaxZeros"), optBool("AttrEntriesOIDAttributeIncludePrefix")),
 		"Case":         attrentriesmid.RandCaseAttrEntriesObf(optFloat("AttrEntriesCaseProb")),
 		"ReorderList":  attrentriesmid.ReorderListAttrEntriesObf(),
 	}

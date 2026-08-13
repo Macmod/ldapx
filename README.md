@@ -175,6 +175,13 @@ The tool provides several middlewares "ready for use" for inline LDAP filter tra
 | `X` | HexValue | Hex encodes characters in the values | `cn=john` | `cn=\6a\6fmin` | Probability based |
 | `S` | Spacing | Adds random spaces in the BaseDN (in the beginning and/or end) | `DC=draco` | `DC=draco     ` | Probability based |
 | `Q` | DoubleQuotes | Adds quotes to values | `cn=Admin` | `cn="Admin"` | Incompatible with `HexValue` / `Spacing` |
+| `U` | GUIDFormat | Replaces the BaseDN with the `<GUID=...>` DN form | `DC=draco,DC=local` | `<GUID=aabbccdd...>` | Requires the `BDNGuid` option; changes the target object, so it must be the only middleware of the chain; `BDNMatch` restricts it to a single BaseDN |
+| `I` | SIDFormat | Replaces the BaseDN with the `<SID=...>` DN form | `DC=draco,DC=local` | `<SID=S-1-5-21-...>` | Requires the `BDNSid` option; changes the target object, so it must be the only middleware of the chain; `BDNMatch` restricts it to a single BaseDN |
+| `W` | WKGUIDFormat | Converts well-known containers to the `<WKGUID=...>` DN form | `CN=Users,DC=draco,DC=local` | `<WKGUID=a9d1ca15768811d1aded00c04fd8d5cd,DC=draco,DC=local>` | Only applies to well-known containers; place it first, since the middlewares after it apply to the DN inside the form and the ones before it (other than `Case`) keep it from matching |
+
+> [!NOTE]
+> The `<WKGUID=...>` form produced by `W` still carries a regular DN, so the other BaseDN middlewares keep working on it - they apply to that DN and leave the rest of the form untouched. A chain such as `-b WCX` turns `CN=Users,DC=draco,DC=local` into `<WKGUID=a9d1ca15768811d1aded00c04fd8d5cd,dC=\64rAcO,DC=\6cOc\61l>`.
+> The `<GUID=...>` / `<SID=...>` forms produced by `U` and `I` carry no DN, which is why those two must be used on their own. Also note that `I` and `U` replace the BaseDN of all applicable LDAP ops with the one specified via either `BDNGuid` or `BDNSid`, unless (1) the BaseDN to replace is empty (which indicates the intent of fetching the RootDSE) or (2) `BDNMatch` is set, in which case it only replaces the BaseDN if it matches the specified value.
 
 ### Filter
 
@@ -201,6 +208,12 @@ The tool provides several middlewares "ready for use" for inline LDAP filter tra
 | `s` | SubstringSplit | Splits values into substrings | `(cn=john)` | `(cn=jo*hn)` | Only for string attrs. & can break the filter if it's not specific enough |
 | `N` | NamesToANR | Changes attributes in the aNR set to `aNR` | `(name=john)` | `(aNR==john)` | |
 | `n` | ANRGarbageSubstring | Appends garbage to the end of `aNR` equalities | `(aNR==john)` | `(aNR==john*siaASJU)` | |
+| `P` | DNAttributesNoise | Randomly toggles the `dnAttributes` flag of extensible matches | `(cn:=john)` | `(cn:dn:=john)` | Probability based; AD ignores the flag, and it only acts on extensible matches produced by other middlewares |
+| `L` | TransitiveEval | Converts equalities on link attributes to the transitive matching rule | `(memberOf=CN=Domain Admins,CN=Users,DC=draco,DC=local)` | `(memberOf:1.2.840.113556.1.4.1941:=CN=Domain Admins,CN=Users,DC=draco,DC=local)` | Only for link attributes; returns a superset of the results for nested relationships |
+| `F` | ObjectCategoryForm | Converts `objectCategory` shortnames to the DN of the schema object | `(objectCategory=user)` | `(objectCategory=CN=Person,CN=Schema,CN=Configuration,DC=draco,DC=local)` | Requires the `FiltObjCategoryRootDN` option, set to the DN of the forest root domain (the config NC lives there, not under each domain) |
+
+> [!NOTE]
+> The `L` / `TransitiveEval` middleware changes query semantics by following link attributes recursively instead of matching them directly. For example, a query for the members of a group (`memberOf=<group>`) will also return the objects that belong to it through nested groups. The result set is therefore a superset of the original one whenever indirect relationships exist, which may or may not cause issues in the client, depending on its implementation.
 
 ### Attributes List
 
@@ -216,9 +229,13 @@ The tool provides several middlewares "ready for use" for inline LDAP filter tra
 | `W` | ReplaceWithWildcard | Replaces the list with a wildcard | `cn,sn` | `*` | Replaces all attributes except operational attributes and "+" |
 | `E` | ReplaceWithEmpty | Empties the attributes list | `cn,sn` | | Removes all attributes except operational attributes and "+" (in which case it includes a `*`) |
 | `R` | ReorderList | Randomly reorders attrs | `cn,sn,uid` | `uid,cn,sn` | Random permutation |
+| `r` | Range | Adds a range option to each attribute | `member` | `member;range=0-*` | Range retrieval (MS-ADTS 3.1.1.3.1.3.3); window set via `AttrsRangeOption` |
 
 > [!NOTE]
 > When applying middleware chains to the attributes list, note that `w`, `W`, `p`, `E` and `g` may change the result set, by making it return *more attributes* than requested for each object. This is not a problem for most use cases, but it's possible that the client being intercepted actually checks the shape of the attributes list returned.
+
+> [!NOTE]
+> `r` (Range) decorates each requested attribute name with a range option (`member` -> `member;range=0-*`); the special selectors `*`, `+` and attributes that already carry an option are left untouched. The server returns the requested value window and "echoes" the range option in the response (e.g. `member;range=0-*`). When the `r` chain is active, ldapx removes a *completed* range option (`;range=<low>-*`, which the server sends when all remaining values are present) from responses, so the client sees the plain attribute name it asked for. A *capped* window is left decorated, since undecorating it would hide the cap to the client.
 
 ### Attributes Entries
 

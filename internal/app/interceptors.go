@@ -446,3 +446,135 @@ func ProcessModifyDNRequest(packet *ber.Packet) *ber.Packet {
 
 	return packet
 }
+
+// attrListChainHasRange reports whether the active AttrList chain contains the
+// Range middleware, i.e. whether ldapx is the one attaching range options to
+// outgoing requests. Response de-decoration is applied only in that case.
+func attrListChainHasRange() bool {
+	chain := getAttrListChain()
+	if chain == nil {
+		return false
+	}
+	for _, m := range chain.Middlewares {
+		if m.Name == "Range" {
+			return true
+		}
+	}
+	return false
+}
+
+// stripCompleteRangeOption removes a completed range option ("range=<low>-*")
+// from an AttributeDescription, returning the undecorated form. A completed
+// range is one the server marks with "*" for the high bound, meaning every
+// value is present (MS-ADTS section 3.1.1.3.1.3.3); such a response can be
+// handed back to the client under its plain name with no loss. A capped range
+// ("range=<low>-<n>", n numeric) signals that more values remain and is left
+// untouched, since undecorating it would hide values that ldapx does not fetch.
+// Any other options on the descriptor are preserved.
+func stripCompleteRangeOption(desc string) (string, bool) {
+	parts := strings.Split(desc, ";")
+	if len(parts) == 1 {
+		return desc, false
+	}
+
+	kept := parts[:1]
+	changed := false
+	for _, opt := range parts[1:] {
+		if isCompletedRangeOption(opt) {
+			changed = true
+			continue
+		}
+		kept = append(kept, opt)
+	}
+	if !changed {
+		return desc, false
+	}
+	return strings.Join(kept, ";"), true
+}
+
+// isCompletedRangeOption reports whether opt is a range option whose high bound
+// is "*". Option names are case-insensitive ([RFC4512] section 2.5).
+func isCompletedRangeOption(opt string) bool {
+	const prefix = "range="
+	if len(opt) < len(prefix) || !strings.EqualFold(opt[:len(prefix)], prefix) {
+		return false
+	}
+	low, high, found := strings.Cut(opt[len(prefix):], "-")
+	if !found || low == "" || high != "*" {
+		return false
+	}
+	for _, r := range low {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// StripAddedRangeOptions rewrites a SearchResultEntry so that attributes whose
+// names carry a completed range option ldapx added are returned under their
+// plain names. It returns the (possibly rebuilt) packet and whether any change
+// was made.
+func StripAddedRangeOptions(packet *ber.Packet) (*ber.Packet, bool) {
+	if len(packet.Children) < 2 || len(packet.Children[1].Children) < 2 {
+		return packet, false
+	}
+
+	entry := packet.Children[1]
+	objectName := entry.Children[0]
+	attributes := entry.Children[1]
+
+	type rewrite struct {
+		idx  int
+		name string
+	}
+	var rewrites []rewrite
+	for i, attr := range attributes.Children {
+		if len(attr.Children) == 0 {
+			continue
+		}
+		name, ok := attr.Children[0].Value.(string)
+		if !ok {
+			continue
+		}
+		if stripped, changed := stripCompleteRangeOption(name); changed {
+			rewrites = append(rewrites, rewrite{i, stripped})
+		}
+	}
+	if len(rewrites) == 0 {
+		return packet, false
+	}
+
+	// ber.Packet.Bytes() serializes from a .Data buffer snapshotted at
+	// AppendChild time, not from .Children, so every ancestor of a changed
+	// node has to be rebuilt with fresh AppendChild calls up to the top-level
+	// message (matching rootdse.ProcessSearchResultEntry).
+	next := 0
+	newAttributes := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "Attributes")
+	for i, attr := range attributes.Children {
+		if next < len(rewrites) && rewrites[next].idx == i {
+			newAttr := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "PartialAttribute")
+			newAttr.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, rewrites[next].name, "Type"))
+			for _, child := range attr.Children[1:] {
+				newAttr.AppendChild(child)
+			}
+			newAttributes.AppendChild(newAttr)
+			next++
+			continue
+		}
+		newAttributes.AppendChild(attr)
+	}
+
+	newEntry := ber.Encode(ber.ClassApplication, ber.TypeConstructed, parser.ApplicationSearchResultEntry, nil, "Search Result Entry")
+	newEntry.AppendChild(objectName)
+	newEntry.AppendChild(newAttributes)
+
+	newPacket := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Response")
+	newPacket.AppendChild(packet.Children[0])
+	newPacket.AppendChild(newEntry)
+	for _, child := range packet.Children[2:] {
+		newPacket.AppendChild(child)
+	}
+
+	return newPacket, true
+}
