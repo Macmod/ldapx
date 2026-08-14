@@ -846,6 +846,7 @@ func parseSubFilters(query string) ([]Filter, error) {
 	return subFilters, nil
 }
 
+/*
 func parseSubstringFilter(attributeDesc, assertionValue string) (Filter, error) {
 	parts := strings.Split(assertionValue, "*")
 	var substrings []SubstringFilter
@@ -869,6 +870,7 @@ func parseSubstringFilter(attributeDesc, assertionValue string) (Filter, error) 
 		Substrings:    substrings,
 	}, nil
 }
+*/
 
 func ldapEscape(str string) string {
 	str = strings.ReplaceAll(str, `\`, `\\`)

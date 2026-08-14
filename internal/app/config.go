@@ -66,6 +66,8 @@ var filterMidFlags map[rune]string = map[rune]string{
 	'P': "DNAttributesNoise",
 	'L': "TransitiveEval",
 	'F': "ObjectCategoryForm",
+	'U': "IgnorableUnicode",
+	'W': "AltSpace",
 }
 
 var attrListMidFlags map[rune]string = map[rune]string{
@@ -131,6 +133,8 @@ func SetupMiddlewaresMap() {
 		"DNAttributesNoise":    filtermid.RandDNAttributesNoiseFilterObf(optFloat("FiltDNAttrNoiseProb")),
 		"TransitiveEval":       filtermid.TransitiveEvalFilterObf(),
 		"ObjectCategoryForm":   filtermid.ObjectCategoryFormFilterObf(optStr("FiltObjCategoryRootDN")),
+		"IgnorableUnicode":     filtermid.RandIgnorableUnicodeFilterObf(optFloat("FiltIgnorableUnicodeProb"), optStr("FiltIgnorableUnicodeMode")),
+		"AltSpace":             filtermid.RandAltSpaceFilterObf(optFloat("FiltAltSpaceProb")),
 	}
 
 	attrListMidMap = map[string]attrlistmid.AttrListMiddleware{

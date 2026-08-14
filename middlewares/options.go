@@ -33,6 +33,9 @@ var DefaultOptions = map[string]string{
 	"FiltOIDAttributeIncludePrefix":   "true",
 	"FiltDNAttrNoiseProb":             "0.8",
 	"FiltObjCategoryRootDN":           "",
+	"FiltIgnorableUnicodeProb":        "0.3",
+	"FiltIgnorableUnicodeMode":        "all",
+	"FiltAltSpaceProb":                "1",
 
 	"AttrsDuplicateProb":              "0.7",
 	"AttrsCaseProb":                   "0.7",
@@ -84,6 +87,9 @@ var DefaultOptionsKeys = []string{
 	"FiltOIDAttributeIncludePrefix",
 	"FiltDNAttrNoiseProb",
 	"FiltObjCategoryRootDN",
+	"FiltIgnorableUnicodeProb",
+	"FiltIgnorableUnicodeMode",
+	"FiltAltSpaceProb",
 
 	"AttrsGarbageExistingMaxElems",
 	"AttrsGarbageNonExistingMaxElems",

@@ -58,7 +58,12 @@ func OIDAttributeBaseDNObf(maxSpaces int, maxZeros int, includePrefix bool) func
 	}
 }
 
-// Prepends zeros to attribute OIDs in BaseDN
+// Prepends zeros to attribute OIDs in BaseDN.
+//
+// Unused: OIDAttributeBaseDNObf already prepends zeros as part of its OID
+// conversion (via its maxZeros argument), so this standalone variant is never
+// registered.
+/*
 func OIDPrependZerosBaseDNObf(maxZeros int) func(string) string {
 	return func(dn string) string {
 		parts := strings.Split(dn, ",")
@@ -76,6 +81,7 @@ func OIDPrependZerosBaseDNObf(maxZeros int) func(string) string {
 		return strings.Join(parts, ",")
 	}
 }
+*/
 
 // RandSpacingBaseDNObf adds random spacing to BaseDN in either the beginning or end
 func RandSpacingBaseDNObf(maxSpaces int) func(string) string {

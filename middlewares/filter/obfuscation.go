@@ -684,6 +684,104 @@ func RandBoolReorderFilterObf() func(f parser.Filter) parser.Filter {
 }
 
 /*
+	Unicode Obfuscation Middlewares
+*/
+
+// RandIgnorableUnicodeFilterObf inserts code points that Active Directory strips
+// during string preparation ([RFC4518]) into String(Unicode) assertion values.
+// The DC deletes them before matching, so the result set is unchanged while the
+// on-wire bytes differ. Only String(Unicode) leaves are touched; other syntaxes
+// (DN, SID, OID, integers, ...) are left alone, and attribute names are never
+// modified.
+//
+// mode selects the insertion pool:
+//   - "invisible": default-ignorable code points only (invisible on the wire).
+//   - "marks":     visible combining marks - higher entropy, but the value
+//     renders as accented/garbled.
+//   - "all":       both pools.
+//
+// An unrecognized mode falls back to "marks".
+func RandIgnorableUnicodeFilterObf(prob float64, mode string) FilterMiddleware {
+	var pool []rune
+	switch mode {
+	case "invisible":
+		pool = ignorableRunes
+	case "all":
+		pool = append(append([]rune{}, ignorableRunes...), combiningRunes...)
+	default: // "marks"
+		pool = combiningRunes
+	}
+
+	obfuscate := func(attr string, val string) string {
+		if val == "" {
+			return val
+		}
+		if tokenType, err := parser.GetAttributeTokenFormat(attr); err == nil && tokenType == parser.TokenStringUnicode {
+			return insertRunes(val, pool, prob)
+		}
+		return val
+	}
+
+	return LeafApplierFilterMiddleware(func(f parser.Filter) parser.Filter {
+		switch v := f.(type) {
+		case *parser.FilterEqualityMatch:
+			v.AssertionValue = obfuscate(v.AttributeDesc, v.AssertionValue)
+		case *parser.FilterGreaterOrEqual:
+			v.AssertionValue = obfuscate(v.AttributeDesc, v.AssertionValue)
+		case *parser.FilterLessOrEqual:
+			v.AssertionValue = obfuscate(v.AttributeDesc, v.AssertionValue)
+		case *parser.FilterApproxMatch:
+			v.AssertionValue = obfuscate(v.AttributeDesc, v.AssertionValue)
+		case *parser.FilterSubstring:
+			for i := range v.Substrings {
+				v.Substrings[i].Initial = obfuscate(v.AttributeDesc, v.Substrings[i].Initial)
+				v.Substrings[i].Any = obfuscate(v.AttributeDesc, v.Substrings[i].Any)
+				v.Substrings[i].Final = obfuscate(v.AttributeDesc, v.Substrings[i].Final)
+			}
+		}
+		return f
+	})
+}
+
+// RandAltSpaceFilterObf replaces existing ASCII spaces in String(Unicode)
+// assertion values with alternative Unicode space code points that Active
+// Directory folds back to a single space during string preparation ([RFC4518]),
+// so the result set is unchanged. Only String(Unicode) leaves are touched (other
+// syntaxes may treat spaces as significant), and only pre-existing spaces are
+// converted - no spaces are ever added.
+func RandAltSpaceFilterObf(prob float64) FilterMiddleware {
+	obfuscate := func(attr string, val string) string {
+		if val == "" {
+			return val
+		}
+		if tokenType, err := parser.GetAttributeTokenFormat(attr); err == nil && tokenType == parser.TokenStringUnicode {
+			return substituteSpaces(val, altSpaceRunes, prob)
+		}
+		return val
+	}
+
+	return LeafApplierFilterMiddleware(func(f parser.Filter) parser.Filter {
+		switch v := f.(type) {
+		case *parser.FilterEqualityMatch:
+			v.AssertionValue = obfuscate(v.AttributeDesc, v.AssertionValue)
+		case *parser.FilterGreaterOrEqual:
+			v.AssertionValue = obfuscate(v.AttributeDesc, v.AssertionValue)
+		case *parser.FilterLessOrEqual:
+			v.AssertionValue = obfuscate(v.AttributeDesc, v.AssertionValue)
+		case *parser.FilterApproxMatch:
+			v.AssertionValue = obfuscate(v.AttributeDesc, v.AssertionValue)
+		case *parser.FilterSubstring:
+			for i := range v.Substrings {
+				v.Substrings[i].Initial = obfuscate(v.AttributeDesc, v.Substrings[i].Initial)
+				v.Substrings[i].Any = obfuscate(v.AttributeDesc, v.Substrings[i].Any)
+				v.Substrings[i].Final = obfuscate(v.AttributeDesc, v.Substrings[i].Final)
+			}
+		}
+		return f
+	})
+}
+
+/*
 	Casing Obfuscation Middlewares
 */
 

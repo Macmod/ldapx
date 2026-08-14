@@ -46,7 +46,7 @@ type Stats struct {
 	}
 }
 
-var version = "v1.3.0"
+var version = "v1.3.3"
 
 var green = color.New(color.FgGreen)
 var red = color.New(color.FgRed)
@@ -201,9 +201,6 @@ var (
 	entriesChain  string
 	options       MapFlag
 	outputFile    string
-	tlsCertFile   string
-	tlsKeyFile    string
-	tlsClientCA   string
 	listener      net.Listener
 )
 
