@@ -325,7 +325,10 @@ func handleSetCommand(param string, values []string) {
 			fmt.Println("Usage: set option <key>=<value>")
 			return
 		}
-		options.Set(values[0])
+		if err := options.Set(values[0]); err != nil {
+			fmt.Printf("Invalid option: %v\n", err)
+			return
+		}
 
 		SetupMiddlewaresMap()
 

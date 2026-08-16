@@ -98,7 +98,7 @@ func DuplicateAttrListObf(prob float64) func([]string) []string {
 // GarbageExistingAttrListObf adds garbage to existing attributes
 func GarbageExistingAttrListObf(maxGarbage int) func([]string) []string {
 	return func(attrs []string) []string {
-		if len(attrs) == 0 {
+		if len(attrs) == 0 || maxGarbage <= 0 {
 			return attrs
 		}
 
@@ -123,7 +123,7 @@ func GarbageExistingAttrListObf(maxGarbage int) func([]string) []string {
 // GarbageNonExistingAttrListObf adds completely new garbage attributes
 func GarbageNonExistingAttrListObf(maxGarbage int, garbageSize int, garbageCharset string) func([]string) []string {
 	return func(attrs []string) []string {
-		if len(attrs) == 0 {
+		if len(attrs) == 0 || maxGarbage <= 0 {
 			return attrs
 		}
 

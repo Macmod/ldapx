@@ -109,6 +109,9 @@ func ANRAttributeFilterObf(anrSet []string) func(f parser.Filter) parser.Filter 
 func ANRSubstringGarbageFilterObf(maxChars int, garbageCharset string) func(f parser.Filter) parser.Filter {
 	return LeafApplierFilterMiddleware(
 		func(f parser.Filter) parser.Filter {
+			if maxChars <= 0 {
+				return f
+			}
 			if em, ok := f.(*parser.FilterEqualityMatch); ok {
 				if em.AttributeDesc == "aNR" {
 					numGarbage := 1 + rand.Intn(maxChars)
@@ -264,6 +267,9 @@ func RandGarbageFilterObf(maxGarbage int, garbageSize int, charset string) func(
 	var applier func(parser.Filter) parser.Filter
 
 	applier = func(filter parser.Filter) parser.Filter {
+		if maxGarbage <= 0 {
+			return filter
+		}
 		switch f := filter.(type) {
 		case *parser.FilterAnd:
 			// Recurse into AND children
@@ -563,6 +569,9 @@ func BitwiseExpandPossibleFilterObf() func(parser.Filter) parser.Filter {
 
 func RandAddBoolFilterObf(maxDepth int, prob float64) func(f parser.Filter) parser.Filter {
 	return func(f parser.Filter) parser.Filter {
+		if maxDepth <= 0 {
+			return f
+		}
 		depth := rand.Intn(maxDepth) + 1
 		result := f
 
@@ -588,6 +597,9 @@ func RandAddBoolFilterObf(maxDepth int, prob float64) func(f parser.Filter) pars
 
 func RandDblNegBoolFilterObf(maxDepth int, prob float64) func(f parser.Filter) parser.Filter {
 	return LeafApplierFilterMiddleware(func(f parser.Filter) parser.Filter {
+		if maxDepth <= 0 {
+			return f
+		}
 		depth := rand.Intn(maxDepth) + 1
 		result := f
 

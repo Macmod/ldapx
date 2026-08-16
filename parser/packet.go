@@ -306,9 +306,17 @@ func (e *Error) Error() string {
 
 func (e *Error) Unwrap() error { return e.Err }
 
+// NewError creates an LDAP error with the given code and underlying error
+func NewError(resultCode uint16, err error) error {
+	return &Error{ResultCode: resultCode, Err: err}
+}
+
+/*
+
 // GetLDAPError creates an Error out of a BER packet representing a LDAPResult
 // The return is an error object. It can be casted to a Error structure.
 // This function returns nil if resultCode in the LDAPResult sequence is success(0).
+//
 func GetLDAPError(packet *ber.Packet) error {
 	if packet == nil {
 		return &Error{ResultCode: ErrorUnexpectedResponse, Err: fmt.Errorf("Empty packet")}
@@ -342,12 +350,6 @@ func GetLDAPError(packet *ber.Packet) error {
 	return &Error{ResultCode: ErrorNetwork, Err: fmt.Errorf("Invalid packet format"), Packet: packet}
 }
 
-// NewError creates an LDAP error with the given code and underlying error
-func NewError(resultCode uint16, err error) error {
-	return &Error{ResultCode: resultCode, Err: err}
-}
-
-/*
 func AddDefaultLDAPResponseDescriptions(packet *ber.Packet) error {
 	resultCode := uint16(LDAPResultSuccess)
 	matchedDN := ""

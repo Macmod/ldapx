@@ -232,6 +232,9 @@ func (mf *MapFlag) Set(value string) error {
 	if len(parts) != 2 {
 		return fmt.Errorf("invalid option format: %s", value)
 	}
+	if err := validateOptionValue(parts[0], parts[1]); err != nil {
+		return err
+	}
 	if mf.m == nil {
 		mf.m = make(map[string]string)
 	}

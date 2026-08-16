@@ -99,6 +99,9 @@ func ReplaceTimestamp(value string, maxChars int, charset string, useComma bool)
 
 // Prepend Zeros functions
 func PrependZerosToSID(sid string, maxZeros int) string {
+	if maxZeros <= 0 {
+		return sid
+	}
 	parts := strings.Split(sid, "-")
 	for i := range parts {
 		if i == 0 {
@@ -120,6 +123,9 @@ func PrependZerosToSID(sid string, maxZeros int) string {
 }
 
 func PrependZerosToNumber(input string, maxZeros int) string {
+	if maxZeros <= 0 {
+		return input
+	}
 	numZeros := 1 + rand.Intn(maxZeros)
 	zerosStr := strings.Repeat("0", numZeros)
 	if len(input) > 0 && input[0] == '-' {
@@ -131,10 +137,9 @@ func PrependZerosToNumber(input string, maxZeros int) string {
 // Active Directory deletes a large set of code points during LDAP string
 // preparation ([RFC4518] "Map to nothing") before comparing String(Unicode)
 // values, so inserting them into an assertion value is result-preserving. The
-// three sets below were derived from Unicode 17.0 and verified against a live DC
-// (each stripped at every position on multiple attributes). They are
-// patch-dependent - this is the mechanism behind CVE-2026-25177 /
-// CVE-2026-27912.
+// ignorableRunes and combiningRunes sets below were derived from Unicode 17.0.
+// This behavior may be patch-dependent, as it is inspired in the mechanism
+// for CVE-2026-25177 / CVE-2026-27912.
 
 // ignorableRunes are the 288 stripped code points that are also
 // Default_Ignorable_Code_Point: invisible on the wire (zero-width joiners, bidi
@@ -258,6 +263,9 @@ func MapToOID(attrName string) (string, error) {
 }
 
 func AddANRSpacing(value string, maxSpaces int) string {
+	if maxSpaces <= 0 {
+		return value
+	}
 	spacesFst := strings.Repeat(" ", 1+rand.Intn(maxSpaces))
 	spacesEqSign := strings.Repeat(" ", 1+rand.Intn(maxSpaces))
 	spacesLst := strings.Repeat(" ", 1+rand.Intn(maxSpaces))
@@ -281,6 +289,9 @@ func AddANRSpacing(value string, maxSpaces int) string {
 }
 
 func AddDNSpacing(value string, maxSpaces int) string {
+	if maxSpaces <= 0 {
+		return value
+	}
 	parts := strings.Split(value, ",")
 	for i, part := range parts {
 		kv := strings.SplitN(part, "=", 2)
@@ -302,6 +313,9 @@ func AddDNSpacing(value string, maxSpaces int) string {
 }
 
 func AddSIDSpacing(sid string, maxSpaces int) string {
+	if maxSpaces <= 0 {
+		return sid
+	}
 	parts := strings.Split(sid, "-")
 	if len(parts) >= 3 {
 		// Add spaces before revision number (parts[1])

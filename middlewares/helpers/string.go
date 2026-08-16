@@ -7,6 +7,9 @@ import (
 )
 
 func GenerateGarbageString(n int, chars string) string {
+	if n <= 0 || len(chars) == 0 {
+		return ""
+	}
 	result := make([]byte, n)
 	for i := range result {
 		result[i] = chars[rand.Intn(len(chars))]
@@ -48,6 +51,9 @@ func RandomlyChangeCaseString(s string, prob float64) string {
 }
 
 func RandomlyPrependZerosOID(oid string, maxZeros int) string {
+	if maxZeros <= 0 {
+		return oid
+	}
 	oidParts := strings.Split(oid, ".")
 	for j, num := range oidParts {
 		if strings.ToLower(oidParts[j]) != "oid" {

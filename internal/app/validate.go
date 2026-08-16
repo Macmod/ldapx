@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -105,6 +106,52 @@ func validateFilterChain(chain string) error {
 
 	if strings.ContainsRune(chain, 'F') && optStr("FiltObjCategoryRootDN") == "" {
 		return fmt.Errorf("middleware \"F\" (ObjectCategoryForm) requires the FiltObjCategoryRootDN option to be set")
+	}
+
+	return nil
+}
+
+// positiveIntCountOptions maps an integer option to the smallest value that
+// still lets its middleware do something useful; a value below the minimum is
+// rejected when the option is set, since it would only make the middleware a
+// no-op or produce empty output (the middlewares themselves also treat such a
+// value as a no-op rather than crashing). The OID *MaxSpaces/*MaxZeros options
+// are intentionally absent: they treat 0 as "convert to OID form without this
+// decoration", a legitimate choice. FiltBitwiseDecompositionMaxBits needs at
+// least 2, since it splits out up to maxBits-1 individual bits and so does
+// nothing at 1.
+var positiveIntCountOptions = map[string]int{
+	"BDNSpacingMaxElems":              1,
+	"FiltSpacingMaxSpaces":            1,
+	"FiltTimestampGarbageMaxChars":    1,
+	"FiltGarbageMaxElems":             1,
+	"FiltGarbageMaxSize":              1,
+	"FiltANRSubstringMaxElems":        1,
+	"FiltPrependZerosMaxElems":        1,
+	"FiltAddBoolMaxDepth":             1,
+	"FiltDblNegBoolMaxDepth":          1,
+	"FiltBitwiseDecompositionMaxBits": 2,
+	"AttrsGarbageExistingMaxElems":    1,
+	"AttrsGarbageNonExistingMaxElems": 1,
+	"AttrsGarbageNonExistingMaxSize":  1,
+}
+
+// validateOptionValue rejects a user-supplied option value that falls below the
+// minimum the option's middleware needs. Only the options in
+// positiveIntCountOptions are constrained; every other option (probabilities,
+// charsets, modes, booleans, strings) carries no numeric constraint here.
+func validateOptionValue(key, value string) error {
+	min, guarded := positiveIntCountOptions[key]
+	if !guarded {
+		return nil
+	}
+
+	n, err := strconv.Atoi(value)
+	if err != nil {
+		return fmt.Errorf("option %q must be an integer >= %d, got %q", key, min, value)
+	}
+	if n < min {
+		return fmt.Errorf("option %q must be an integer >= %d, got %d", key, min, n)
 	}
 
 	return nil
