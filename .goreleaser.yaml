@@ -1,0 +1,56 @@
+# GoReleaser configuration for ldapx.
+version: 2
+
+project_name: ldapx
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: ldapx
+    main: .                      # package main lives at repo root (main.go)
+    binary: ldapx
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+      - -mod=readonly
+    ldflags:
+      - -s -w -X github.com/Macmod/ldapx/internal/app.version={{ .Tag }}
+    goos: [linux, windows, darwin]
+    goarch: [amd64, arm64]
+    ignore:
+      - { goos: windows, goarch: arm64 }
+
+archives:
+  - id: ldapx
+    ids: [ldapx]
+    name_template: "{{ .ProjectName }}-{{ .Tag }}-{{ .Os }}-{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
+  algorithm: sha256
+
+release:
+  github:
+    owner: Macmod
+    name: ldapx
+  draft: false
+  prerelease: auto
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"

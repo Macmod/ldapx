@@ -1,30 +1,32 @@
-# .github/workflows/release.yaml
+# Release workflow using GoReleaser.
+# Releases are cut by pushing a tag (e.g. `git tag -s v1.3.4 && git push origin v1.3.4`);
+# GoReleaser creates the GitHub Release, builds the matrix, and uploads the assets.
+name: release
 
 on:
-  release:
-    types: [created]
+  push:
+    tags:
+      - "v*"
 
 permissions:
-  contents: write # required to upload build artifacts to the release
+  contents: write        # needed to create the GitHub Release + upload assets
 
 jobs:
-  releases-matrix:
-    name: Release Go Binary
+  goreleaser:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        goos: [linux, windows, darwin]
-        goarch: [amd64, arm64]
-        exclude:
-          - goarch: "386"
-            goos: darwin
-          - goarch: arm64
-            goos: windows
     steps:
-    - uses: actions/checkout@v3
-    - uses: wangyoucao577/go-release-action@v1
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        goos: ${{ matrix.goos }}
-        goarch: ${{ matrix.goarch }}
-        extra_files: LICENSE README.md
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # full history + tags → correct changelog/version
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
