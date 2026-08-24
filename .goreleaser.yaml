@@ -35,6 +35,29 @@ archives:
       - LICENSE
       - README.md
 
+nfpms:
+  - id: ldapx
+    package_name: ldapx
+    ids: [ldapx]                              # package the ldapx build's linux binaries
+    file_name_template: "{{ .ConventionalFileName }}"
+    formats: [deb, rpm, apk]
+
+    maintainer: "Artur Marzano <zz.mcmd@gmail.com>"
+    description: "Flexible LDAP proxy to inspect & transform LDAP packets on the fly."
+    homepage: "https://github.com/Macmod/ldapx"
+    license: MIT
+    vendor: Macmod
+
+    bindir: /usr/bin                          # installs the binary to /usr/bin/ldapx
+
+    contents:
+      - src: LICENSE
+        dst: /usr/share/doc/ldapx/LICENSE
+        type: file
+      - src: README.md
+        dst: /usr/share/doc/ldapx/README.md
+        type: file
+
 checksum:
   name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
   algorithm: sha256
