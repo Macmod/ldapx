@@ -37,7 +37,7 @@ func TransformModifyRequest(targetDN string, changes []ChangeRequest) (string, [
 }
 
 func TransformAddRequest(targetDN string, entries parser.AttrEntries) (string, parser.AttrEntries) {
-	newTargetDN := getBaseDNChain().Execute(targetDN, true)
+	newTargetDN := getBaseDNChain().ExecuteSafe(targetDN, true)
 	newEntries := getAttrEntriesChain().Execute(entries, true)
 
 	return newTargetDN, newEntries
@@ -50,7 +50,7 @@ func TransformDeleteRequest(targetDN string) string {
 func TransformModifyDNRequest(entry string, newRDN string, delOld bool, newSuperior string) (string, string, bool, string) {
 	newEntry := getBaseDNChain().Execute(entry, true)
 	newNSuperior := getBaseDNChain().Execute(newSuperior, true)
-	newNRDN := getBaseDNChain().Execute(newRDN, true)
+	newNRDN := getBaseDNChain().ExecuteSafe(newRDN, true)
 	newDelOld := delOld // Not processed
 
 	return newEntry, newNRDN, newDelOld, newNSuperior
@@ -396,11 +396,21 @@ func ProcessModifyDNRequest(packet *ber.Packet) *ber.Packet {
 	if len(packet.Children) > 1 {
 		modDNPacket := packet.Children[1]
 
-		if len(modDNPacket.Children) > 3 {
+		// Per RFC 4511 4.9, entry, newrdn and deleteoldrdn are mandatory while
+		// newSuperior [0] is OPTIONAL, so a rename-in-place carries only three
+		// fields.
+		if len(modDNPacket.Children) >= 3 {
 			entry := string(modDNPacket.Children[0].Data.Bytes())
 			newRDN := string(modDNPacket.Children[1].Data.Bytes())
-			delOld := len(modDNPacket.Children[2].Data.Bytes()) > 0 && modDNPacket.Children[3].Data.Bytes()[0] != byte(0)
-			newSuperior := string(modDNPacket.Children[3].Data.Bytes())
+
+			delOldBytes := modDNPacket.Children[2].Data.Bytes()
+			delOld := len(delOldBytes) > 0 && delOldBytes[0] != byte(0)
+
+			hasSuperior := len(modDNPacket.Children) > 3
+			newSuperior := ""
+			if hasSuperior {
+				newSuperior = string(modDNPacket.Children[3].Data.Bytes())
+			}
 
 			fmt.Println(blue.Sprintf("Intercepted ModifyDN\n    Entry: '%s'\n    NewRDN: '%s'\n    DeleteOldRDN: '%t'\n    NewSuperior: '%s'", entry, newRDN, delOld, newSuperior))
 
@@ -425,7 +435,7 @@ func ProcessModifyDNRequest(packet *ber.Packet) *ber.Packet {
 				updatedFlag = true
 			}
 
-			if newNSuperior != newSuperior {
+			if hasSuperior && newNSuperior != newSuperior {
 				newEncodedNSuperior := ber.NewString(ber.ClassContext, ber.TypePrimitive, 0x0, newNSuperior, "")
 				UpdateBerChildLeaf(packet.Children[1], 3, newEncodedNSuperior)
 				updatedFlag = true
