@@ -58,6 +58,22 @@ nfpms:
         dst: /usr/share/doc/ldapx/README.md
         type: file
 
+aurs:
+  - name: ldapx-bin
+    homepage: "https://github.com/Macmod/ldapx"
+    description: "Flexible LDAP proxy for inspecting and transforming LDAP traffic"
+    license: MIT
+    maintainers:
+      - "Macmod <zz.mcmd at gmail dot com>"
+    private_key: "{{ .Env.AUR_KEY }}"
+    git_url: "ssh://aur@aur.archlinux.org/ldapx-bin.git"
+    provides: ["ldapx"]
+    conflicts: ["ldapx", "ldapx-git"]
+    package: |-
+      install -Dm755 "./ldapx" "${pkgdir}/usr/bin/ldapx"
+      install -Dm644 "./LICENSE" "${pkgdir}/usr/share/licenses/ldapx-bin/LICENSE"
+      install -Dm644 "./README.md" "${pkgdir}/usr/share/doc/ldapx-bin/README.md"
+
 checksum:
   name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
   algorithm: sha256
