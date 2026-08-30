@@ -49,6 +49,12 @@ $ ldapx -t 192.168.117.2:389 -f OGDR -a Owp -b OX
 
 ![Demo1](https://github.com/Macmod/ldapx/blob/main/images/demo1.png)
 
+### Applying all Unicode middlewares to filters and baseDN
+
+```bash
+$ ldapx -t 192.168.117.2:389 -f UWK -b NAK
+```
+
 ### Using the shell
 
 You can also use the builting shell to change your middlewares on the fly (`set` command) or simulate LDAP queries (`test` command):
@@ -178,6 +184,9 @@ The tool provides several middlewares "ready for use" for inline LDAP filter tra
 | `U` | GUIDFormat | Replaces the BaseDN with the `<GUID=...>` DN form | `DC=draco,DC=local` | `<GUID=aabbccdd...>` | Requires the `BDNGuid` option; changes the target object, so it must be the only middleware of the chain; `BDNMatch` restricts it to a single BaseDN |
 | `I` | SIDFormat | Replaces the BaseDN with the `<SID=...>` DN form | `DC=draco,DC=local` | `<SID=S-1-5-21-...>` | Requires the `BDNSid` option; changes the target object, so it must be the only middleware of the chain; `BDNMatch` restricts it to a single BaseDN |
 | `W` | WKGUIDFormat | Converts well-known containers to the `<WKGUID=...>` DN form | `CN=Users,DC=draco,DC=local` | `<WKGUID=a9d1ca15768811d1aded00c04fd8d5cd,DC=draco,DC=local>` | Only applies to well-known containers; place it first, since the middlewares after it apply to the DN inside the form and the ones before it (other than `Case`) keep it from matching |
+| `N` | IgnorableUnicode | Inserts Unicode code points that AD drops during comparison into the RDN value halves | `CN=Domain Admins,DC=draco,DC=local` | `CN=Do<U+200C>main Admins,DC=draco,DC=local` | Only the value halves are touched (never attribute types or the `,`/`=` structure); `BDNIgnorableUnicodeMode` is a comma-separated list of categories (`invisible`, `marks`, `modlet`, `modsym`, `symbols`, `punct`, or `all`), `BDNIgnorableUnicodeProb` the probability; place it before `HexValue` |
+| `A` | AltSpace | Replaces spaces in RDN value halves with alternative Unicode spaces AD folds back to a single space | `CN=Domain Admins,DC=draco,DC=local` | `CN=Domain<U+3000>Admins,DC=draco,DC=local` | Value halves only; probability via `BDNAltSpaceProb`; `BDNAltSpaceIncludeVisible` also draws from space-folding code points that render as a visible glyph |
+| `K` | SortKeyFold | Substitutes characters in RDN value halves with code points AD's comparison folds to the same value (fullwidth, accented, ligature, ... variants) | `CN=Domain Admins,DC=draco,DC=local` | `CN=Dⓞmäïn Admⓘns,DC=draco,DC=local` | Value halves only; probability via `BDNSortKeyFoldProb`; `BDNSortKeyFoldClasses` restricts the categories (as filter `K`); place it before `HexValue` |
 
 > [!NOTE]
 > The `<WKGUID=...>` form produced by `W` still carries a regular DN, so the other BaseDN middlewares keep working on it - they apply to that DN and leave the rest of the form untouched. A chain such as `-b WCX` turns `CN=Users,DC=draco,DC=local` into `<WKGUID=a9d1ca15768811d1aded00c04fd8d5cd,dC=\64rAcO,DC=\6cOc\61l>`.
@@ -211,8 +220,9 @@ The tool provides several middlewares "ready for use" for inline LDAP filter tra
 | `P` | DNAttributesNoise | Randomly toggles the `dnAttributes` flag of extensible matches | `(cn:=john)` | `(cn:dn:=john)` | Probability based; AD ignores the flag, and it only acts on extensible matches produced by other middlewares |
 | `L` | TransitiveEval | Converts equalities on link attributes to the transitive matching rule | `(memberOf=CN=Domain Admins,CN=Users,DC=draco,DC=local)` | `(memberOf:1.2.840.113556.1.4.1941:=CN=Domain Admins,CN=Users,DC=draco,DC=local)` | Only for link attributes; returns a superset of the results for nested relationships |
 | `F` | ObjectCategoryForm | Converts `objectCategory` shortnames to the DN of the schema object | `(objectCategory=user)` | `(objectCategory=CN=Person,CN=Schema,CN=Configuration,DC=draco,DC=local)` | Requires the `FiltObjCategoryRootDN` option, set to the DN of the forest root domain (the config NC lives there, not under each domain) |
-| `U` | IgnorableUnicode | Inserts Unicode code points that AD drops during string preparation into values | `(cn=john)` | `(cn=jo<U+200C>h<U+0301>n)` | Only for `String(Unicode)` attributes; `FiltIgnorableUnicodeMode` picks the character set (`marks`, `invisible`, or `all`) and `FiltIgnorableUnicodeProb` the per-gap probability |
-| `W` | AltSpace | Replaces spaces with alternative Unicode spaces that AD folds back to a single space (RFC 4518) | `(cn=Domain Admins)` | `(cn=Domain<U+3000>Admins)` | Only for `String(Unicode)` attributes; converts existing spaces only (never adds), probability via `FiltAltSpaceProb` |
+| `U` | IgnorableUnicode | Inserts Unicode code points that AD drops during string preparation into values | `(cn=john)` | `(cn=jo<U+200C>h<U+0301>n)` | Also folds the RDN value halves of DN-syntax values (`member`, `distinguishedName`, ...); `FiltIgnorableUnicodeMode` is a comma-separated list of categories (`invisible`, `marks`, `modlet`, `modsym`, `symbols`, `punct`, or `all`) and `FiltIgnorableUnicodeProb` the per-gap probability |
+| `W` | AltSpace | Replaces spaces with alternative Unicode spaces that AD folds back to a single space (RFC 4518) | `(cn=Domain Admins)` | `(cn=Domain<U+3000>Admins)` | Also folds RDN value halves of DN-syntax values; converts existing spaces only (never adds), probability via `FiltAltSpaceProb`; `FiltAltSpaceIncludeVisible` also draws from space-folding code points that render as a visible glyph |
+| `K` | SortKeyFold | Substitutes characters with code points AD's comparison folds to the same value (fullwidth, circled, accented, ligature, ... variants sharing the LCMapStringEx sort key) | `(cn=Administrator)` | `(cn=Admⓘnïｓträtⓞr)` | Also folds RDN value halves of DN-syntax values (`member`, ...); per-character probability via `FiltSortKeyFoldProb`; `FiltSortKeyFoldClasses` restricts the substitute categories (`accented`, `width`, `enclosed`, `script`, `symbols`, `ligatures`; default `all`) |
 
 > [!NOTE]
 > The `L` / `TransitiveEval` middleware changes query semantics by following link attributes recursively instead of matching them directly. For example, a query for the members of a group (`memberOf=<group>`) will also return the objects that belong to it through nested groups. The result set is therefore a superset of the original one whenever indirect relationships exist, which may or may not cause issues in the client, depending on its implementation.

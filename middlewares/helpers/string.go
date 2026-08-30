@@ -34,10 +34,19 @@ func RandomlyHexEncodeString(s string, prob float64) string {
 	return result.String()
 }
 
+// caseFoldBreakers are SortKeyFold substitute code points (lowercase IPA letters)
+// whose Unicode uppercase AD's LCMapStringEx sort key does not fold back to the
+// base letter ([MS-UCODEREF]); flipping their case would stop a value already
+// disguised by SortKeyFold from matching, so their case is left untouched.
+var caseFoldBreakers = map[rune]bool{
+	0x0261: true, 0x0266: true, 0x026A: true, 0x026C: true, 0x0282: true,
+	0x0287: true, 0x029D: true, 0x029E: true, 0x1D8E: true,
+}
+
 func RandomlyChangeCaseString(s string, prob float64) string {
 	var builder strings.Builder
 	for _, c := range s {
-		if rand.Float64() < prob {
+		if rand.Float64() < prob && !caseFoldBreakers[c] {
 			if rand.Intn(2) == 0 {
 				builder.WriteString(strings.ToLower(string(c)))
 			} else {

@@ -39,6 +39,9 @@ var baseDNMidFlags map[rune]string = map[rune]string{
 	'U': "GUIDFormat",
 	'I': "SIDFormat",
 	'W': "WKGUIDFormat",
+	'N': "IgnorableUnicode",
+	'A': "AltSpace",
+	'K': "SortKeyFold",
 }
 
 var filterMidFlags map[rune]string = map[rune]string{
@@ -68,6 +71,7 @@ var filterMidFlags map[rune]string = map[rune]string{
 	'F': "ObjectCategoryForm",
 	'U': "IgnorableUnicode",
 	'W': "AltSpace",
+	'K': "SortKeyFold",
 }
 
 var attrListMidFlags map[rune]string = map[rune]string{
@@ -98,14 +102,17 @@ var attrEntriesMidFlags map[rune]string = map[rune]string{
 
 func SetupMiddlewaresMap() {
 	baseDNMidMap = map[string]basednmid.BaseDNMiddleware{
-		"OIDAttribute": basednmid.OIDAttributeBaseDNObf(optInt("BDNOIDAttributeMaxSpaces"), optInt("BDNOIDAttributeMaxZeros"), optBool("BDNOIDAttributeIncludePrefix")),
-		"Case":         basednmid.RandCaseBaseDNObf(optFloat("BDNCaseProb")),
-		"HexValue":     basednmid.RandHexValueBaseDNObf(optFloat("BDNHexValueProb")),
-		"Spacing":      basednmid.RandSpacingBaseDNObf(optInt("BDNSpacingMaxElems")),
-		"DoubleQuotes": basednmid.DoubleQuotesBaseDNObf(),
-		"GUIDFormat":   basednmid.GUIDBaseDNObf(optStr("BDNGuid"), optStr("BDNMatch")),
-		"SIDFormat":    basednmid.SIDBaseDNObf(optStr("BDNSid"), optStr("BDNMatch")),
-		"WKGUIDFormat": basednmid.WKGUIDFormatBaseDNObf(),
+		"OIDAttribute":     basednmid.OIDAttributeBaseDNObf(optInt("BDNOIDAttributeMaxSpaces"), optInt("BDNOIDAttributeMaxZeros"), optBool("BDNOIDAttributeIncludePrefix")),
+		"Case":             basednmid.RandCaseBaseDNObf(optFloat("BDNCaseProb")),
+		"HexValue":         basednmid.RandHexValueBaseDNObf(optFloat("BDNHexValueProb")),
+		"Spacing":          basednmid.RandSpacingBaseDNObf(optInt("BDNSpacingMaxElems")),
+		"DoubleQuotes":     basednmid.DoubleQuotesBaseDNObf(),
+		"GUIDFormat":       basednmid.GUIDBaseDNObf(optStr("BDNGuid"), optStr("BDNMatch")),
+		"SIDFormat":        basednmid.SIDBaseDNObf(optStr("BDNSid"), optStr("BDNMatch")),
+		"WKGUIDFormat":     basednmid.WKGUIDFormatBaseDNObf(),
+		"IgnorableUnicode": basednmid.RandIgnorableUnicodeBaseDNObf(optFloat("BDNIgnorableUnicodeProb"), optStr("BDNIgnorableUnicodeMode")),
+		"AltSpace":         basednmid.RandAltSpaceBaseDNObf(optFloat("BDNAltSpaceProb"), optBool("BDNAltSpaceIncludeVisible")),
+		"SortKeyFold":      basednmid.RandSortKeyFoldBaseDNObf(optFloat("BDNSortKeyFoldProb"), optStr("BDNSortKeyFoldClasses")),
 	}
 
 	filterMidMap = map[string]filtermid.FilterMiddleware{
@@ -134,7 +141,8 @@ func SetupMiddlewaresMap() {
 		"TransitiveEval":       filtermid.TransitiveEvalFilterObf(),
 		"ObjectCategoryForm":   filtermid.ObjectCategoryFormFilterObf(optStr("FiltObjCategoryRootDN")),
 		"IgnorableUnicode":     filtermid.RandIgnorableUnicodeFilterObf(optFloat("FiltIgnorableUnicodeProb"), optStr("FiltIgnorableUnicodeMode")),
-		"AltSpace":             filtermid.RandAltSpaceFilterObf(optFloat("FiltAltSpaceProb")),
+		"AltSpace":             filtermid.RandAltSpaceFilterObf(optFloat("FiltAltSpaceProb"), optBool("FiltAltSpaceIncludeVisible")),
+		"SortKeyFold":          filtermid.RandSortKeyFoldFilterObf(optFloat("FiltSortKeyFoldProb"), optStr("FiltSortKeyFoldClasses")),
 	}
 
 	attrListMidMap = map[string]attrlistmid.AttrListMiddleware{

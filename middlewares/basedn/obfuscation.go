@@ -259,6 +259,47 @@ func RandHexValueBaseDNObf(prob float64) func(string) string {
 	}
 }
 
+// RandIgnorableUnicodeBaseDNObf inserts stripped code points into the RDN value
+// halves of a DN. AD strips them before comparing (they carry no sort weight), so
+// baseDN resolution and DN-value matching are unchanged. mode selects the pool as
+// in the filter middleware (see helpers.IgnorableModeRunes): a comma-separated
+// list of "invisible", "marks", "modlet", "modsym", "symbols", "punct", or "all".
+func RandIgnorableUnicodeBaseDNObf(prob float64, mode string) func(string) string {
+	pool := helpers.IgnorableModeRunes(mode)
+	return func(dn string) string {
+		return helpers.TransformDNValues(dn, func(v string) string {
+			return helpers.InsertRunes(v, pool, prob)
+		})
+	}
+}
+
+// RandAltSpaceBaseDNObf substitutes spaces in RDN value halves with alternative
+// Unicode spaces AD folds back to a single space (same sort key). When
+// includeVisible is set the pool also draws from the space-folding code points
+// that render as a visible glyph (helpers.VisibleAltSpaceRunes).
+func RandAltSpaceBaseDNObf(prob float64, includeVisible bool) func(string) string {
+	pool := helpers.AltSpaceRunes
+	if includeVisible {
+		pool = append(append([]rune{}, helpers.AltSpaceRunes...), helpers.VisibleAltSpaceRunes...)
+	}
+	return func(dn string) string {
+		return helpers.TransformDNValues(dn, func(v string) string {
+			return helpers.SubstituteSpaces(v, pool, prob)
+		})
+	}
+}
+
+// RandSortKeyFoldBaseDNObf substitutes characters in RDN value halves with code
+// points AD's comparison folds back to the same character (same sort key).
+func RandSortKeyFoldBaseDNObf(prob float64, classes string) func(string) string {
+	fs := helpers.NewFoldSubstituter(classes)
+	return func(dn string) string {
+		return helpers.TransformDNValues(dn, func(v string) string {
+			return fs.Apply(v, prob)
+		})
+	}
+}
+
 /*
 	Alternative DN forms (MS-ADTS 3.1.1.3.1.2.4)
 

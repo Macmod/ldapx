@@ -701,35 +701,31 @@ func RandBoolReorderFilterObf() func(f parser.Filter) parser.Filter {
 
 // RandIgnorableUnicodeFilterObf inserts code points that Active Directory strips
 // during string preparation ([RFC4518]) into String(Unicode) assertion values.
-// The DC deletes them before matching, so the result set is unchanged while the
-// on-wire bytes differ. Only String(Unicode) leaves are touched; other syntaxes
-// (DN, SID, OID, integers, ...) are left alone, and attribute names are never
-// modified.
+// The DC deletes them before matching, so the result set does not change.
+// String(Unicode) leaves and the value halves of DN-syntax leaves are rewritten;
+// other syntaxes (SID, OID, integers, ...) are skipped.
 //
-// mode selects the insertion pool:
-//   - "invisible": default-ignorable code points only (invisible on the wire).
-//   - "marks":     visible combining marks - higher entropy, but the value
-//     renders as accented/garbled.
-//   - "all":       both pools.
-//
-// An unrecognized mode falls back to "marks".
+// mode is a comma-separated list of insertion categories (see
+// helpers.IgnorableModeRunes): "invisible" (default-ignorable, invisible on the
+// wire), "marks" (combining marks - render as accents/garble), and the visible
+// strippers "modlet" (modifier letters), "modsym" (modifier symbols), "symbols",
+// and "punct". "all" or an empty string selects every category.
 func RandIgnorableUnicodeFilterObf(prob float64, mode string) FilterMiddleware {
-	var pool []rune
-	switch mode {
-	case "invisible":
-		pool = ignorableRunes
-	case "all":
-		pool = append(append([]rune{}, ignorableRunes...), combiningRunes...)
-	default: // "marks"
-		pool = combiningRunes
-	}
+	pool := helpers.IgnorableModeRunes(mode)
 
 	obfuscate := func(attr string, val string) string {
 		if val == "" {
 			return val
 		}
-		if tokenType, err := parser.GetAttributeTokenFormat(attr); err == nil && tokenType == parser.TokenStringUnicode {
-			return insertRunes(val, pool, prob)
+		fn := func(v string) string { return helpers.InsertRunes(v, pool, prob) }
+		switch tokenType, err := parser.GetAttributeTokenFormat(attr); {
+		case err != nil:
+			return val
+		case tokenType == parser.TokenStringUnicode:
+			return fn(val)
+		case tokenType == parser.TokenDNString:
+			// RDN value halves only, per TransformDNValues.
+			return helpers.TransformDNValues(val, fn)
 		}
 		return val
 	}
@@ -758,16 +754,75 @@ func RandIgnorableUnicodeFilterObf(prob float64, mode string) FilterMiddleware {
 // RandAltSpaceFilterObf replaces existing ASCII spaces in String(Unicode)
 // assertion values with alternative Unicode space code points that Active
 // Directory folds back to a single space during string preparation ([RFC4518]),
-// so the result set is unchanged. Only String(Unicode) leaves are touched (other
-// syntaxes may treat spaces as significant), and only pre-existing spaces are
-// converted - no spaces are ever added.
-func RandAltSpaceFilterObf(prob float64) FilterMiddleware {
+// so the result set does not change. Only pre-existing spaces are substituted;
+// none are added, since other syntaxes may treat spacing as significant. When
+// includeVisible is set the substitute pool also draws from the space-folding
+// code points that render as a visible glyph (helpers.VisibleAltSpaceRunes).
+func RandAltSpaceFilterObf(prob float64, includeVisible bool) FilterMiddleware {
+	pool := helpers.AltSpaceRunes
+	if includeVisible {
+		pool = append(append([]rune{}, helpers.AltSpaceRunes...), helpers.VisibleAltSpaceRunes...)
+	}
 	obfuscate := func(attr string, val string) string {
 		if val == "" {
 			return val
 		}
-		if tokenType, err := parser.GetAttributeTokenFormat(attr); err == nil && tokenType == parser.TokenStringUnicode {
-			return substituteSpaces(val, altSpaceRunes, prob)
+		fn := func(v string) string { return helpers.SubstituteSpaces(v, pool, prob) }
+		switch tokenType, err := parser.GetAttributeTokenFormat(attr); {
+		case err != nil:
+			return val
+		case tokenType == parser.TokenStringUnicode:
+			return fn(val)
+		case tokenType == parser.TokenDNString:
+			return helpers.TransformDNValues(val, fn)
+		}
+		return val
+	}
+
+	return LeafApplierFilterMiddleware(func(f parser.Filter) parser.Filter {
+		switch v := f.(type) {
+		case *parser.FilterEqualityMatch:
+			v.AssertionValue = obfuscate(v.AttributeDesc, v.AssertionValue)
+		case *parser.FilterGreaterOrEqual:
+			v.AssertionValue = obfuscate(v.AttributeDesc, v.AssertionValue)
+		case *parser.FilterLessOrEqual:
+			v.AssertionValue = obfuscate(v.AttributeDesc, v.AssertionValue)
+		case *parser.FilterApproxMatch:
+			v.AssertionValue = obfuscate(v.AttributeDesc, v.AssertionValue)
+		case *parser.FilterSubstring:
+			for i := range v.Substrings {
+				v.Substrings[i].Initial = obfuscate(v.AttributeDesc, v.Substrings[i].Initial)
+				v.Substrings[i].Any = obfuscate(v.AttributeDesc, v.Substrings[i].Any)
+				v.Substrings[i].Final = obfuscate(v.AttributeDesc, v.Substrings[i].Final)
+			}
+		}
+		return f
+	})
+}
+
+// RandSortKeyFoldFilterObf substitutes characters in String(Unicode) assertion
+// values with code points that Active Directory's comparison folds back to the
+// same character. AD compares String(Unicode) values through a Windows
+// LCMapStringEx sort key at LCID 0409 ([MS-ADTS] section 3.1.1.2.2.4 / section
+// 6.5, [MS-UCODEREF]), so any code point sharing a character's sort key - its
+// fullwidth, circled, parenthesized, accented, sub/superscript, ... variants -
+// matches identically, so the result set does not change. String(Unicode) leaves
+// and the value halves of DN-syntax leaves are rewritten; other syntaxes (SID,
+// OID, integers, ...) are skipped. The substitution tables live in fold_table.go.
+func RandSortKeyFoldFilterObf(prob float64, classes string) FilterMiddleware {
+	fs := helpers.NewFoldSubstituter(classes)
+	obfuscate := func(attr string, val string) string {
+		if val == "" {
+			return val
+		}
+		fn := func(v string) string { return fs.Apply(v, prob) }
+		switch tokenType, err := parser.GetAttributeTokenFormat(attr); {
+		case err != nil:
+			return val
+		case tokenType == parser.TokenStringUnicode:
+			return fn(val)
+		case tokenType == parser.TokenDNString:
+			return helpers.TransformDNValues(val, fn)
 		}
 		return val
 	}
