@@ -38,6 +38,7 @@ var setParamSuggestions = []prompt.Suggest{
 	{Text: "iadd", Description: "Set add operation interception (true/false)"},
 	{Text: "idelete", Description: "Set delete operation interception (true/false)"},
 	{Text: "imodifydn", Description: "Set modifydn operation interception (true/false)"},
+	{Text: "icompare", Description: "Set compare operation interception (true/false)"},
 	{Text: "socks", Description: "Set the SOCKS server to use for the target connection"},
 	{Text: "spoof-mechs", Description: "Set SASL mechanisms to report in rootDSE supportedSASLMechanisms"},
 	{Text: "split-wrapped", Description: "Set split-wrapped policy (in/out/both)"},
@@ -55,6 +56,7 @@ var clearParamSuggestions = []prompt.Suggest{
 	{Text: "iadd", Description: "Clear add operation interception"},
 	{Text: "idelete", Description: "Clear delete operation interception"},
 	{Text: "imodifydn", Description: "Clear modifydn operation interception"},
+	{Text: "icompare", Description: "Clear compare operation interception"},
 	{Text: "socks", Description: "Clear configured SOCKS server"},
 	{Text: "spoof-mechs", Description: "Clear SASL mechanism spoofing"},
 	{Text: "split-wrapped", Description: "Clear split-wrapped policy"},
@@ -79,6 +81,7 @@ var showParamSuggestions = []prompt.Suggest{
 	{Text: "iadd", Description: "Show add operation interception status"},
 	{Text: "idelete", Description: "Show delete operation interception status"},
 	{Text: "imodifydn", Description: "Show modifydn operation interception status"},
+	{Text: "icompare", Description: "Show compare operation interception status"},
 	{Text: "socks", Description: "Show configured SOCKS server"},
 	{Text: "spoof-mechs", Description: "Show configured SASL mechanism spoofing"},
 	{Text: "split-wrapped", Description: "Show split-wrapped policy"},
@@ -240,6 +243,11 @@ func handleClearCommand(param string) {
 		runtimeConfig.interceptModifyDN = false
 		runtimeConfig.Unlock()
 		fmt.Printf("ModifyDN interception cleared.\n")
+	case "icompare":
+		runtimeConfig.Lock()
+		runtimeConfig.interceptCompare = false
+		runtimeConfig.Unlock()
+		fmt.Printf("Compare interception cleared.\n")
 	case "socks":
 		runtimeConfig.Lock()
 		runtimeConfig.socksServer = ""
@@ -445,6 +453,20 @@ func handleSetCommand(param string, values []string) {
 		runtimeConfig.interceptModifyDN = val
 		runtimeConfig.Unlock()
 		fmt.Printf("ModifyDN interception set to: %v\n", val)
+	case "icompare":
+		if len(values) != 1 {
+			fmt.Println("Usage: set icompare <true/false>")
+			return
+		}
+		val, err := strconv.ParseBool(values[0])
+		if err != nil {
+			fmt.Printf("Invalid boolean value: %s\n", values[0])
+			return
+		}
+		runtimeConfig.Lock()
+		runtimeConfig.interceptCompare = val
+		runtimeConfig.Unlock()
+		fmt.Printf("Compare interception set to: %v\n", val)
 	case "socks":
 		if len(values) != 1 {
 			fmt.Println("Usage: set socks <true/false>")
@@ -654,6 +676,7 @@ func showHelp(args ...string) {
 		fmt.Println("  iadd          - Add operation interception mode (true/false)")
 		fmt.Println("  idelete       - Delete operation interception mode (true/false)")
 		fmt.Println("  imodifydn     - ModifyDN operation interception (true/false)")
+		fmt.Println("  icompare      - Compare operation interception (true/false)")
 		fmt.Println("  socks         - SOCKS proxy address to use for the target connection")
 		fmt.Println("  spoof-mechs   - SASL mechanisms to report in rootDSE supportedSASLMechanisms")
 		fmt.Println("  split-wrapped - Split bundled wrapped LDAP messages (in/out/both)")
@@ -753,6 +776,7 @@ func showGlobalConfig() {
 	fmt.Printf("  Add: %t\n", intercepts.Add)
 	fmt.Printf("  Delete: %t\n", intercepts.Delete)
 	fmt.Printf("  ModifyDN: %t\n", intercepts.ModifyDN)
+	fmt.Printf("  Compare: %t\n", intercepts.Compare)
 	fmt.Printf("\n[Test settings]\n")
 	fmt.Printf("  Test BaseDN: '%s'\n", testBaseDN)
 	testAttrs, _ := json.Marshal(testAttrList)

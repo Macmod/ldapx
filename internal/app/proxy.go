@@ -570,6 +570,11 @@ func handleLDAPConnection(conn net.Conn) {
 						log.Log.Print(cyan.Sprintf("[+] ModifyDN Request Intercepted (%d)", reqMessageID))
 						packet2 = ProcessModifyDNRequest(packet2)
 					}
+				case parser.ApplicationCompareRequest:
+					if intercepts.Compare {
+						log.Log.Print(cyan.Sprintf("[+] Compare Request Intercepted (%d)", reqMessageID))
+						packet2 = ProcessCompareRequest(packet2)
+					}
 				}
 
 				verbFwd, _ = runtimeConfig.GetVerbosity()

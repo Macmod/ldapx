@@ -257,9 +257,9 @@ You can check the available options by using the `show options` / `show option` 
 
 ## Operations
 
-Although Search is the most common use case for this tool, `ldapx` supports other [LDAP operations](https://ldap.com/ldap-operation-types/) as well, such as Modify, Add, Delete and ModifyDN.
+Although Search is the most common use case for this tool, `ldapx` supports other [LDAP operations](https://ldap.com/ldap-operation-types/) as well, such as Modify, Add, Delete, ModifyDN and Compare.
 
-Please note that transforming packets involving change operations may lead to undesirable outcomes and *should be done with caution*. Transformations other than `Search` need to be enabled explicitly by specifying `--modify`, `--add`, `--delete` and/or `--modifydn` (`--search` is `true` by default). The code that transforms packets for each operation is implemented in `interceptors.go`, but the overall logic is described below:
+Please note that transforming packets involving change operations may lead to undesirable outcomes and *should be done with caution*. Transformations other than `Search` need to be enabled explicitly by specifying `--modify`, `--add`, `--delete`, `--modifydn` and/or `--compare` (`--search` is `true` by default). The code that transforms packets for each operation is implemented in `interceptors.go`, but the overall logic is described below:
 
 ### Search
 
@@ -294,6 +294,14 @@ Applies the specified `BaseDN` middleware chain to:
 * The new RDN field
 
 * The new parent DN field
+
+### Compare
+
+Applies:
+
+* The specified `BaseDN` middleware chain to the DN of the entry being compared
+
+* The specified `Filter` middleware chain to the assertion, treated as an equality match (attribute and value). Since a Compare carries a single attribute-value assertion, only chains that keep the assertion as a single equality match apply.
 
 ### ExtendedRequest
 

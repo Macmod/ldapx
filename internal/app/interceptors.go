@@ -47,6 +47,29 @@ func TransformDeleteRequest(targetDN string) string {
 	return getBaseDNChain().Execute(targetDN, true)
 }
 
+// TransformCompareRequest applies the configured middleware chains to a Compare
+// operation ([RFC4511] section 4.10): the entry DN goes through the BaseDN
+// chain, and the assertion (attributeDesc + assertionValue) is run through the
+// Filter chain as an equality match. Because a Compare carries a single
+// AttributeValueAssertion, only a result that remains a single equality match is
+// usable; a chain that rewrites the leaf into a compound filter (e.g. by adding
+// boolean structure) cannot be represented and the assertion is left unchanged.
+func TransformCompareRequest(entry string, attr string, value string) (string, string, string, bool) {
+	newEntry := getBaseDNChain().Execute(entry, true)
+
+	newAttr, newValue := attr, value
+	transformed := getFilterChain().Execute(
+		&parser.FilterEqualityMatch{AttributeDesc: attr, AssertionValue: value}, true,
+	)
+	eq, ok := transformed.(*parser.FilterEqualityMatch)
+	if ok {
+		newAttr = eq.AttributeDesc
+		newValue = eq.AssertionValue
+	}
+
+	return newEntry, newAttr, newValue, ok
+}
+
 func TransformModifyDNRequest(entry string, newRDN string, delOld bool, newSuperior string) (string, string, bool, string) {
 	newEntry := getBaseDNChain().Execute(entry, true)
 	newNSuperior := getBaseDNChain().Execute(newSuperior, true)
@@ -443,6 +466,61 @@ func ProcessModifyDNRequest(packet *ber.Packet) *ber.Packet {
 
 			if updatedFlag {
 				fmt.Println(green.Sprintf("Changed ModifyDN\n    Entry: '%s'\n    NewRDN: '%s'\n    DeleteOldRDN: '%t'\n    NewSuperior: '%s'", newEntry, newNRDN, newDelOld, newNSuperior))
+				return CopyBerPacket(packet)
+			} else {
+				fmt.Println(blue.Sprintf("Nothing changed in the request"))
+			}
+		} else {
+			fmt.Println(red.Sprintf("Malformed request (missing required fields)"))
+		}
+	} else {
+		fmt.Println(red.Sprintf("Malformed request (missing required fields)"))
+	}
+
+	return packet
+}
+
+// https://ldap.com/ldapv3-wire-protocol-reference-compare/
+func ProcessCompareRequest(packet *ber.Packet) *ber.Packet {
+	if len(packet.Children) > 1 {
+		cmpPacket := packet.Children[1]
+
+		// CompareRequest ::= [APPLICATION 14] SEQUENCE {
+		//     entry LDAPDN,
+		//     ava   AttributeValueAssertion { attributeDesc, assertionValue } }
+		if len(cmpPacket.Children) >= 2 && len(cmpPacket.Children[1].Children) >= 2 {
+			ava := cmpPacket.Children[1]
+
+			entry := string(cmpPacket.Children[0].Data.Bytes())
+			attrDesc := string(ava.Children[0].Data.Bytes())
+			assertionValue := string(ava.Children[1].Data.Bytes())
+
+			fmt.Println(blue.Sprintf("Intercepted Compare\n    Entry: '%s'\n    Attribute: '%s'\n    Value: '%s'", entry, attrDesc, assertionValue))
+
+			newEntry, newAttr, newValue, representable := TransformCompareRequest(entry, attrDesc, assertionValue)
+			if !representable {
+				fmt.Println(yellow.Sprintf("[-] Filter chain rewrote the assertion into a compound filter, which a Compare cannot carry - assertion left unchanged"))
+			}
+
+			updatedFlag := false
+			if newEntry != entry {
+				newEncodedEntry := ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, newEntry, "")
+				UpdateBerChildLeaf(packet.Children[1], 0, newEncodedEntry)
+				updatedFlag = true
+			}
+
+			if newAttr != attrDesc || newValue != assertionValue {
+				newAVA := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "")
+				newAVA.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, newAttr, ""))
+				newAVA.AppendChild(ber.NewString(ber.ClassUniversal, ber.TypePrimitive, ber.TagOctetString, newValue, ""))
+				UpdateBerChildLeaf(packet.Children[1], 1, newAVA)
+				updatedFlag = true
+			}
+
+			if updatedFlag {
+				fmt.Println(green.Sprintf("Changed Compare\n    Entry: '%s'\n    Attribute: '%s'\n    Value: '%s'", newEntry, newAttr, newValue))
+
+				// We need to copy it to refresh the internal Data of the parent packet
 				return CopyBerPacket(packet)
 			} else {
 				fmt.Println(blue.Sprintf("Nothing changed in the request"))

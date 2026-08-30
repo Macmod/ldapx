@@ -20,6 +20,7 @@ import (
 
 	"github.com/Macmod/ldapx/decrypt"
 	"github.com/Macmod/ldapx/log"
+	"github.com/Macmod/ldapx/middlewares"
 	attrentriesmid "github.com/Macmod/ldapx/middlewares/attrentries"
 	attrlistmid "github.com/Macmod/ldapx/middlewares/attrlist"
 	basednmid "github.com/Macmod/ldapx/middlewares/basedn"
@@ -93,6 +94,7 @@ type RuntimeConfig struct {
 	interceptAdd      bool
 	interceptDelete   bool
 	interceptModifyDN bool
+	interceptCompare  bool
 
 	decryptCfg decrypt.Config
 
@@ -116,6 +118,7 @@ type InterceptFlags struct {
 	Add      bool
 	Delete   bool
 	ModifyDN bool
+	Compare  bool
 }
 
 // GetInterceptFlags returns all interception flags in a single lock
@@ -128,6 +131,7 @@ func (rc *RuntimeConfig) GetInterceptFlags() InterceptFlags {
 		Add:      rc.interceptAdd,
 		Delete:   rc.interceptDelete,
 		ModifyDN: rc.interceptModifyDN,
+		Compare:  rc.interceptCompare,
 	}
 }
 
@@ -232,6 +236,9 @@ func (mf *MapFlag) Set(value string) error {
 	if len(parts) != 2 {
 		return fmt.Errorf("invalid option format: %s", value)
 	}
+	if _, known := middlewares.DefaultOptions[parts[0]]; !known {
+		return fmt.Errorf("unknown option %q", parts[0])
+	}
 	if err := validateOptionValue(parts[0], parts[1]); err != nil {
 		return err
 	}
@@ -267,6 +274,7 @@ func init() {
 		interceptAdd      bool
 		interceptDelete   bool
 		interceptModifyDN bool
+		interceptCompare  bool
 
 		decryptHash        string
 		decryptPassword    string
@@ -306,6 +314,7 @@ func init() {
 	pflag.BoolVarP(&interceptAdd, "add", "A", false, "Intercept LDAP Add operations")
 	pflag.BoolVarP(&interceptDelete, "delete", "D", false, "Intercept LDAP Delete operations")
 	pflag.BoolVarP(&interceptModifyDN, "modifydn", "L", false, "Intercept LDAP ModifyDN operations")
+	pflag.BoolVarP(&interceptCompare, "compare", "C", false, "Intercept LDAP Compare operations")
 	pflag.StringVarP(&splitWrapped, "split-wrapped", "", "", "Split bundled wrapped messages into individual seal frames. \"in\" splits C->T direction, \"out\" splits T->C direction, \"both\" splits both (default: keep original bundling) - this flag is experimental and should not be used in general")
 
 	pflag.StringVarP(&decryptHash, "decrypt-hash", "", "", "NT hash of the account being proxied for NTLM decryption (Sicily, SASL/GSSAPI, or SASL/GSS-SPNEGO)")
@@ -339,6 +348,7 @@ func init() {
 	runtimeConfig.interceptAdd = interceptAdd
 	runtimeConfig.interceptDelete = interceptDelete
 	runtimeConfig.interceptModifyDN = interceptModifyDN
+	runtimeConfig.interceptCompare = interceptCompare
 
 	decryptCfg, err := decrypt.ResolveConfig(decryptHash, decryptPassword, decryptSvcPassword, decryptSvcKeytab, decryptCCache, decryptSvcKeySpec, decryptSalt)
 	if err != nil {
