@@ -11,5 +11,4 @@
 * Special handling for StartTLS or a StartTLS command in the shell
 * Intercept TGT/ST exchange and grab session key from there (to allow passing only --decrypt-password)?
 * Possibilities related to obfuscating Timestamps with timezones
-* More middlewares for AttributeEntries
 * ExtensibleMatchFilter's with negative values, TokenSID ordering...

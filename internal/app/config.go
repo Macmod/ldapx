@@ -91,13 +91,7 @@ var attrListMidFlags map[rune]string = map[rune]string{
 var attrEntriesMidFlags map[rune]string = map[rune]string{
 	'O': "OIDAttribute",
 	'C': "Case",
-	/*
-		'D': "Duplicate",
-		'G': "GarbageNonExisting",
-		'g': "GarbageExisting",
-	*/
 	'R': "ReorderList",
-	'D': "Duplicate",
 }
 
 func SetupMiddlewaresMap() {
