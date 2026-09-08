@@ -101,7 +101,7 @@ func ProcessSearchRequest(packet *ber.Packet, searchRequestMap map[string]*ber.P
 					}
 					searchControlValue := ber.DecodePacket(control.Children[valueIdx].Data.Bytes())
 					if searchControlValue == nil || len(searchControlValue.Children) < 2 {
-						log.Log.Print(yellow.Sprintf("[-] Malformed paged results control value - skipping tracking for this control"))
+						log.Log.Print(yellow.Sprintf("[!] Malformed paged results control value - skipping tracking for this control"))
 						continue
 					}
 					cookie := searchControlValue.Children[1].Data.Bytes()
@@ -122,7 +122,7 @@ func ProcessSearchRequest(packet *ber.Packet, searchRequestMap map[string]*ber.P
 
 							return forwardPacket
 						} else {
-							log.Log.Print(yellow.Sprintf("[-] Error finding previous packet (tracking algorithm)"))
+							log.Log.Print(yellow.Sprintf("[!] Error finding previous packet (tracking algorithm)"))
 						}
 					}
 				}
@@ -140,13 +140,13 @@ func ProcessSearchRequest(packet *ber.Packet, searchRequestMap map[string]*ber.P
 
 	filter, err := parser.PacketToFilter(filterData)
 	if err != nil {
-		fmt.Println(red.Sprintf("[ERROR] %s", err))
+		fmt.Println(red.Sprintf("[-] %s", err))
 		return packet
 	}
 
 	oldFilterStr, err := parser.FilterToQuery(filter)
 	if err != nil {
-		fmt.Println(yellow.Sprintf("[WARNING] %s", err))
+		fmt.Println(yellow.Sprintf("[!] %s", err))
 	}
 
 	fmt.Println(blue.Sprintf(
@@ -160,7 +160,7 @@ func ProcessSearchRequest(packet *ber.Packet, searchRequestMap map[string]*ber.P
 
 	newFilterStr, err := parser.FilterToQuery(newFilter)
 	if err != nil {
-		fmt.Println(yellow.Sprintf("[WARNING] %s", err))
+		fmt.Println(yellow.Sprintf("[!] %s", err))
 	}
 
 	// Change the fields that need to be changed
@@ -309,7 +309,7 @@ func ProcessModifyRequest(packet *ber.Packet) *ber.Packet {
 			fmt.Println(blue.Sprintf("Nothing changed in the request"))
 		}
 	} else {
-		fmt.Println(red.Sprintf("Malformed request (missing required fields)"))
+		fmt.Println(red.Sprintf("[-] Malformed request (missing required fields)"))
 	}
 
 	return packet
@@ -386,7 +386,7 @@ func ProcessAddRequest(packet *ber.Packet) *ber.Packet {
 			fmt.Println(blue.Sprintf("Nothing changed in the request"))
 		}
 	} else {
-		fmt.Println(red.Sprintf("Malformed request (missing required fields)"))
+		fmt.Println(red.Sprintf("[-] Malformed request (missing required fields)"))
 	}
 
 	return packet
@@ -408,7 +408,7 @@ func ProcessDeleteRequest(packet *ber.Packet) *ber.Packet {
 			fmt.Println(blue.Sprintf("Nothing changed in the request"))
 		}
 	} else {
-		fmt.Println(red.Sprintf("Malformed request (missing required fields)"))
+		fmt.Println(red.Sprintf("[-] Malformed request (missing required fields)"))
 	}
 
 	return packet
@@ -471,10 +471,10 @@ func ProcessModifyDNRequest(packet *ber.Packet) *ber.Packet {
 				fmt.Println(blue.Sprintf("Nothing changed in the request"))
 			}
 		} else {
-			fmt.Println(red.Sprintf("Malformed request (missing required fields)"))
+			fmt.Println(red.Sprintf("[-] Malformed request (missing required fields)"))
 		}
 	} else {
-		fmt.Println(red.Sprintf("Malformed request (missing required fields)"))
+		fmt.Println(red.Sprintf("[-] Malformed request (missing required fields)"))
 	}
 
 	return packet
@@ -499,7 +499,7 @@ func ProcessCompareRequest(packet *ber.Packet) *ber.Packet {
 
 			newEntry, newAttr, newValue, representable := TransformCompareRequest(entry, attrDesc, assertionValue)
 			if !representable {
-				fmt.Println(yellow.Sprintf("[-] Filter chain rewrote the assertion into a compound filter, which a Compare cannot carry - assertion left unchanged"))
+				fmt.Println(yellow.Sprintf("[!] Filter chain rewrote the assertion into a compound filter, which a Compare cannot carry - assertion left unchanged"))
 			}
 
 			updatedFlag := false
@@ -526,10 +526,10 @@ func ProcessCompareRequest(packet *ber.Packet) *ber.Packet {
 				fmt.Println(blue.Sprintf("Nothing changed in the request"))
 			}
 		} else {
-			fmt.Println(red.Sprintf("Malformed request (missing required fields)"))
+			fmt.Println(red.Sprintf("[-] Malformed request (missing required fields)"))
 		}
 	} else {
-		fmt.Println(red.Sprintf("Malformed request (missing required fields)"))
+		fmt.Println(red.Sprintf("[-] Malformed request (missing required fields)"))
 	}
 
 	return packet

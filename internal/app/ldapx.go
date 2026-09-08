@@ -694,7 +694,7 @@ func Run() {
 	if upstreamKey != "" {
 		key, err := loadPrivateKeyFromFile(upstreamKey)
 		if err != nil {
-			log.Log.Printf("[-] Failed to load --key '%s': %s", upstreamKey, err)
+			log.Log.Print(red.Sprintf("[-] Failed to load --key '%s': %s", upstreamKey, err))
 			shutdownProgram()
 		}
 		upstreamClientKey = key

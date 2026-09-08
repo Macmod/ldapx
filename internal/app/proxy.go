@@ -380,7 +380,7 @@ func handleLDAPConnection(conn net.Conn) {
 		// returns the *tls.Conn before the handshake completes, and
 		// ConnectionState() only has PeerCertificates after the handshake.
 		if err := tlsConn.Handshake(); err != nil {
-			log.Log.Printf("[-] TLS handshake with client failed: %v", err)
+			log.Log.Print(red.Sprintf("[-] TLS handshake with client failed: %v", err))
 			return
 		}
 		state := tlsConn.ConnectionState()
@@ -542,7 +542,7 @@ func handleLDAPConnection(conn net.Conn) {
 						bindMechCheckDone = true
 						_, spoofGiven := runtimeConfig.GetSpoofMechConfig()
 						if spoofGiven && !spoofApplied.Load() {
-							log.Log.Print(yellow.Sprintf("[-] Warning: client sent a bind without checking rootDSE for supportedSASLMechanisms (--spoof-mechs had no effect)"))
+							log.Log.Print(yellow.Sprintf("[!] client sent a bind without checking rootDSE for supportedSASLMechanisms (--spoof-mechs had no effect)"))
 						}
 					}
 				case parser.ApplicationSearchRequest:

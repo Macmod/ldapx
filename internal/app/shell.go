@@ -791,7 +791,7 @@ func handleTestCommand(query string) {
 
 	filter, err := parser.QueryToFilter(query)
 	if err != nil {
-		fmt.Println(red.Sprintf("Error compiling query: %v", err))
+		fmt.Println(red.Sprintf("[-] Error compiling query: %v", err))
 		return
 	}
 

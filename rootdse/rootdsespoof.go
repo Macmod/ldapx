@@ -165,7 +165,7 @@ func resolveSpoofValues(spoofMechs []string) (remove bool, values []string) {
 	}
 
 	if hasNone && len(values) > 0 {
-		log.Log.Print(yellow.Sprintf("[-] --spoof-mechs: 'none' given with other values - removing the attribute entirely, ignoring the rest"))
+		log.Log.Print(yellow.Sprintf("[!] --spoof-mechs: 'none' given with other values - removing the attribute entirely, ignoring the rest"))
 		return true, nil
 	}
 	if hasNone || len(spoofMechs) == 0 {
