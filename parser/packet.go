@@ -71,8 +71,6 @@ const (
 	ControlTypeVChuPasswordWarning = "2.16.840.1.113730.3.4.5"
 	// ControlTypeManageDsaIT - https://tools.ietf.org/html/rfc3296
 	ControlTypeManageDsaIT = "2.16.840.1.113730.3.4.2"
-	// ControlTypeWhoAmI - https://tools.ietf.org/html/rfc4532
-	ControlTypeWhoAmI = "1.3.6.1.4.1.4203.1.11.3"
 	// ControlTypeSubtreeDelete - https://datatracker.ietf.org/doc/html/draft-armijo-ldap-treedelete-02
 	ControlTypeSubtreeDelete = "1.2.840.113556.1.4.805"
 
@@ -99,6 +97,31 @@ const (
 	// ControlTypeSyncInfo - https://www.ietf.org/rfc/rfc4533.txt
 	ControlTypeSyncInfo = "1.3.6.1.4.1.4203.1.9.1.4"
 )
+
+// LDAP extended-operation OIDs. Those below are the operations Active Directory DCs
+// advertise in the rootDSE supportedExtension attribute (MS-ADTS "LDAP Extended
+// Operations"). An ExtendedRequest names one of these OIDs in requestName.
+const (
+	// ExtendedOpFastBind - MS-ADTS LDAP_SERVER_FAST_BIND_OID
+	ExtendedOpFastBind = "1.2.840.113556.1.4.1781"
+	// ExtendedOpStartTLS - StartTLS (RFC 4511 section 4.14; MS-ADTS LDAP_SERVER_START_TLS_OID)
+	ExtendedOpStartTLS = "1.3.6.1.4.1.1466.20037"
+	// ExtendedOpTTLRefresh - dynamic entry TTL refresh (RFC 2589; MS-ADTS LDAP_TTL_REFRESH_OID)
+	ExtendedOpTTLRefresh = "1.3.6.1.4.1.1466.101.119.1"
+	// ExtendedOpWhoAmI - "Who am I?" (RFC 4532; MS-ADTS LDAP_SERVER_WHO_AM_I_OID)
+	ExtendedOpWhoAmI = "1.3.6.1.4.1.4203.1.11.3"
+	// ExtendedOpBatchRequest - MS-ADTS LDAP_SERVER_BATCH_REQUEST_OID
+	ExtendedOpBatchRequest = "1.2.840.113556.1.4.2212"
+)
+
+// ExtendedOperationMap maps extended-operation OIDs to human-readable names.
+var ExtendedOperationMap = map[string]string{
+	ExtendedOpFastBind:     "Fast Bind",
+	ExtendedOpStartTLS:     "StartTLS",
+	ExtendedOpTTLRefresh:   "TTL Refresh",
+	ExtendedOpWhoAmI:       "WhoAmI",
+	ExtendedOpBatchRequest: "Batch Request",
+}
 
 // ControlTypeMap maps controls to text descriptions
 var ControlTypeMap = map[string]string{
